@@ -90,7 +90,7 @@ async function appendToNotion(data: any) {
         'Bottle Price': parsePrice(data.price) != null ? { number: parsePrice(data.price) } : undefined,
 
         // 色（セレクト）
-        'Color': data.color ? { select: { name: data.color } } : undefined,
+        'Color': data.wineType ? { select: { name: data.wineType } } : undefined,
 
         // 国（セレクト）
         'Country': data.country ? { select: { name: data.country } } : undefined,
