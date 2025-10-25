@@ -1,8 +1,31 @@
 @import "tailwindcss";
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  color-scheme: light;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;      /* ほんのりカード */
+  --fg: #111827;                 /* メイン文字 */
+  --fg-muted: #6b7280;           /* 補助文字 */
+  --border: #e5e7eb;
+  --accent: #0ea5e9;             /* デフォルトアクセント（青） */
+  --bg-tint: rgba(255, 255, 255, 0.9);
+}
+
+/* === Dark === */
+:root.dark, .dark :root {
+  --surface: #0b0f19;
+  --surface-muted: #111827;
+  --fg: #e5e7eb;
+  --fg-muted: #9ca3af;
+  --border: #1f2937;
+  --accent: #38bdf8;             /* ダーク時の青寄りアクセント */
+  --bg-tint: rgba(10, 10, 10, 0.9);
 }
 
 @theme inline {
@@ -20,7 +43,47 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg-tint);
+  color: var(--fg);  
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* === wineType別アクセント（PageやMainに data-winetype を付与） === */
+[data-winetype="赤"]      { 
+  --accent: #be123c; 
+  --bg-tint: rgba(190, 18, 60, 0.08);   /* rose-700を淡く */
+} /* rose-700 */
+[data-winetype="白"]      { 
+  --accent: #f59e0b; 
+  --bg-tint: rgba(245, 158, 11, 0.07);  /* amber-500を淡く */
+}
+[data-winetype="ロゼ"]    { 
+  --accent: #ec4899; 
+  --bg-tint: rgba(236, 72, 153, 0.08);  /* pink-500を淡く */
+} /* pink-500 */
+[data-winetype="オレンジ"]{ 
+  --accent: #f97316; 
+  --bg-tint: rgba(249, 115, 22, 0.08);  /* orange-500を淡く */
+} /* orange-500 */
+[data-winetype="発泡白"]  { 
+  --accent: #eab308; 
+  --bg-tint: rgba(234, 179, 8, 0.07);   /* yellow-500を淡く */
+} /* yellow-500 */
+[data-winetype="発泡ロゼ"]{ 
+  --accent: #fb7185; 
+  --bg-tint: rgba(251, 113, 133, 0.08); /* rose-400を淡く */
+} /* rose-400 */
+
+/* 入力のアクセント色（range/checkbox/radioなど） */
+.input-accent { accent-color: var(--accent); }
+
+/* よく使うパターンのヘルパー（任意） */
+.theme-surface { background: var(--surface); color: var(--fg); }
+.theme-muted   { background: var(--surface-muted); color: var(--fg); }
+.theme-border  { border-color: var(--border); }
+.theme-fg      { color: var(--fg); }
+.theme-fgmuted { color: var(--fg-muted); }
+
+.range--light {
+  color-scheme: light; /* ← これだけで未充填側が黒っぽくなりにくい */
 }

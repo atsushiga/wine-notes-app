@@ -37,20 +37,18 @@ export async function POST(req: NextRequest) {
       contentType,
     });
 
-    // 読み出し用 署名URL（1年）— Notion で表示に使う場合は長め推奨
-    const [getUrl] = await file.getSignedUrl({
-      version: 'v4',
-      action: 'read',
-      expires: Date.now() + 365 * 24 * 60 * 60 * 1000,
-    });
+    const base = process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000';
 
-    // メタデータ（Content-Typeやキャッシュ）も設定しておくと安心
-    await file.setMetadata({
-      contentType,
-      cacheControl: 'public, max-age=31536000',
-    });
+    // key は 'uploads/2025/10/xxx ファイル名.png' のような形
+    // セグメントごとに encode してから / で連結（/ はそのまま残す）
+    const proxyPath = key.split('/').map(encodeURIComponent).join('/');
+    const proxyUrl = `${base}/api/images/${proxyPath}`;
 
-    return NextResponse.json({ putUrl, getUrl, key });
+    // 読み出し用の署名URLは使わないので生成しない（削除してOK）
+    // const [getUrl] = await file.getSignedUrl({ ... });
+
+    return NextResponse.json({ putUrl, getUrl: proxyUrl, key });
+
   } catch (e: any) {
     console.error('upload-url error', e);
     return NextResponse.json({ error: e.message }, { status: 500 });
