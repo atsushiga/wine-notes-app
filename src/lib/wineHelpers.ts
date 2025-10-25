@@ -58,3 +58,21 @@ export const appearanceFeatureLabel = (intensity: number) => {
 };
 
 export const worldLabel = (n: number) => (round1(n) <= 3 ? '旧世界' : '新世界');
+
+export const intensityLabel = (vRaw: number) => {
+  const v = round1(vRaw);
+  if (v <= 1.5) return '非常に淡い';
+  if (v <= 2.5) return 'やや淡い';
+  if (v <= 3.5) return '中程度';
+  if (v <= 4.5) return 'やや濃い';
+  return '非常に濃い';
+};
+
+export const rimRatioLabel = (vRaw: number) => {
+  const v = round1(vRaw);
+  if (v <= 2) return '紫がかった';
+  if (v <= 4) return '赤みがかった';
+  if (v <= 6) return 'ややオレンジがかった';
+  if (v <= 8) return 'オレンジがかった';
+  return 'れんが色〜茶色みを帯びた';
+};
