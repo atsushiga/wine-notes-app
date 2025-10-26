@@ -143,44 +143,6 @@ async function appendToNotion(data: any) {
         if (props[k] === undefined) delete props[k];
     }
 
-    // === 本文（DB外）の要素を構造化して記載 ===
-    // 数値→ラベルを併記（例：濃淡 4.2 → ガーネット）
-    // const lines: string[] = [];
-
-    // // 外観
-    // lines.push('## 外観');
-    // lines.push(`- 濃淡: ${round1(data.intensity)}（${appearanceFeatureLabel(data.intensity)}）`);
-    // if (typeof data.rimRatio === 'number') lines.push(`- 縁の色調（紫↔橙 比率）: ${round1(data.rimRatio)}/10`);
-    // if (data.clarity)     lines.push(`- 清澄度: ${data.clarity}`);
-    // if (data.brightness)  lines.push(`- 輝き: ${data.brightness}`);
-    // if (data.hue)         lines.push(`- 色調メモ: ${data.hue}`);
-    // if (data.sparkleIntensity) lines.push(`- 発泡: ${data.sparkleIntensity}`);
-    // if (data.appearanceOther)  lines.push(`- その他: ${data.appearanceOther}`);
-
-    // // 香り
-    // lines.push('\n## 香り');
-    // if (data.noseIntensity) lines.push(`- 強さ: ${data.noseIntensity}`);
-    // if (typeof data.oldNewWorld === 'number') lines.push(`- 旧/新世界: ${round1(data.oldNewWorld)}（${worldLabel(data.oldNewWorld)}）`);
-    // if (typeof data.fruitsMaturity === 'number') lines.push(`- 果実の状態: ${round1(data.fruitsMaturity)}（${fruitStateLabel(data.fruitsMaturity)}）`);
-    // if (typeof data.oakAroma === 'number') lines.push(`- 樽香: ${round1(data.oakAroma)}（${oakAromaLabel(data.oakAroma)}）`);
-    // if (Array.isArray(data.aromas) && data.aromas.length) lines.push(`- 香りの印象: ${data.aromas.join('、')}`);
-    // if (data.aromaOther) lines.push(`- その他のアロマ: ${data.aromaOther}`);
-
-    // 味わい
-    // lines.push('\n## 味わい');
-    // if (data.sweetness) lines.push(`- 甘辛: ${data.sweetness}`);
-    // if (typeof data.acidityScore === 'number') lines.push(`- 酸味: ${round1(data.acidityScore)}（${acidityLabel(data.acidityScore)}）`);
-    // if (typeof data.tanninScore === 'number')  lines.push(`- タンニン分: ${round1(data.tanninScore)}（${tanninLabel(data.tanninScore)}）`);
-    // if (typeof data.balanceScore === 'number') lines.push(`- バランス: ${round1(data.balanceScore)}（${balanceLabel(data.balanceScore)}）`);
-    // if (typeof data.alcoholABV === 'number')   lines.push(`- アルコール: ${round1(data.alcoholABV)}%`);
-    // if (typeof data.finishLen === 'number')    lines.push(`- 余韻: ${Math.round(data.finishLen)}（${finishLenLabel(data.finishLen)}）`);
-    // if (data.palateNotes) lines.push(`- 補足: ${data.palateNotes}`);
-
-    // その他
-    // lines.push('\n## メモ');
-    // if (data.additionalInfo) lines.push(`- 補足情報: ${data.additionalInfo}`);
-    // if (data.notes)          lines.push(`- ノート: ${data.notes}`);
-
     // const bodyMarkdown = lines.join('\n');
     const blocks: BlockObjectRequest[] = [];
 

@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import dayjs from 'dayjs';
 import React from 'react';
 import { useEffect } from 'react';
 
@@ -48,12 +47,6 @@ const mainVarieties = [
 ] as const;
 const noseIntensity = ['1. 閉じている','2. 控えめ','3. 開いている','4. やや強い','5. 強い'] as const;
 const palateSweetness = ['辛口','やや辛口','中口','やや甘口','甘口'] as const;
-const palateAcidity = ['穏やかな','やや高い','高い'] as const;
-const palateTannin = ['少ない','中程度','多い'] as const;
-const body = ['ライト','ミディアム','フル'] as const;
-const alcohol = ['低い','中程度','やや高い','高い'] as const;
-const finish = ['短い','やや短い','中程度','やや長い','長い'] as const;
-const balance = ['調和的','やや粗い','荒い'] as const;
 const evaluation = ['シンプル/フレッシュ','良質','複雑さ/余韻あり','秀逸'] as const;
 
 // 代表的アロマ（必要に応じて増強してください）
@@ -626,8 +619,9 @@ const onSubmit = async (values: FormValues) => {
 
                 return (
                   <>
+                    <p className='text-sm'>{desc}</p>
                     <p className="text-sm">
-                      {labelLeft} {v.toFixed(1)} : {labelRight} {comp.toFixed(1)}
+                      {labelLeft} {v.toFixed(1)} : {labelRight} {comp.toFixed(1)} 
                     </p>
                     <div className="flex items-center gap-3">
                       <input 
