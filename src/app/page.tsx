@@ -100,12 +100,12 @@ const schema = z.object({
 
   //味わい
   sweetness: z.string(),
-  acidity: z.string(),
-  tannin: z.string().optional(), // 白の場合は不要
-  body: z.string(),
-  alcohol: z.string(),
-  finish: z.string(),
-  balance: z.string(),
+  // acidity: z.string(),
+  // tannin: z.string().optional(), // 白の場合は不要
+  // body: z.string(),
+  // alcohol: z.string(),
+  // finish: z.string(),
+  // balance: z.string(),
   acidityScore: z.number().min(1).max(5),     // 酸味 1-5, 0.1刻み
   tanninScore: z.number().min(1).max(5),      // タンニン 〃（赤/オレンジで表示）
   balanceScore: z.number().min(1).max(5),     // 味わいのバランス 〃
@@ -127,14 +127,12 @@ export default function Page() {
   const [sent, setSent] = useState<null | { ok: boolean; id?: string; error?: string }>(null);
   const { register, handleSubmit, control, watch, setValue, getValues,formState: { errors, isSubmitting } } = useForm<FormValues>({
     defaultValues: {
-      // date: dayjs().format('YYYY-MM-DD'),
       date: '',
       place: '',
       price: '',
       imageUrl: '',
 
       wineType: '赤',
-      // color: '赤',
       wineName: '',
       producer: '',
       country: '',
@@ -142,7 +140,6 @@ export default function Page() {
       region: '',
       mainVariety: '',
       otherVarieties: '',
-      // variety: '',
       vintage: '2022',
       additionalInfo: '',
       
@@ -162,12 +159,6 @@ export default function Page() {
       aromaOther: '',
 
       sweetness: '辛口',
-      acidity: 'やや高い',
-      tannin: '中程度',
-      body: 'ミディアム',
-      alcohol: '中程度',
-      finish: '中程度',
-      balance: '調和的',
       acidityScore: 2.5,
       tanninScore: 2.5,
       balanceScore: 3.0,
@@ -182,8 +173,6 @@ export default function Page() {
     },
     resolver: zodResolver(schema)
   });
-
-  // const color = watch('color');
 
   const wineType = watch('wineType');
   useEffect(() => {
