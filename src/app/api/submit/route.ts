@@ -1,276 +1,369 @@
-export const runtime = 'nodejs'
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { JWT } from 'google-auth-library';
 import { Client } from '@notionhq/client';
 import type {
-  BlockObjectRequest,
-  CreatePageParameters,
+    BlockObjectRequest,
+    CreatePageParameters,
 } from '@notionhq/client/build/src/api-endpoints';
 
 import {
-  round1,
-  intensityLabel,
-  rimRatioLabel,
-  fruitStateLabel,
-  oakAromaLabel,
-  acidityLabel,
-  tanninLabel,
-  balanceLabel,
-  finishLenLabel,
-  worldLabel,
+    round1,
+    intensityLabel,
+    rimRatioLabel,
+    fruitStateLabel,
+    oakAromaLabel,
+    acidityLabel,
+    tanninLabel,
+    balanceLabel,
+    finishLenLabel,
+    worldLabel,
 } from '@/lib/wineHelpers';
 
-// Google Sheets クライアント関数
-async function getSheetByGid(doc: GoogleSpreadsheet, gid: number) {
-  await doc.loadInfo(); // 全シート情報を取得
-  const sheet = Object.values(doc.sheetsById).find(s => s.sheetId === gid);
-  if (!sheet) throw new Error(`Sheet with gid=${gid} not found`);
-  return sheet;
-}
-
-// Google Sheets クライアント
-async function appendToSheet(row: Record<string, unknown>) {
-    console.log('Loaded spreadsheet');
-    
-    const serviceAccountAuth = new JWT({
-        email: process.env.GOOGLE_CLIENT_EMAIL!,
-        key: process.env.GOOGLE_PRIVATE_KEY!.replace(/\\n/g, '\n'),
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-    const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID!, serviceAccountAuth);
-    await doc.loadInfo();
-    const sheet = await getSheetByGid(doc, 0); // ← gid（URL末尾の gid=XXXX 部分）
-
-    const toCellValue = (v: any) => {
-        if (Array.isArray(v)) return v.join(', ');     // 配列は「、」で連結
-        if (v === null || v === undefined) return '';  // 空は空文字
-        if (typeof v === 'object') return JSON.stringify(v); // オブジェクトはJSON文字列
-        return v; // number / string / boolean はそのまま
-      };
-    
-    const normalizedRow: Record<string, any> = Object.fromEntries(
-        Object.entries(row).map(([k, v]) => [k, toCellValue(v)])
-    );
-
-    try {
-        await sheet.loadHeaderRow();
-    } catch {
-        await sheet.setHeaderRow(Object.keys(row));
-    }
-    await sheet.addRow(normalizedRow);
-    console.log('sheet added')
-}
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic';
 
 // Notion クライアント
-// すでに: import { Client } from '@notionhq/client';
 const notion = new Client({ auth: process.env.NOTION_TOKEN! });
 const NOTION_DB_ID = process.env.NOTION_DB_ID!;
 
-// price は "1,234" → 1234 の数値に
-const parsePrice = (s?: string) => {
-  if (!s) return undefined;
-  const n = Number(String(s).replace(/,/g, ''));
+// ---- 型安全なユーティリティ ----
+type UnknownRecord = Record<string, unknown>;
+const asString = (v: unknown): string | undefined =>
+  v == null ? undefined : String(v);
+const asNumber = (v: unknown): number | undefined => {
+  if (v == null) return undefined;
+  const n = Number(v);
   return Number.isFinite(n) ? n : undefined;
 };
+const parsePrice = (v: unknown): number | null => {
+  if (v == null) return null;
+  const s = String(v).replace(/[^\d]/g, '');
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+};
 
-async function appendToNotion(data: any) {
-    // === DBに入れるべき項目 ===
+
+// Google Sheets 追記処理（gid選択・ヘッダー自動拡張・配列で addRow／null 非許容対応）
+async function appendToSheet(row: Record<string, unknown>): Promise<void> {
+  const serviceAccountAuth = new JWT({
+    email: process.env.GOOGLE_CLIENT_EMAIL!,
+    key: process.env.GOOGLE_PRIVATE_KEY!.replace(/\\n/g, '\n'),
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+
+  const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID!, serviceAccountAuth);
+  await doc.loadInfo();
+
+  // === シート選択：環境変数 GOOGLE_SHEET_GID（数値）を優先、なければ先頭シート ===
+  const gidEnv = process.env.GOOGLE_SHEET_GID;
+  const targetGid = gidEnv ? Number(gidEnv) : undefined;
+
+  const sheet =
+    targetGid != null && Number.isFinite(targetGid)
+      ? (() => {
+          const found = Object.values(doc.sheetsById).find(s => s.sheetId === targetGid);
+          if (!found) throw new Error(`Sheet with gid=${targetGid} not found`);
+          return found;
+        })()
+      : doc.sheetsByIndex[0];
+
+  // === ヘッダー行の用意 ===
+  try {
+    await sheet.loadHeaderRow();
+  } catch {
+    await sheet.setHeaderRow(Object.keys(row));
+  }
+
+  const currentHeaders: string[] = sheet.headerValues ?? [];
+  const incomingKeys = Object.keys(row);
+  const mergedHeaders = Array.from(new Set([...currentHeaders, ...incomingKeys]));
+
+  if (
+    mergedHeaders.length !== currentHeaders.length ||
+    mergedHeaders.some((h, i) => h !== currentHeaders[i])
+  ) {
+    await sheet.setHeaderRow(mergedHeaders);
+  }
+
+  // === セル整形（RowCellData は null 非対応なので null は使わない） ===
+  type RowCell = string | number | boolean | Date; // ← null を含めない
+
+  const serializeCell = (v: unknown): RowCell => {
+    if (v == null) return '';                 // null/undefined は空文字に
+    if (Array.isArray(v)) return v.join(', '); // 配列はカンマ連結
+    if (v instanceof Date) return v;
+    switch (typeof v) {
+      case 'string':
+      case 'number':
+      case 'boolean':
+        return v;
+      default:
+        try {
+          return JSON.stringify(v);
+        } catch {
+          return String(v);
+        }
+    }
+  };
+
+  // createdAt を補完（無ければ ISO 付与）
+  const enriched: Record<string, unknown> = {
+    createdAt: new Date().toISOString(),
+    ...row,
+  };
+
+  // ヘッダー順の配列に変換（RowCell[]）
+  const values: RowCell[] = mergedHeaders.map(h => serializeCell(enriched[h]));
+
+  // options を付けずに配列を渡すほうが型が安定
+  await sheet.addRow(values);
+}
+
+async function appendToNotion(data: UnknownRecord) {
+    // ========== properties（DB項目） ==========
     const props: CreatePageParameters['properties'] = {
-        // タイトル（必須）
-        'Wine Name': { title: [{ type: 'text', text: { content: data.wineName || '' } }] },
+        // タイトルは必須
+        'Wine Name': {
+        title: [{ type: 'text', text: { content: asString(data.wineName) ?? '' } }],
+        },
 
-        ...(data.date
-        ? { Date: { date: { start: String(data.date) } } }
+        // 条件付きスプレッドで undefined を入れない
+        ...(asString(data.date)
+        ? { Date: { date: { start: asString(data.date)! } } }
         : {}),
 
-        ...(data.place
-        ? { Place: { rich_text: [{ type: 'text', text: { content: String(data.place) } }] } }
+        ...(asString(data.place)
+        ? { Place: { rich_text: [{ type: 'text', text: { content: asString(data.place)! } }] } }
         : {}),
 
-        ...(data.imageUrl
+        ...(asString(data.imageUrl)
         ? {
             ImageURL: {
                 files: [
-                { type: 'external', name: 'image', external: { url: String(data.imageUrl) } },
+                {
+                    type: 'external',
+                    name: 'image',
+                    external: { url: asString(data.imageUrl)! },
+                },
                 ],
             },
             }
         : {}),
 
-        ...(data.producer
-        ? { Producer: { rich_text: [{ type: 'text', text: { content: String(data.producer) } }] } }
+        ...(asString(data.producer)
+        ? { Producer: { rich_text: [{ type: 'text', text: { content: asString(data.producer)! } }] } }
         : {}),
 
-        ...(data.vintage
-        ? { Vintage: { rich_text: [{ type: 'text', text: { content: String(data.vintage) } }] } }
+        ...(asString(data.vintage)
+        ? { Vintage: { rich_text: [{ type: 'text', text: { content: asString(data.vintage)! } }] } }
         : {}),
 
         ...(parsePrice(data.price) != null
         ? { 'Bottle Price': { number: parsePrice(data.price)! } }
         : {}),
 
-        // ※ Notion の DB 側で選択肢（name）が存在している必要があります
-        ...(data.wineType
-        ? { Color: { select: { name: String(data.wineType) } } }
+        ...(asString(data.wineType)
+        ? { Color: { select: { name: asString(data.wineType)! } } }
         : {}),
 
-        ...(data.country
-        ? { Country: { select: { name: String(data.country) } } }
+        ...(asString(data.country)
+        ? { Country: { select: { name: asString(data.country)! } } }
         : {}),
 
-        ...(data.locality
-        ? { Region: { rich_text: [{ type: 'text', text: { content: String(data.locality) } }] } }
+        ...(asString(data.locality)
+        ? { Region: { rich_text: [{ type: 'text', text: { content: asString(data.locality)! } }] } }
         : {}),
 
-        ...(data.mainVariety
-        ? { Variety: { select: { name: String(data.mainVariety) } } }
+        ...(asString(data.mainVariety)
+        ? { Variety: { select: { name: asString(data.mainVariety)! } } }
         : {}),
 
-        ...(data.vivinoUrl
-        ? { 'Vivino URL': { url: String(data.vivinoUrl) } }
+        ...(asString(data.vivinoUrl)
+        ? { 'Vivino URL': { url: asString(data.vivinoUrl)! } }
         : {}),
 
-        ...(typeof data.rating === 'number'
-        ? { Rating: { number: round1(Number(data.rating)) } }
+        ...(typeof asNumber(data.rating) === 'number'
+        ? { Rating: { number: round1(asNumber(data.rating)!) } }
         : {}),
-
     };
 
-    // undefined のプロパティは消す（Notion API に渡さない）
-    for (const k of Object.keys(props)) {
-        if (props[k] === undefined) delete props[k];
-    }
-
-    // const bodyMarkdown = lines.join('\n');
+    // ========== 本文（children ブロック） ==========
     const blocks: BlockObjectRequest[] = [];
 
-    if (data.imageUrl) {
+    const pushHeading = (text: string) =>
         blocks.push({
-            type: 'image',
-            image: { type: 'external', external: { url: data.imageUrl } },
-        });
-        }
-
-        const addHeading = (text: string) =>
-        blocks.push({
-            type: 'heading_2',
-            heading_2: { rich_text: [{ type: 'text', text: { content: text } }] },
+        type: 'heading_2',
+        heading_2: { rich_text: [{ type: 'text', text: { content: text } }] },
         });
 
-        const addKV = (key: string, val?: any) => {
-        if (!val && val !== 0) return;
+    const pushKV = (key: string, val: string | undefined) => {
+        if (!val) return;
         blocks.push({
-            object: 'block',
-            type: 'paragraph',
-            paragraph: {
-            rich_text: [{ type: 'text', text: { content: `${key}: ${val}` } }],
-            },
+        type: 'paragraph',
+        paragraph: { rich_text: [{ type: 'text', text: { content: `${key}: ${val}` } }] },
         });
     };
+
+    const imageUrl = asString(data.imageUrl);
+    if (imageUrl) {
+        blocks.push({
+        type: 'image',
+        image: { type: 'external', external: { url: imageUrl } },
+        });
+    }
 
     //
     // === テイスティング情報 ===
     //
-    addHeading('テイスティング情報');
-    addKV('日付', data.date);
-    addKV('ボトル価格', data.price ? `${data.price} 円` : '');
-    addKV('飲んだ/購入した場所', data.place);
+    pushHeading('テイスティング情報');
+    pushKV('日付', asString(data.date));
+    const priceNum = parsePrice(data.price);
+    pushKV('ボトル価格', priceNum != null ? `${priceNum} 円` : undefined);
+    pushKV('飲んだ/購入した場所', asString(data.place));
 
     //
     // === ワイン情報 ===
     //
-    addHeading('ワイン情報');
-    addKV('ワイン名', data.wineName);
-    addKV('生産者', data.producer);
-    addKV('国', data.country);
-    addKV('地名', data.locality);
-    addKV('主体の品種', data.mainVariety);
-    addKV('その他の品種', data.otherVarieties);
-    addKV('補足情報', data.additionalInfo);
-    addKV('ヴィンテージ', data.vintage);
+    pushHeading('ワイン情報');
+    pushKV('ワイン名', asString(data.wineName));
+    pushKV('生産者', asString(data.producer));
+    pushKV('国', asString(data.country));
+    pushKV('地名', asString(data.locality));
+    pushKV('主体の品種', asString(data.mainVariety));
+    pushKV('その他の品種', asString(data.otherVarieties));
+    pushKV('補足情報', asString(data.additionalInfo));
+    pushKV('ヴィンテージ', asString(data.vintage));
 
     //
     // === 外観 ===
     //
-    addHeading('外観');
-    if (data.intensity)
-    addKV('濃淡', `${round1(data.intensity)} (${intensityLabel(Number(data.intensity))})`);
-    if (data.rimRatio)
-    addKV('縁の色調', `${round1(data.rimRatio)} (${rimRatioLabel(Number(data.rimRatio))})`);
-    addKV('清澄度', data.clarity);
-    addKV('輝き', data.brightness);
-    addKV('泡の強さ', data.sparkleIntensity);
-    addKV('その他の外観の特徴', data.appearanceOther);
+    pushHeading('外観');
+    {
+        const v = asNumber(data.intensity);
+        if (typeof v === 'number') {
+            pushKV('濃淡', `${round1(v)} (${intensityLabel(v)})`);
+        }
+    }
+    {
+        const v = asNumber(data.rimRatio);
+        if (typeof v === 'number') {
+            pushKV('縁の色調', `${round1(v)} (${rimRatioLabel(v)})`);
+        }
+    }
+    pushKV('清澄度', asString(data.clarity));
+    pushKV('輝き', asString(data.brightness));
+    pushKV('泡の強さ', asString(data.sparkleIntensity));
+    pushKV('その他の外観の特徴', asString(data.appearanceOther));
 
     //
     // === 香り ===
     //
-    addHeading('香り');
-    addKV('香りの強さ', data.noseIntensity);
-    if (data.oldNewWorld)
-    addKV('旧/新世界', `${round1(data.oldNewWorld)} (${worldLabel(Number(data.oldNewWorld))})`);
-    if (data.fruitsMaturity)
-    addKV('果実の状態', `${round1(data.fruitsMaturity)} (${fruitStateLabel(Number(data.fruitsMaturity))})`);
-    addKV('中立〜芳香', data.aromaNeutrality);
-    if (Array.isArray(data.aromas) && data.aromas.length > 0)
-    addKV('印象', data.aromas.join(', '));
-    if (data.oakAroma)
-    addKV('樽香', `${round1(data.oakAroma)} (${oakAromaLabel(Number(data.oakAroma))})`);
-    addKV('その他のアロマ', data.aromaOther);
+    pushHeading('香り');
+    pushKV('香りの強さ', asString(data.noseIntensity));
+    {
+        const v = asNumber(data.oldNewWorld);
+        if (typeof v === 'number') {
+            pushKV('旧/新世界', `${round1(v)} (${worldLabel(v)})`);
+        }
+    }
+    {
+        const v = asNumber(data.fruitsMaturity);
+        if (typeof v === 'number') {
+            pushKV('果実の状態', `${round1(v)} (${fruitStateLabel(v)})`);
+        }
+    }
+    pushKV('ニュートラル〜アロマティック', asString(data.aromaNeutrality));
+    if (Array.isArray(data.aromas) && data.aromas.length > 0) {
+        pushKV('印象', data.aromas.join(', '));
+    }
+    {
+    const v = asNumber(data.oakAroma);
+    if (typeof v === 'number') {
+        pushKV('樽香', `${round1(v)} (${oakAromaLabel(v)})`);
+    }
+    }
+    pushKV('その他のアロマ', asString(data.aromaOther));
 
     //
     // === 味わい ===
     //
-    addHeading('味わい');
-    addKV('甘味', data.sweetness);
-    if (data.acidityScore)
-    addKV('酸味', `${round1(data.acidityScore)} (${acidityLabel(Number(data.acidityScore))})`);
-    if (data.tanninScore)
-    addKV('タンニン', `${round1(data.tanninScore)} (${tanninLabel(Number(data.tanninScore))})`);
-    addKV('ボディ', data.body);
-    addKV('アルコール', data.alcohol);
-    if (data.balanceScore)
-    addKV('バランス', `${round1(data.balanceScore)} (${balanceLabel(Number(data.balanceScore))})`);
-    if (data.finishLen)
-    addKV('余韻の長さ', `${round1(data.finishLen)} (${finishLenLabel(Number(data.finishLen))})`);
-    if (data.alcoholABV)
-    addKV('アルコール度数', `${data.alcoholABV}%`);
-    addKV('味わいの補足', data.palateNotes);
+    pushHeading('味わい');
+    pushKV('甘味', asString(data.sweetness));
+    {
+        const v = asNumber(data.acidityScore);
+        if (typeof v === 'number') {
+            pushKV('酸味', `${round1(v)} (${acidityLabel(v)})`);
+        }
+    }
+    {
+        const v = asNumber(data.tanninScore);
+        if (typeof v === 'number') {
+            pushKV('タンニン', `${round1(v)} (${tanninLabel(v)})`);
+        }
+    }
+    pushKV('ボディ', asString(data.body));
+    pushKV('アルコール', asString(data.alcohol));
+    {
+        const v = asNumber(data.balanceScore);
+        if (typeof v === 'number') {
+            pushKV('バランス', `${round1(v)} (${balanceLabel(v)})`);
+        }
+    }
+    {
+        const v = asNumber(data.finishLen);
+        if (typeof v === 'number') {
+            pushKV('余韻の長さ', `${round1(v)} (${finishLenLabel(v)})`);
+        }
+    }
+    {
+        const v = asNumber(data.alcoholABV);
+        if (typeof v === 'number') {
+            pushKV('アルコール度数', `${round1(v)}%`);
+        }
+    }
+    pushKV('味わいの補足', asString(data.palateNotes));
 
     //
     // === 総合評価 ===
     //
-    addHeading('総合評価');
-    addKV('評価コメント', data.evaluation);
-    if (data.rating)
-    addKV('総合評価', `${round1(data.rating)} ⭐️`);
-    addKV('コメント', data.notes);
-    addKV('Vivino URL', data.vivinoUrl);
-
+    pushHeading('総合評価');
+    pushKV('評価コメント', asString(data.evaluation));
+    {
+        const v = asNumber(data.rating);
+        if (typeof v === 'number') {
+            pushKV('総合評価', `${round1(v)} ⭐️`);
+        }
+    }
+    pushKV('コメント', asString(data.notes));
+    pushKV('Vivino URL', asString(data.vivinoUrl));
 
     const page = await notion.pages.create({
-    parent: { database_id: NOTION_DB_ID },
-    properties: props,
-    cover: data.imageUrl
-        ? { type: 'external', external: { url: data.imageUrl } }
-        : undefined,
-    children: blocks,
+        parent: { database_id: NOTION_DB_ID },
+        properties: props,
+        cover: imageUrl ? { type: 'external', external: { url: imageUrl } } : undefined,
+        children: blocks,
     });
 
     return page;
 }
 
 export async function POST(req: NextRequest) {
-    try {
-        const body = await req.json();
-        const row = { ...body, createdAt: new Date().toISOString() };
-        await appendToSheet(row);
-        await appendToNotion(body);
-        return NextResponse.json({ ok: true, id: row.createdAt });
-    } catch (e: any) {
-        console.error('Submit Error:', e);
-        return NextResponse.json({ ok: false, error: e.message || 'unknown' }, { status: 500 });
-    }
+  try {
+    const data = (await req.json()) as UnknownRecord;
+
+    // Sheets 行データ（保存用）
+    const row: Record<string, unknown> = { ...data, createdAt: new Date().toISOString() };
+
+    await appendToSheet(row);
+    await appendToNotion(data);
+
+    return NextResponse.json({ ok: true, id: row.createdAt }, { status: 200 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('Submit Error:', err);
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+  }
 }
