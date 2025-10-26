@@ -4,6 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { JWT } from 'google-auth-library';
 import { Client } from '@notionhq/client';
+import type {
+  BlockObjectRequest,
+  CreatePageParameters,
+} from '@notionhq/client/build/src/api-endpoints';
 
 import {
   round1,
@@ -19,7 +23,7 @@ import {
 } from '@/lib/wineHelpers';
 
 // Google Sheets クライアント
-async function appendToSheet(row: Record<string, any>) {
+async function appendToSheet(row: Record<string, unknown>) {
     console.log('Loaded spreadsheet');
     
     const serviceAccountAuth = new JWT({
@@ -27,11 +31,11 @@ async function appendToSheet(row: Record<string, any>) {
         key: process.env.GOOGLE_PRIVATE_KEY!.replace(/\\n/g, '\n'),
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
-    const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID!, serviceAccountAuth as any);
+    const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID!, serviceAccountAuth);
     await doc.loadInfo();
     console.log('Loaded spreadsheet:', doc.title);
-    console.log('Sheet count:', doc.sheetCount);
-    console.log('Sheet titles:', Object.keys(doc.sheetsByTitle));
+    // console.log('Sheet count:', doc.sheetCount);
+    // console.log('Sheet titles:', Object.keys(doc.sheetsByTitle));
     const sheet = doc.sheetsByIndex[0];
 
     const toCellValue = (v: any) => {
@@ -65,41 +69,66 @@ const parsePrice = (s?: string) => {
   return Number.isFinite(n) ? n : undefined;
 };
 
-// Notion ページ作成
 async function appendToNotion(data: any) {
     // === DBに入れるべき項目 ===
-    const props: any = {
+    const props: CreatePageParameters['properties'] = {
         // タイトル（必須）
         'Wine Name': { title: [{ type: 'text', text: { content: data.wineName || '' } }] },
 
-        // 日付
-        'Date': data.date ? { date: { start: data.date } } : undefined,
+        ...(data.date
+        ? { Date: { date: { start: String(data.date) } } }
+        : {}),
 
-        // 飲んだ場所（自由記述: rich_text）
-        'Place': data.place ? { rich_text: [{ type: 'text', text: { content: data.place } }] } : undefined,
+        ...(data.place
+        ? { Place: { rich_text: [{ type: 'text', text: { content: String(data.place) } }] } }
+        : {}),
 
-        // 画像（URLを files 外部参照で）
-        'ImageURL': data.imageUrl ? {
-        files: [{ type: 'external', name: 'image', external: { url: data.imageUrl } }]
-        } : undefined,
+        ...(data.imageUrl
+        ? {
+            ImageURL: {
+                files: [
+                { type: 'external', name: 'image', external: { url: String(data.imageUrl) } },
+                ],
+            },
+            }
+        : {}),
 
-        'Producer': data.producer ? { rich_text: [{ type: 'text', text: { content: data.producer } }] } : undefined,
+        ...(data.producer
+        ? { Producer: { rich_text: [{ type: 'text', text: { content: String(data.producer) } }] } }
+        : {}),
 
-        'Vintage': data.vintage ? { rich_text: [{ type: 'text', text: { content: data.vintage } }] } : undefined,
+        ...(data.vintage
+        ? { Vintage: { rich_text: [{ type: 'text', text: { content: String(data.vintage) } }] } }
+        : {}),
 
-        'Bottle Price': parsePrice(data.price) != null ? { number: parsePrice(data.price) } : undefined,
+        ...(parsePrice(data.price) != null
+        ? { 'Bottle Price': { number: parsePrice(data.price)! } }
+        : {}),
 
-        'Color': data.wineType ? { select: { name: data.wineType } } : undefined,
+        // ※ Notion の DB 側で選択肢（name）が存在している必要があります
+        ...(data.wineType
+        ? { Color: { select: { name: String(data.wineType) } } }
+        : {}),
 
-        'Country': data.country ? { select: { name: data.country } } : undefined,
+        ...(data.country
+        ? { Country: { select: { name: String(data.country) } } }
+        : {}),
 
-        'Region': data.locality ? { rich_text: [{ type: 'text', text: { content: data.locality } }] } : undefined,
+        ...(data.locality
+        ? { Region: { rich_text: [{ type: 'text', text: { content: String(data.locality) } }] } }
+        : {}),
 
-        'Variety': data.mainVariety ? { select: { name: data.mainVariety } } : undefined,
+        ...(data.mainVariety
+        ? { Variety: { select: { name: String(data.mainVariety) } } }
+        : {}),
 
-        'Vivino URL': data.vivinoUrl ? { url: data.vivinoUrl } : undefined,
+        ...(data.vivinoUrl
+        ? { 'Vivino URL': { url: String(data.vivinoUrl) } }
+        : {}),
 
-        'Rating': (typeof data.rating === 'number') ? { number: round1(data.rating) } : undefined,
+        ...(typeof data.rating === 'number'
+        ? { Rating: { number: round1(Number(data.rating)) } }
+        : {}),
 
     };
 
@@ -147,11 +176,10 @@ async function appendToNotion(data: any) {
     // if (data.notes)          lines.push(`- ノート: ${data.notes}`);
 
     // const bodyMarkdown = lines.join('\n');
-    const blocks: any[] = [];
+    const blocks: BlockObjectRequest[] = [];
 
     if (data.imageUrl) {
         blocks.push({
-            object: 'block',
             type: 'image',
             image: { type: 'external', external: { url: data.imageUrl } },
         });
@@ -159,7 +187,6 @@ async function appendToNotion(data: any) {
 
         const addHeading = (text: string) =>
         blocks.push({
-            object: 'block',
             type: 'heading_2',
             heading_2: { rich_text: [{ type: 'text', text: { content: text } }] },
         });
@@ -264,7 +291,7 @@ async function appendToNotion(data: any) {
     children: blocks,
     });
 
-    return page.id;
+    return page;
 }
 
 export async function POST(req: NextRequest) {

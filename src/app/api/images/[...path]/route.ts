@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Storage } from '@google-cloud/storage';
 
-// === Google Cloud Storage 設定 ===
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 const storage = new Storage({
   projectId: process.env.GCP_PROJECT_ID,
   credentials: {
@@ -12,13 +14,19 @@ const storage = new Storage({
 
 const BUCKET = process.env.GCS_BUCKET_NAME!;
 
+// Content-Type 取得用型
+interface GcsMeta {
+  contentType?: string;
+}
+
 // === 画像 GET エンドポイント ===
 export async function GET(
-  req: NextRequest,
-  context: { params: Promise<{ path?: string[] }> }  // ✅ Promise + Optionalに
+  _req: NextRequest,
+  context: { params: Promise<{ path?: string[] }> } // ✅ Promise型
 ) {
-  const resolved = await context.params;             // ✅ awaitで展開
-  const key = (resolved.path ?? []).join('/');       // ✅ undefined防止
+  // ✅ params は Promise なので await 必須
+  const resolvedParams = await context.params;
+  const key = (resolvedParams.path ?? []).join('/'); // uploads/.../filename.jpg
 
   if (!key) {
     return NextResponse.json({ error: 'Missing file path' }, { status: 400 });
@@ -27,24 +35,28 @@ export async function GET(
   const file = storage.bucket(BUCKET).file(key);
 
   try {
-    // Content-Type取得
-    const [meta] = await file
-      .getMetadata()
-      .catch(() => [{ contentType: 'application/octet-stream' } as any]);
+    // ✅ Content-Type取得（例外時はデフォルト値）
+    let meta: GcsMeta = { contentType: 'application/octet-stream' };
+    try {
+      const [metadata] = await file.getMetadata();
+      meta = { contentType: metadata.contentType };
+    } catch {
+      /* ignore: fallback meta used */
+    }
 
-    // ファイルストリーム生成
-    const stream = file.createReadStream();
+    // ✅ Bufferでファイル内容を取得
+    const [contents] = await file.download();
 
-    // ✅ new Response を使用（NextResponseではstream未対応）
-    return new Response(stream as any, {
+    // ✅ Responseで直接返す
+    return new Response(new Uint8Array(contents), {
       status: 200,
       headers: {
-        'Content-Type': meta.contentType || 'application/octet-stream',
+        'Content-Type': meta.contentType ?? 'application/octet-stream',
         'Cache-Control': 'public, max-age=31536000, immutable',
       },
     });
   } catch (err) {
-    console.error('GCS proxy error', err);
+    console.error('GCS proxy error:', err);
     return NextResponse.json({ error: 'Failed to fetch image' }, { status: 500 });
   }
 }
