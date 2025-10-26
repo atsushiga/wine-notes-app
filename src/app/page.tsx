@@ -21,12 +21,6 @@ const apperance = {
     { label: '艶のある', score: 0 },
     { label: 'モヤがかった', score: -1 },
   ],
-  // hueRed: [
-  //   '紫がかった','ラズベリー/チェリーレッド','ルビー','ルビー〜ガーネット','ガーネット','レンガ','褐色が強い'
-  // ],
-  // hueWhite: [
-  //   'レモンイエロー','イエロー','麦わら','金色がかった','琥珀','褐色'
-  // ],
 };
 
 // ワインの種類
@@ -100,12 +94,6 @@ const schema = z.object({
 
   //味わい
   sweetness: z.string(),
-  // acidity: z.string(),
-  // tannin: z.string().optional(), // 白の場合は不要
-  // body: z.string(),
-  // alcohol: z.string(),
-  // finish: z.string(),
-  // balance: z.string(),
   acidityScore: z.number().min(1).max(5),     // 酸味 1-5, 0.1刻み
   tanninScore: z.number().min(1).max(5),      // タンニン 〃（赤/オレンジで表示）
   balanceScore: z.number().min(1).max(5),     // 味わいのバランス 〃
