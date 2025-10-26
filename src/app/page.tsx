@@ -116,7 +116,7 @@ const schema = z.object({
   acidityScore: z.number().min(1).max(5),     // 酸味 1-5, 0.1刻み
   tanninScore: z.number().min(1).max(5),      // タンニン 〃（赤/オレンジで表示）
   balanceScore: z.number().min(1).max(5),     // 味わいのバランス 〃
-  alcoholABV: z.number().min(0).max(30).optional(), // アルコール度数（数字入力）
+  alcoholABV: z.number().min(0).max(100).optional(), // アルコール度数（数字入力）
   finishLen: z.number().min(0).max(10),       // 余韻 0-10, 1刻み
   palateNotes: z.string().optional(),         // 味わいの補足
 
@@ -532,7 +532,7 @@ const onSubmit = async (values: FormValues) => {
             {isRed && (
               <p className="text-sm text-[var(--fg-muted)]">
                 {(() => {
-                  const v = round1(Number(watch('intensity')));
+                  const v = round1(Number(watch('intensity') ?? 3));
                   const label = v > 4 ? 'ガーネット' : 'ルビー';
                   return `${v.toFixed(1)}: ${label}`;
                 })()}
@@ -577,8 +577,9 @@ const onSubmit = async (values: FormValues) => {
                       max={5} 
                       step={0.1} 
                       list = "intensityTicks"
-                      {...field} 
-                      className = "w-full input-accent [&::-webkit-slider-thumb]:appearance-none range--light"
+                      value = {field.value ?? 3}
+                      onChange={(e) => field.onChange(Number(e.target.value))} 
+                      className = "w-full accent-gray-700"
                     />
                   </div>
                   <datalist id="intensityTicks">
@@ -635,7 +636,8 @@ const onSubmit = async (values: FormValues) => {
                         max={10} 
                         step={0.1} 
                         list = "rimRatioTicks"
-                        {...field} 
+                        value={field.value ?? 5}
+                        onChange={(e) => field.onChange(Number(e.target.value))}          
                         className="w-full accent-gray-700" 
                       />
                     </div>
@@ -1039,7 +1041,7 @@ const onSubmit = async (values: FormValues) => {
                         id="finishLen"
                         type="range"
                         min={0}
-                        max={11}
+                        max={10}
                         step={1}
                         list="ticks_0to11"
                         value={v}
