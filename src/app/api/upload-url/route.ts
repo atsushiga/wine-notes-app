@@ -1,35 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Storage } from '@google-cloud/storage';
 
-export const runtime = 'nodejs'; // 重要: Edgeでは動かない
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const storage = new Storage({
+  projectId: process.env.GCP_PROJECT_ID,
   credentials: {
-    client_email: process.env.GOOGLE_CLIENT_EMAIL!,
-    private_key: process.env.GOOGLE_PRIVATE_KEY!.replace(/\\n/g, '\n'),
+    client_email: process.env.GOOGLE_CLIENT_EMAIL,
+    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
   },
-  projectId: process.env.GOOGLE_PROJECT_ID!,
 });
-
 const BUCKET = process.env.GCS_BUCKET_NAME!;
+
+interface UploadBody {
+  filename: string;
+  contentType: string;
+}
+
+interface UploadUrlResponse {
+  putUrl: string;
+  getUrl: string;
+  key: string;
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const { filename, contentType } = await req.json();
-    if (!filename || !contentType) {
-      return NextResponse.json({ error: 'filename and contentType are required' }, { status: 400 });
-    }
+    const body = (await req.json()) as UploadBody;
+    const filename = body?.filename ?? 'upload.bin';
+    const contentType = body?.contentType ?? 'application/octet-stream';
 
-    // ファイル鍵：日別フォルダ + タイムスタンプ + オリジナル名（必要なら uuid を使ってもOK）
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const key = `uploads/${y}/${m}/${Date.now()}_${filename}`;
+    const now = new Date();
+    const key = `uploads/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${Date.now()}_${filename}`;
 
-    const bucket = storage.bucket(BUCKET);
-    const file = bucket.file(key);
+    const file = storage.bucket(BUCKET).file(key);
 
-    // PUT用 署名URL（10分）
+    // 署名付き PUT URL（10分）
     const [putUrl] = await file.getSignedUrl({
       version: 'v4',
       action: 'write',
@@ -37,20 +43,17 @@ export async function POST(req: NextRequest) {
       contentType,
     });
 
-    const base = process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000';
+    // プロキシ経由 GET URL
+    const base =
+      process.env.PUBLIC_BASE_URL ??
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    const getUrl = `${base}/api/images/${encodeURIComponent(key)}`;
 
-    // key は 'uploads/2025/10/xxx ファイル名.png' のような形
-    // セグメントごとに encode してから / で連結（/ はそのまま残す）
-    const proxyPath = key.split('/').map(encodeURIComponent).join('/');
-    const proxyUrl = `${base}/api/images/${proxyPath}`;
-
-    // 読み出し用の署名URLは使わないので生成しない（削除してOK）
-    // const [getUrl] = await file.getSignedUrl({ ... });
-
-    return NextResponse.json({ putUrl, getUrl: proxyUrl, key });
-
-  } catch (e: any) {
-    console.error('upload-url error', e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    const payload: UploadUrlResponse = { putUrl, getUrl, key };
+    return NextResponse.json(payload, { status: 200 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('upload-url error', err);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
