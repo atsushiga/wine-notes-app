@@ -22,6 +22,14 @@ import {
   worldLabel,
 } from '@/lib/wineHelpers';
 
+// Google Sheets クライアント関数
+async function getSheetByGid(doc: GoogleSpreadsheet, gid: number) {
+  await doc.loadInfo(); // 全シート情報を取得
+  const sheet = Object.values(doc.sheetsById).find(s => s.sheetId === gid);
+  if (!sheet) throw new Error(`Sheet with gid=${gid} not found`);
+  return sheet;
+}
+
 // Google Sheets クライアント
 async function appendToSheet(row: Record<string, unknown>) {
     console.log('Loaded spreadsheet');
@@ -33,10 +41,7 @@ async function appendToSheet(row: Record<string, unknown>) {
     });
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID!, serviceAccountAuth);
     await doc.loadInfo();
-    console.log('Loaded spreadsheet:', doc.title);
-    // console.log('Sheet count:', doc.sheetCount);
-    // console.log('Sheet titles:', Object.keys(doc.sheetsByTitle));
-    const sheet = doc.sheetsByIndex[0];
+    const sheet = await getSheetByGid(doc, 0); // ← gid（URL末尾の gid=XXXX 部分）
 
     const toCellValue = (v: any) => {
         if (Array.isArray(v)) return v.join(', ');     // 配列は「、」で連結
@@ -51,10 +56,11 @@ async function appendToSheet(row: Record<string, unknown>) {
 
     try {
         await sheet.loadHeaderRow();
-      } catch {
+    } catch {
         await sheet.setHeaderRow(Object.keys(row));
-      }
+    }
     await sheet.addRow(normalizedRow);
+    console.log('sheet added')
 }
 
 // Notion クライアント
