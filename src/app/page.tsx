@@ -360,11 +360,6 @@ const onSubmit = async (values: FormValues) => {
               if (f) onFileSelect(f).catch(err => alert(err.message));
             }}
           />
-          {/* <div className="sm:col-span-3">
-            <label className="block text-sm mb-1">画像URL</label>
-            <input className="w-full input" placeholder="ラベル写真のURL（アップロードは次のステップで対応）"
-              {...register('imageUrl')} />
-          </div> */}
         </section>
 
         <section className="gap-4 rounded-2xl bg-white p-4 shadow-sm space-y-3">
