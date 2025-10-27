@@ -1,0 +1,19 @@
+[
+  {
+    "origin": [
+      "http://localhost:3000",
+      "https://elna-fluffiest-antonio.ngrok-free.dev/",
+      "https://wine-notes-app.vercel.app",
+      "https://www.wine-note.jp"
+    ],
+    "responseHeader": [
+      "Content-Type",
+      "x-goog-meta-*",
+      "x-goog-content-length-range",
+      "x-goog-resumable",
+      "x-goog-storage-class"
+    ],
+    "method": ["GET", "PUT", "HEAD", "DELETE", "OPTIONS"],
+    "maxAgeSeconds": 3600
+  }
+]
