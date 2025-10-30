@@ -263,7 +263,6 @@ export default function Page() {
 const onSubmit = async (values: FormValues) => {
   setSent(null);
 
-  // price を number に変換してから送信
   const payload = {
     ...values,
     price:
@@ -701,15 +700,16 @@ const onSubmit = async (values: FormValues) => {
           )}
 
           {/* ニュートラル vs アロマティック */}
-          {(isWhite) && (
+          {isWhite && (
             <div>
               <label className="block text-sm mb-1">
-                ニュートラル / アロマティック （1=ニュートラル, 5=アロマティック）
+                ニュートラル / アロマティック（1=ニュートラル, 5=アロマティック）
               </label>
 
               <p className="text-sm mb-1">
                 {(() => {
-                  const v = round1(Number(watch('aromaNeutrality')));
+                  const raw = watch('aromaNeutrality');
+                  const v = round1(typeof raw === 'number' ? raw : Number(raw ?? 3));
                   const label = v <= 3 ? 'ニュートラル' : 'アロマティック';
                   return `${v.toFixed(1)}: ${label}`;
                 })()}
@@ -718,28 +718,42 @@ const onSubmit = async (values: FormValues) => {
               <Controller
                 control={control}
                 name="aromaNeutrality"
-                render={({ field }) => (
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="range"
-                      min={1}
-                      max={5}
-                      step={0.1}
-                      list = "aromaNeutralityTicks"
-                      {...field}
-                      className="w-full accent-gray-700"
-                    />
-                    <datalist id="aromaNeutralityTicks">
-                      <option value="2" label="2" />
-                      <option value="3" label="3" />
-                      <option value="4" label="4" />
-                    </datalist>
+                render={({ field }) => {
+                  const v =
+                    typeof field.value === 'number'
+                      ? field.value
+                      : Number(field.value ?? 3);
 
-                  </div>
-                )}
+                  return (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="range"
+                          min={1}
+                          max={5}
+                          step={0.1}
+                          list="aromaNeutralityTicks"
+                          value={v}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                          className="w-full accent-gray-700"
+                        />
+                      </div>
+                      {/* datalist は input の外に置く */}
+                      <datalist id="aromaNeutralityTicks">
+                        <option value="2" label="2" />
+                        <option value="3" label="3" />
+                        <option value="4" label="4" />
+                      </datalist>
+                    </>
+                  );
+                }}
               />
             </div>
           )}
+
           
 
           {/* 果実の状態（1–5 / 0.1刻み） → 赤ワインの時のみ表示 */}
