@@ -1,10 +1,17 @@
 'use client';
-import { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import React from 'react';
-import { useEffect } from 'react';
+import {
+  round1,
+  fruitStateLabel,
+  oakAromaLabel,
+  acidityLabel,
+  tanninLabel,
+  balanceLabel,
+  finishLenLabel,
+} from '@/lib/wineHelpers';
 
 
 
@@ -186,27 +193,6 @@ export default function Page() {
     }
   }, []);
 
-
-  // 果実の状態ラベル（上限以外は上端“未満”で扱い、5だけ厳密一致）
-  const fruitStateLabel = (vRaw: number) => {
-    const v = round1(Number(vRaw));
-    if (v === 5) return 'ドライ';
-    if (v >= 4 && v < 5) return 'ジャム';
-    if (v >= 3 && v < 4) return 'コンポート';
-    if (v >= 2 && v < 3) return '熟した';
-    // 1.0 ≤ v < 1.5
-    return 'フレッシュ';
-  };
-
-  const oakAromaLabel = (vRaw: number) => {
-    const v = Math.round(vRaw * 10) / 10;
-    if (v === 1) return 'なし';
-    if (v > 1 && v <= 2) return '弱い';
-    if (v > 2 && v <= 3) return 'やや弱い';
-    if (v > 3 && v <= 4) return 'やや強い';
-    return '強い';
-  };
-
   const filteredAromaGroups = (() => {
     if (isRed) {
       // 赤ワイン → 果実（白）を非表示
@@ -219,46 +205,6 @@ export default function Page() {
     // それ以外（ロゼ/オレンジ/発泡白/発泡ロゼ）は全て表示
     return aromaGroups;
   })();
-
-  const round1 = (n: number) => Math.round(n * 10) / 10;
-
-  // === 味わいラベル用関数 ===
-  // 酸味：1-1.5 強い / 1.6-2.5 やや強い / 2.6-3.5 中程度 / 3.6-4.5 やや弱い / 4.6+ 弱い
-  const acidityLabel = (vRaw: number) => {
-    const v = round1(vRaw);
-    if (v <= 1.5) return '強い';
-    if (v <= 2.5) return 'やや強い';
-    if (v <= 3.5) return '中程度';
-    if (v <= 4.5) return 'やや弱い';
-    return '弱い';
-  };
-
-  // タンニン分：1-1.5 さらさらした / 1.6-2.5 緻密 / 2.6-3.5 (中程度) / 3.6-4.5 力強い / 4.6+ 収斂性のある
-  const tanninLabel = (vRaw: number) => {
-    const v = round1(vRaw);
-    if (v <= 1.5) return 'さらさらした';
-    if (v <= 2.5) return '緻密';
-    if (v <= 3.5) return '(中程度)';
-    if (v <= 4.5) return '力強い';
-    return '収斂性のある';
-  };
-
-  // 味わいのバランス：1-2.9 流れるような / 3-4 力強い / 4.1-5 骨格のしっかりした/豊満な
-  const balanceLabel = (vRaw: number) => {
-    const v = round1(vRaw);
-    if (v < 3) return '流れるような';
-    if (v <= 4) return '力強い';
-    return '骨格のしっかりした/豊満な';
-  };
-
-  // 余韻：0-3 短い / 4-5 やや短い / 6-9 やや長い / 10-11 長い
-  const finishLabel = (vRaw: number) => {
-    const v = Math.round(vRaw);
-    if (v <= 3) return '短い';
-    if (v <= 5) return 'やや短い';
-    if (v <= 9) return 'やや長い';
-    return '長い';
-  };
 
 const onSubmit = async (values: FormValues) => {
   setSent(null);
@@ -1016,7 +962,7 @@ const onSubmit = async (values: FormValues) => {
                   const v = Math.round(Number(field.value ?? 5));
                   return (
                     <div className="flex flex-col gap-1">
-                      <p className="text-sm">{v}: {finishLabel(v)}</p>
+                      <p className="text-sm">{v}: {finishLenLabel(v)}</p>
                       <input
                         id="finishLen"
                         type="range"

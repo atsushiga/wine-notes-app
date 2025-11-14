@@ -3,19 +3,19 @@ export const round1 = (n: number) => Math.round(n * 10) / 10;
 
 export const fruitStateLabel = (vRaw: number) => {
   const v = round1(vRaw);
-  if (v <= 1.5) return 'フレッシュ';
-  if (v <= 2.5) return '熟した';
-  if (v <= 3.5) return 'コンポート';
-  if (v < 5.0) return 'ジャム';
-  return 'ドライ';
+  if (v === 5) return 'ドライ';
+  if (v >= 4 && v < 5) return 'ジャム';
+  if (v >= 3 && v < 4) return 'コンポート';
+  if (v >= 2 && v < 3) return '熟した';
+  return 'フレッシュ';
 };
 
 export const oakAromaLabel = (vRaw: number) => {
   const v = round1(vRaw);
   if (v === 1) return 'なし';
-  if (v <= 2) return '弱い';
-  if (v <= 3) return 'やや弱い';
-  if (v <= 4) return 'やや強い';
+  if (v > 1 && v <= 2) return '弱い';
+  if (v > 2 && v <= 3) return 'やや弱い';
+  if (v > 3 && v <= 4) return 'やや強い';
   return '強い';
 };
 
