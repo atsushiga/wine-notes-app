@@ -50,6 +50,13 @@ const noseIntensity = ['1. 閉じている','2. 控えめ','3. 開いている',
 const palateSweetness = ['辛口','やや辛口','中口','やや甘口','甘口'] as const;
 const evaluation = ['シンプル/フレッシュ','良質','複雑さ/余韻あり','秀逸'] as const;
 
+// SAT準拠の選択肢
+const satNoseIntensity = ['light', 'med-', 'med', 'med+', 'pronounced'] as const;
+const satAcidity = ['low', 'med-', 'med', 'med+', 'high'] as const;
+const satTannin = ['low', 'med-', 'med', 'med+', 'high'] as const;
+const satFinish = ['short', 'med-', 'med', 'med+', 'long'] as const;
+const satQuality = ['poor', 'acceptable', 'good', 'very good', 'outstanding'] as const;
+
 // 代表的アロマ（必要に応じて増強してください）
 const aromaGroups = [
   { name: '果実（赤）', options: ['イチゴ','ラズベリー','ブルーベリー','カシス','ブラックベリー', 'ブラックチェリー', '干しプラム'] },
@@ -92,9 +99,9 @@ const schema = z.object({
   
   //香り
   noseIntensity: z.string(),
-  oldNewWorld: z.number().min(1).max(5),
-  fruitsMaturity: z.number().min(1).max(5),
-  aromaNeutrality: z.number().min(1).max(5),
+  oldNewWorld: z.number().min(1).max(5).optional(),  // 赤/ロゼ/オレンジで表示
+  fruitsMaturity: z.number().min(1).max(5).optional(),  // 赤/ロゼ/オレンジで表示
+  aromaNeutrality: z.number().min(1).max(5).optional(),  // 白で表示
   aromas: z.array(z.string()).optional(),
   oakAroma: z.number().min(1).max(5).optional(), 
   aromaOther: z.string().optional(), 
@@ -102,7 +109,7 @@ const schema = z.object({
   //味わい
   sweetness: z.string(),
   acidityScore: z.number().min(1).max(5),     // 酸味 1-5, 0.1刻み
-  tanninScore: z.number().min(1).max(5),      // タンニン 〃（赤/オレンジで表示）
+  tanninScore: z.number().min(1).max(5).optional(),      // タンニン 〃（赤/オレンジで表示）
   balanceScore: z.number().min(1).max(5),     // 味わいのバランス 〃
   alcoholABV: z.number().min(0).max(100).optional(), // アルコール度数（数字入力）
   finishLen: z.number().min(0).max(10),       // 余韻 0-10, 1刻み
@@ -113,6 +120,13 @@ const schema = z.object({
   rating: z.number().min(0).max(5),
   notes: z.string().optional(),
   vivinoUrl: z.string().optional(),
+
+  // SAT準拠項目
+  sat_nose_intensity: z.union([z.enum(satNoseIntensity), z.literal('')]).optional(),
+  sat_acidity: z.union([z.enum(satAcidity), z.literal('')]).optional(),
+  sat_tannin: z.union([z.enum(satTannin), z.literal('')]).optional(),
+  sat_finish: z.union([z.enum(satFinish), z.literal('')]).optional(),
+  sat_quality: z.union([z.enum(satQuality), z.literal('')]).optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -165,6 +179,13 @@ export default function Page() {
       rating: 3.5,
       notes: '',
       vivinoUrl: '',
+
+      // SAT準拠項目のデフォルト値
+      sat_nose_intensity: undefined,
+      sat_acidity: undefined,
+      sat_tannin: undefined,
+      sat_finish: undefined,
+      sat_quality: undefined,
     },
     resolver: zodResolver(schema)
   });
@@ -603,6 +624,15 @@ const onSubmit = async (values: FormValues) => {
             </select>
           </div>
 
+          {/* SAT準拠: 香りの強さ */}
+          <div>
+            <label className="block text-sm mb-1">香りの強さ (SAT)</label>
+            <select className="w-full input" {...register('sat_nose_intensity')}>
+              <option value="">未選択</option>
+              {satNoseIntensity.map(v => (<option key={v} value={v}>{v}</option>))}
+            </select>
+          </div>
+
           {(isRed || isRose || isOrange) && (
             <div>
               <label className="block text-sm mb-1">
@@ -879,6 +909,15 @@ const onSubmit = async (values: FormValues) => {
               />
             </div>
 
+            {/* SAT準拠: 酸味 */}
+            <div>
+              <label className="block text-sm mb-1">酸味 (SAT)</label>
+              <select className="w-full input" {...register('sat_acidity')}>
+                <option value="">未選択</option>
+                {satAcidity.map(v => (<option key={v} value={v}>{v}</option>))}
+              </select>
+            </div>
+
             {/* タンニン分（赤/オレンジのみ表示） */}
             {(isRed || isOrange) && (
               <div>
@@ -906,6 +945,17 @@ const onSubmit = async (values: FormValues) => {
                     );
                   }}
                 />
+              </div>
+            )}
+
+            {/* SAT準拠: タンニン（赤/オレンジのみ表示） */}
+            {(isRed || isOrange) && (
+              <div>
+                <label className="block text-sm mb-1">タンニン (SAT)</label>
+                <select className="w-full input" {...register('sat_tannin')}>
+                  <option value="">未選択</option>
+                  {satTannin.map(v => (<option key={v} value={v}>{v}</option>))}
+                </select>
               </div>
             )}
 
@@ -978,6 +1028,15 @@ const onSubmit = async (values: FormValues) => {
                   );
                 }}
               />
+            </div>
+
+            {/* SAT準拠: 余韻 */}
+            <div>
+              <label className="block text-sm mb-1">余韻 (SAT)</label>
+              <select className="w-full input" {...register('sat_finish')}>
+                <option value="">未選択</option>
+                {satFinish.map(v => (<option key={v} value={v}>{v}</option>))}
+              </select>
             </div>
 
             {/* 味わいの補足（自由記述） */}
@@ -1060,6 +1119,15 @@ const onSubmit = async (values: FormValues) => {
               </>
             )}
           />
+          
+          {/* SAT準拠: 品質 */}
+          <div>
+            <label className="block text-sm mb-1">品質 (SAT)</label>
+            <select className="w-full input" {...register('sat_quality')}>
+              <option value="">未選択</option>
+              {satQuality.map(v => (<option key={v} value={v}>{v}</option>))}
+            </select>
+          </div>
         </section>
 
         <section className="rounded-2xl bg-white p-4 shadow-sm space-y-2">

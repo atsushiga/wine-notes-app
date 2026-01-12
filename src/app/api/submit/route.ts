@@ -7,6 +7,7 @@ import type {
     BlockObjectRequest,
     CreatePageParameters,
 } from '@notionhq/client/build/src/api-endpoints';
+import { getSupabaseClient } from '@/lib/supabase';
 
 import {
     round1,
@@ -350,17 +351,95 @@ async function appendToNotion(data: UnknownRecord) {
     return page;
 }
 
+// Supabaseに保存する関数（camelCaseをsnake_caseに変換）
+async function appendToSupabase(data: UnknownRecord): Promise<{ id: string }> {
+  // camelCaseをsnake_caseに変換するヘルパー
+  const toSnakeCase = (str: string): string => {
+    // sat_で始まる項目は既にsnake_caseなので変換不要
+    if (str.startsWith('sat_')) {
+      return str;
+    }
+
+    const replacements: Record<string, string> = {
+      alcoholABV: 'alcohol_abv',
+      imageUrl: 'image_url',
+      wineName: 'wine_name',
+      vivinoUrl: 'vivino_url',
+      createdAt: 'created_at',
+      acidityScore: 'acidity_score',
+      tanninScore: 'tannin_score',
+      balanceScore: 'balance_score',
+      finishLen: 'finish_len',
+      rimRatio: 'rim_ratio',
+      oldNewWorld: 'old_new_world',
+      fruitsMaturity: 'fruits_maturity',
+      aromaNeutrality: 'aroma_neutrality',
+      oakAroma: 'oak_aroma',
+      palateNotes: 'palate_notes',
+      appearanceOther: 'appearance_other',
+      aromaOther: 'aroma_other',
+      wineType: 'wine_type',
+      mainVariety: 'main_variety',
+      otherVarieties: 'other_varieties',
+      additionalInfo: 'additional_info',
+      sparkleIntensity: 'sparkle_intensity',
+    };
+    
+    if (replacements[str]) {
+      return replacements[str];
+    }
+    
+    // 汎用的なcamelCase to snake_case変換
+    return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+  };
+
+  const supabaseData: Record<string, unknown> = {};
+  
+  // データを変換（空文字列やundefinedはnullに変換）
+  for (const [key, value] of Object.entries(data)) {
+    const snakeKey = toSnakeCase(key);
+    // 空文字列やundefinedはnullに変換（SupabaseのTEXT型で空文字列は許可されない場合があるため）
+    if (value === '' || value === undefined) {
+      supabaseData[snakeKey] = null;
+    } else {
+      supabaseData[snakeKey] = value;
+    }
+  }
+
+  // created_atを追加（無ければ現在時刻）
+  if (!supabaseData.created_at) {
+    supabaseData.created_at = new Date().toISOString();
+  }
+
+  const supabase = getSupabaseClient();
+  
+  const { data: insertedData, error } = await supabase
+    .from('tasting_notes')
+    .insert(supabaseData)
+    .select('id')
+    .single();
+
+  if (error) {
+    throw new Error(`Supabase insert error: ${error.message}`);
+  }
+
+  return { id: String(insertedData.id) };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const data = (await req.json()) as UnknownRecord;
 
-    // Sheets 行データ（保存用）
-    const row: Record<string, unknown> = { ...data, createdAt: new Date().toISOString() };
+    // 1. まずSupabaseに保存
+    const supabaseResult = await appendToSupabase(data);
 
+    // 2. その後、既存のNotion/Sheets連携を実行
+    const row: Record<string, unknown> = { ...data, createdAt: new Date().toISOString() };
+    
     await appendToSheet(row);
     await appendToNotion(data);
 
-    return NextResponse.json({ ok: true, id: row.createdAt }, { status: 200 });
+    return NextResponse.json({ ok: true, id: supabaseResult.id }, { status: 200 });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('Submit Error:', err);
