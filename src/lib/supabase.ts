@@ -1,19 +1,29 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // サーバーサイド用のSupabaseクライアントを取得する関数
+// サーバーサイドではサービスロールキーを優先使用（RLSをバイパス）
 export function getSupabaseClient(): SupabaseClient {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  // サーバーサイドではサービスロールキーを優先（RLSをバイパス）
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // サービスロールキーがない場合はanonキーを使用
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+  const supabaseKey = supabaseServiceKey || supabaseAnonKey;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !supabaseKey) {
     const missingVars = [];
     if (!supabaseUrl) missingVars.push('NEXT_PUBLIC_SUPABASE_URL (または SUPABASE_URL)');
-    if (!supabaseAnonKey) missingVars.push('NEXT_PUBLIC_SUPABASE_ANON_KEY (または SUPABASE_ANON_KEY)');
+    if (!supabaseKey) {
+      if (!supabaseServiceKey && !supabaseAnonKey) {
+        missingVars.push('SUPABASE_SERVICE_ROLE_KEY (推奨) または NEXT_PUBLIC_SUPABASE_ANON_KEY (または SUPABASE_ANON_KEY)');
+      }
+    }
     
     // デバッグ情報を出力
     console.error('=== 環境変数デバッグ情報 ===');
     console.error('NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? '設定済み' : '未設定');
     console.error('SUPABASE_URL:', process.env.SUPABASE_URL ? '設定済み' : '未設定');
+    console.error('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? '設定済み' : '未設定');
     console.error('NEXT_PUBLIC_SUPABASE_ANON_KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '設定済み' : '未設定');
     console.error('SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? '設定済み' : '未設定');
     console.error('==========================');
@@ -23,12 +33,16 @@ export function getSupabaseClient(): SupabaseClient {
       `不足している変数: ${missingVars.join(', ')}\n` +
       `プロジェクトルートに .env.local ファイルを作成し、以下の環境変数を設定してください:\n` +
       `  NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url\n` +
+      `  SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key (推奨、サーバーサイド用)\n` +
+      `  または\n` +
       `  NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key\n` +
       `注意: 値に引用符（"や'）は不要です。また、環境変数を変更した場合は開発サーバーを再起動してください。`
     );
   }
 
-  return createClient(supabaseUrl, supabaseAnonKey);
+  const client = createClient(supabaseUrl, supabaseKey);
+
+  return client;
 }
 
 // クライアントサイド用（既存のコードとの互換性のため）
