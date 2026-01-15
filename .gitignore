@@ -48,6 +48,7 @@ tmp/*
 
 .pnpm-alias.sh
 migrate_supabase.py
+migrate_v2.py
 README-pnpm-fix.md
 
 .cursor/*
