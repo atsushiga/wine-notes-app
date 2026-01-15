@@ -51,3 +51,9 @@ migrate_supabase.py
 README-pnpm-fix.md
 
 .cursor/*
+
+# temporary scripts
+check_db.js
+pnpm-install.sh
+update_schema.sql
+supabase/migrations/add_user_id_to_tasting_notes.sql
