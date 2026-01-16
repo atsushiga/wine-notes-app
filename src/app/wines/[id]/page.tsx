@@ -14,7 +14,6 @@ import {
     finishLenLabel,
     worldLabel,
     intensityLabel,
-    rimRatioLabel,
 } from "@/lib/wineHelpers";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +38,13 @@ export default async function WineDetailPage({ params }: Props) {
     }
 
     const wine = data as TastingNote;
+    const wineType = wine.wine_type || "";
+    const isRed = wineType === '赤';
+    const isWhite = wineType === '白';
+    const isRose = wineType === 'ロゼ';
+    const isOrange = wineType === 'オレンジ';
+    const isSparklingWhite = wineType === '発泡白';
+    const isSparklingRose = wineType === '発泡ロゼ';
 
     // Helper to render label with value
     const renderScore = (value: number | undefined, labelFn: (v: number) => string) => {
@@ -46,8 +52,34 @@ export default async function WineDetailPage({ params }: Props) {
         return `${round1(value)} (${labelFn(value)})`;
     };
 
+    // Derived Label Helpers
+    const getRimRatioLabel = (val: number | undefined) => {
+        if (val === undefined || val === null) return "-";
+        const v = round1(val);
+        const comp = round1(10 - v);
+
+        let labelLeft = '';
+        let labelRight = '';
+
+        if (isRed) {
+            labelLeft = '紫'; labelRight = 'オレンジ';
+        } else if (isWhite || isSparklingWhite) {
+            labelLeft = 'グリーン'; labelRight = 'ゴールド';
+        } else if (isRose || isSparklingRose) {
+            labelLeft = 'ピンク'; labelRight = 'オレンジ';
+        } else if (isOrange) {
+            labelLeft = '黄金'; labelRight = 'ブロンズ';
+        } else {
+            // Fallback
+            labelLeft = '紫'; labelRight = 'オレンジ';
+        }
+
+        return `${labelLeft} ${comp.toFixed(1)} : ${labelRight} ${v.toFixed(1)}`;
+    };
+
+
     return (
-        <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8">
+        <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8 pb-32">
             {/* Header / Navigation */}
             <div className="flex items-center justify-between">
                 <Link
@@ -181,7 +213,7 @@ export default async function WineDetailPage({ params }: Props) {
                             </div>
                             <div className="space-y-1">
                                 <span className="block text-xs text-gray-500">縁の色調</span>
-                                <span className="font-medium">{renderScore(wine.rim_ratio, rimRatioLabel)}</span>
+                                <span className="font-medium">{getRimRatioLabel(wine.rim_ratio)}</span>
                             </div>
                             <div className="space-y-1">
                                 <span className="block text-xs text-gray-500">清澄度</span>
@@ -213,14 +245,29 @@ export default async function WineDetailPage({ params }: Props) {
                                 <span className="block text-xs text-gray-500">強さ</span>
                                 <span className="font-medium">{wine.nose_intensity || "-"}</span>
                             </div>
-                            <div className="space-y-1">
-                                <span className="block text-xs text-gray-500">旧/新世界</span>
-                                <span className="font-medium">{renderScore(wine.old_new_world, worldLabel)}</span>
-                            </div>
-                            <div className="space-y-1">
-                                <span className="block text-xs text-gray-500">果実の状態</span>
-                                <span className="font-medium">{renderScore(wine.fruits_maturity, fruitStateLabel)}</span>
-                            </div>
+
+                            {/* Old/New World & Fruit Maturity (Red/Rose/Orange only) */}
+                            {(isRed || isRose || isOrange) && (
+                                <>
+                                    <div className="space-y-1">
+                                        <span className="block text-xs text-gray-500">旧/新世界</span>
+                                        <span className="font-medium">{renderScore(wine.old_new_world, worldLabel)}</span>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <span className="block text-xs text-gray-500">果実の状態</span>
+                                        <span className="font-medium">{renderScore(wine.fruits_maturity, fruitStateLabel)}</span>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Aroma Neutrality (White only) */}
+                            {isWhite && (
+                                <div className="space-y-1">
+                                    <span className="block text-xs text-gray-500">ニュートラル/アロマティック</span>
+                                    <span className="font-medium">{wine.aroma_neutrality ? `${round1(wine.aroma_neutrality)}` : "-"}</span>
+                                </div>
+                            )}
+
                             <div className="space-y-1">
                                 <span className="block text-xs text-gray-500">樽香</span>
                                 <span className="font-medium">{renderScore(wine.oak_aroma, oakAromaLabel)}</span>
@@ -257,10 +304,15 @@ export default async function WineDetailPage({ params }: Props) {
                                 <span className="block text-xs text-gray-500">酸味</span>
                                 <span className="font-medium">{renderScore(wine.acidity_score, acidityLabel)}</span>
                             </div>
-                            <div className="space-y-1">
-                                <span className="block text-xs text-gray-500">タンニン</span>
-                                <span className="font-medium">{renderScore(wine.tannin_score, tanninLabel)}</span>
-                            </div>
+
+                            {/* Tannin (Red/Orange only) */}
+                            {(isRed || isOrange) && (
+                                <div className="space-y-1">
+                                    <span className="block text-xs text-gray-500">タンニン</span>
+                                    <span className="font-medium">{renderScore(wine.tannin_score, tanninLabel)}</span>
+                                </div>
+                            )}
+
                             <div className="space-y-1">
                                 <span className="block text-xs text-gray-500">バランス</span>
                                 <span className="font-medium">{renderScore(wine.balance_score, balanceLabel)}</span>
@@ -298,7 +350,9 @@ export default async function WineDetailPage({ params }: Props) {
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                                 {wine.sat_nose_intensity && (<div><span className="text-gray-400 block">Nose</span> {wine.sat_nose_intensity}</div>)}
                                 {wine.sat_acidity && (<div><span className="text-gray-400 block">Acidity</span> {wine.sat_acidity}</div>)}
-                                {wine.sat_tannin && (<div><span className="text-gray-400 block">Tannin</span> {wine.sat_tannin}</div>)}
+
+                                {(isRed || isOrange) && wine.sat_tannin && (<div><span className="text-gray-400 block">Tannin</span> {wine.sat_tannin}</div>)}
+
                                 {wine.sat_finish && (<div><span className="text-gray-400 block">Finish</span> {wine.sat_finish}</div>)}
                                 {wine.sat_quality && (<div><span className="text-gray-400 block">Quality</span> {wine.sat_quality}</div>)}
                             </div>
