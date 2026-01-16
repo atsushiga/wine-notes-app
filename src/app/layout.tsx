@@ -31,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         page.tsx 側の useEffect で動的に書き換える
       */}
       <body className={inter.className} data-winetype="">
-        <div className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8 pb-24">
+        <div className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8 pb-32">
           {children}
         </div>
         <BottomNav />

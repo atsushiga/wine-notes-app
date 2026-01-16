@@ -31,24 +31,24 @@ const apperance = {
 };
 
 // ワインの種類
-const wineTypes = ['赤','白','ロゼ','オレンジ','発泡白','発泡ロゼ'] as const;
+const wineTypes = ['赤', '白', 'ロゼ', 'オレンジ', '発泡白', '発泡ロゼ'] as const;
 
 const countries = [
-  'フランス','イタリア','スペイン','ドイツ','オーストリア','スイス',
-  'アメリカ','カナダ','チリ','アルゼンチン','オーストラリア','ニュージーランド',
-  '日本','南アフリカ','ポルトガル','ギリシャ','ジョージア','その他'
+  'フランス', 'イタリア', 'スペイン', 'ドイツ', 'オーストリア', 'スイス',
+  'アメリカ', 'カナダ', 'チリ', 'アルゼンチン', 'オーストラリア', 'ニュージーランド',
+  '日本', '南アフリカ', 'ポルトガル', 'ギリシャ', 'ジョージア', 'その他'
 ] as const;
 const mainVarieties = [
   // 赤寄り
-  'ピノ・ノワール','カベルネ・ソーヴィニヨン','メルロ','シラー/シラーズ',
-  'サンジョヴェーゼ','ネッビオーロ','グルナッシュ','ジンファンデル', '赤その他',
+  'ピノ・ノワール', 'カベルネ・ソーヴィニヨン', 'メルロ', 'シラー/シラーズ',
+  'サンジョヴェーゼ', 'ネッビオーロ', 'グルナッシュ', 'ジンファンデル', '赤その他',
   // 白寄り
-  'シャルドネ','ソーヴィニヨン・ブラン','リースリング','シュナン・ブラン',
-  'ピノ・グリ','ヴィオニエ','ゲヴュルツトラミネール', 'アルバリーニョ', '白その他'
+  'シャルドネ', 'ソーヴィニヨン・ブラン', 'リースリング', 'シュナン・ブラン',
+  'ピノ・グリ', 'ヴィオニエ', 'ゲヴュルツトラミネール', 'アルバリーニョ', '白その他'
 ] as const;
-const noseIntensity = ['1. 閉じている','2. 控えめ','3. 開いている','4. やや強い','5. 強い'] as const;
-const palateSweetness = ['辛口','やや辛口','中口','やや甘口','甘口'] as const;
-const evaluation = ['シンプル/フレッシュ','良質','複雑さ/余韻あり','秀逸'] as const;
+const noseIntensity = ['1. 閉じている', '2. 控えめ', '3. 開いている', '4. やや強い', '5. 強い'] as const;
+const palateSweetness = ['辛口', 'やや辛口', '中口', 'やや甘口', '甘口'] as const;
+const evaluation = ['シンプル/フレッシュ', '良質', '複雑さ/余韻あり', '秀逸'] as const;
 
 // SAT準拠の選択肢
 const satNoseIntensity = ['light', 'med-', 'med', 'med+', 'pronounced'] as const;
@@ -59,12 +59,12 @@ const satQuality = ['poor', 'acceptable', 'good', 'very good', 'outstanding'] as
 
 // 代表的アロマ（必要に応じて増強してください）
 const aromaGroups = [
-  { name: '果実（赤）', options: ['イチゴ','ラズベリー','ブルーベリー','カシス','ブラックベリー', 'ブラックチェリー', '干しプラム'] },
-  { name: '果実（白）', options: ['レモン', 'グレープフルーツ', '青リンゴ', 'リンゴ', '洋ナシ', 'アプリコット', '白桃','トロピカル', 'パッションフルーツ']},
-  { name: '植物/ハーブ（赤）', options: ['バラ','スミレ', '牡丹', 'ドライハーブ', 'ピーマン', 'ユーカリ', 'ミント', '杉', '針葉樹', 'タバコ', '紅茶', 'キノコ'] },
+  { name: '果実（赤）', options: ['イチゴ', 'ラズベリー', 'ブルーベリー', 'カシス', 'ブラックベリー', 'ブラックチェリー', '干しプラム'] },
+  { name: '果実（白）', options: ['レモン', 'グレープフルーツ', '青リンゴ', 'リンゴ', '洋ナシ', 'アプリコット', '白桃', 'トロピカル', 'パッションフルーツ'] },
+  { name: '植物/ハーブ（赤）', options: ['バラ', 'スミレ', '牡丹', 'ドライハーブ', 'ピーマン', 'ユーカリ', 'ミント', '杉', '針葉樹', 'タバコ', '紅茶', 'キノコ'] },
   { name: '植物/ハーブ（白）', options: ['スイカズラ', 'アカシア', '白バラ', 'キンモクセイ', '菩提樹', 'ミント', 'アニス', 'ヴェルヴェーヌ', 'ハーブ', 'タイム', 'ヘーゼルナッツ'] },
-  { name: '樽/熟成', options: ['ヴァニラ','トースト','スモーク','シナモン', 'ナツメグ', 'コーヒー','チョコレート','レザー', '黒胡椒', '丁子', '甘草', '生肉', 'ブレット'] },
-  { name: '土/鉱物', options: ['土','鉛筆の芯','湿った土','石灰','火打石', 'スーボア', 'トリュフ', '樹脂'] }
+  { name: '樽/熟成', options: ['ヴァニラ', 'トースト', 'スモーク', 'シナモン', 'ナツメグ', 'コーヒー', 'チョコレート', 'レザー', '黒胡椒', '丁子', '甘草', '生肉', 'ブレット'] },
+  { name: '土/鉱物', options: ['土', '鉛筆の芯', '湿った土', '石灰', '火打石', 'スーボア', 'トリュフ', '樹脂'] }
 ] as const;
 
 const schema = z.object({
@@ -94,17 +94,17 @@ const schema = z.object({
   clarity: z.string(),
   brightness: z.string(),
   // hue: z.string().optional(),
-  sparkleIntensity: z.string().optional(), 
+  sparkleIntensity: z.string().optional(),
   appearanceOther: z.string().optional(),
-  
+
   //香り
   noseIntensity: z.string(),
   oldNewWorld: z.number().min(1).max(5).optional(),  // 赤/ロゼ/オレンジで表示
   fruitsMaturity: z.number().min(1).max(5).optional(),  // 赤/ロゼ/オレンジで表示
   aromaNeutrality: z.number().min(1).max(5).optional(),  // 白で表示
   aromas: z.array(z.string()).optional(),
-  oakAroma: z.number().min(1).max(5).optional(), 
-  aromaOther: z.string().optional(), 
+  oakAroma: z.number().min(1).max(5).optional(),
+  aromaOther: z.string().optional(),
 
   //味わい
   sweetness: z.string(),
@@ -134,7 +134,7 @@ type FormValues = z.infer<typeof schema>;
 
 export default function Page() {
   const [sent, setSent] = useState<null | { ok: boolean; id?: string; error?: string }>(null);
-  const { register, handleSubmit, control, watch, setValue, getValues,formState: { errors, isSubmitting } } = useForm<FormValues>({
+  const { register, handleSubmit, control, watch, setValue, getValues, formState: { errors, isSubmitting } } = useForm<FormValues>({
     defaultValues: {
       date: '',
       place: '',
@@ -151,7 +151,7 @@ export default function Page() {
       otherVarieties: '',
       vintage: '2022',
       additionalInfo: '',
-      
+
       intensity: 3.0,
       rimRatio: 5.0,
       clarity: '澄んだ',
@@ -202,7 +202,7 @@ export default function Page() {
   const isSparklingRose = wineType === '発泡ロゼ';
 
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []); 
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!getValues('date')) {
@@ -222,36 +222,36 @@ export default function Page() {
     if (isWhite) {
       // 白ワイン → 果実（赤）を非表示
       return aromaGroups.filter(g => g.name !== '果実（赤）').filter(g => g.name !== ('植物/ハーブ（赤）'));
-    } 
+    }
     // それ以外（ロゼ/オレンジ/発泡白/発泡ロゼ）は全て表示
     return aromaGroups;
   })();
 
-const onSubmit = async (values: FormValues) => {
-  setSent(null);
+  const onSubmit = async (values: FormValues) => {
+    setSent(null);
 
-  const payload = {
-    ...values,
-    price:
-      values.price !== '' && values.price != null
-        ? Number(values.price)
-        : null,
+    const payload = {
+      ...values,
+      price:
+        values.price !== '' && values.price != null
+          ? Number(values.price)
+          : null,
+    };
+
+    try {
+      const res = await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json();
+      setSent(json);
+    } catch (err) {
+      console.error('Submit error:', err);
+      setSent({ ok: false, error: String(err) });
+    }
   };
-
-  try {
-    const res = await fetch('/api/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    const json = await res.json();
-    setSent(json);
-  } catch (err) {
-    console.error('Submit error:', err);
-    setSent({ ok: false, error: String(err) });
-  }
-};
 
 
   // ファイルのアップロード
@@ -274,11 +274,11 @@ const onSubmit = async (values: FormValues) => {
     if (!res.ok) throw new Error('Upload failed');
 
     // 3) 読み出しURLをフォームに保存（Sheets/Notionに保存する用）
-    setValue('imageUrl', getUrl, { shouldDirty: true });  
+    setValue('imageUrl', getUrl, { shouldDirty: true });
   };
 
   return (
-    <main data-winetype={wineType} className="min-h-dvh bg-transparent text-[var(--fg)] transition-colors duration-500">
+    <main data-winetype={wineType} className="min-h-dvh bg-transparent text-[var(--fg)] transition-colors duration-500 pb-40">
       <h1 className="text-2xl font-semibold mb-4">ワイン・テイスティング記録</h1>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
@@ -317,10 +317,10 @@ const onSubmit = async (values: FormValues) => {
                 {...register('place')} />
             </div>
           </div>
-          <input 
+          <input
             type="file"
             accept="image/*"
-            className = "sm:col-span-3 rounded-full border"
+            className="sm:col-span-3 rounded-full border"
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) onFileSelect(f).catch(err => alert(err.message));
@@ -341,43 +341,43 @@ const onSubmit = async (values: FormValues) => {
               <input className="w-full input" {...register('producer')} />
             </div>
             <div>
-                <label className="block text-sm mb-1">ヴィンテージ</label>
-                <input className="w-full input" placeholder="例: 2021" {...register('vintage')} />
+              <label className="block text-sm mb-1">ヴィンテージ</label>
+              <input className="w-full input" placeholder="例: 2021" {...register('vintage')} />
             </div>
-           <div className="grid grid-cols-3 gap-2">
-            <Controller
-              control={control}
-              name="price"
-              render={({ field }) => {
-                const value = field.value ?? '';
-                const formatted =
-                  value !== '' && !isNaN(Number(value))
-                    ? Number(value).toLocaleString()
-                    : '';
+            <div className="grid grid-cols-3 gap-2">
+              <Controller
+                control={control}
+                name="price"
+                render={({ field }) => {
+                  const value = field.value ?? '';
+                  const formatted =
+                    value !== '' && !isNaN(Number(value))
+                      ? Number(value).toLocaleString()
+                      : '';
 
-                return (
-                  <div>
-                    <label className="block text-sm mb-1">ボトル価格</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        inputMode='numeric'
-                        className="flex-1 input text-right"
-                        value={mounted ? formatted : ''}
-                        onChange={(e) => {
-                          const raw = e.target.value.replace(/[^\d]/g, '');
-                          field.onChange(raw);
-                        }}
-                        autoComplete="off" autoCorrect="off" autoCapitalize="none"
-                        placeholder="4,500"
-                      />
-                      <span className="text-gray-600">円</span>
+                  return (
+                    <div>
+                      <label className="block text-sm mb-1">ボトル価格</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          inputMode='numeric'
+                          className="flex-1 input text-right"
+                          value={mounted ? formatted : ''}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^\d]/g, '');
+                            field.onChange(raw);
+                          }}
+                          autoComplete="off" autoCorrect="off" autoCapitalize="none"
+                          placeholder="4,500"
+                        />
+                        <span className="text-gray-600">円</span>
+                      </div>
                     </div>
-                  </div>
-                );
-              }}
-              
-            />
+                  );
+                }}
+
+              />
             </div>
             {/* 色（wineTypeの値を表示） */}
             <div>
@@ -422,24 +422,24 @@ const onSubmit = async (values: FormValues) => {
           </div>
 
           {/* 補足情報（自由入力） */}
-            <div className="sm:col-span-3">
-              <label className="block text-sm mb-1">補足情報（自由入力）</label>
-              <textarea
-                className="w-full input h-28"
-                placeholder="例: 畑情報、区画、樹齢、醸造メモ、輸入元メモ、保存環境 など自由に"
-                {...register('additionalInfo')}
-              />
-            </div>
+          <div className="sm:col-span-3">
+            <label className="block text-sm mb-1">補足情報（自由入力）</label>
+            <textarea
+              className="w-full input h-28"
+              placeholder="例: 畑情報、区画、樹齢、醸造メモ、輸入元メモ、保存環境 など自由に"
+              {...register('additionalInfo')}
+            />
+          </div>
         </section>
-        
+
         {/* 外観 */}
         <section className="rounded-2xl p-4 shadow-sm bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)]">
           <h2 className="font-medium">外観</h2>
           <div className="grid sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-sm mb-1">清澄度</label>
-              <select 
-                className="w-full rounded-md px-3 py-2 bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]" 
+              <select
+                className="w-full rounded-md px-3 py-2 bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 {...register('clarity')}
               >
                 {apperance.clarity.map(v => (
@@ -469,7 +469,7 @@ const onSubmit = async (values: FormValues) => {
                 })()}
               </p>
             )}
-            {(isWhite || isSparklingWhite )&& (
+            {(isWhite || isSparklingWhite) && (
               <p className="text-sm mb-1">
                 {(() => {
                   const v = round1(Number(watch('intensity')));
@@ -478,7 +478,7 @@ const onSubmit = async (values: FormValues) => {
                 })()}
               </p>
             )}
-            {(isRose || isSparklingRose )&& (
+            {(isRose || isSparklingRose) && (
               <p className="text-sm mb-1">
                 {(() => {
                   const v = round1(Number(watch('intensity')));
@@ -502,15 +502,15 @@ const onSubmit = async (values: FormValues) => {
               render={({ field }) => (
                 <>
                   <div className="flex items-center gap-3">
-                    <input 
-                      type="range" 
-                      min={1} 
-                      max={5} 
-                      step={0.1} 
-                      list = "intensityTicks"
-                      value = {field.value ?? 3}
-                      onChange={(e) => field.onChange(Number(e.target.value))} 
-                      className = "w-full accent-gray-700"
+                    <input
+                      type="range"
+                      min={1}
+                      max={5}
+                      step={0.1}
+                      list="intensityTicks"
+                      value={field.value ?? 3}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                      className="w-full accent-gray-700"
                     />
                   </div>
                   <datalist id="intensityTicks">
@@ -530,26 +530,26 @@ const onSubmit = async (values: FormValues) => {
               control={control}
               name="rimRatio"
               render={({ field }) => {
-                const v = round1(10-Number(field.value));
+                const v = round1(10 - Number(field.value));
                 const comp = round1(field.value);
 
                 let labelLeft = '';
                 let labelRight = '';
                 let desc = '';
 
-                if (isRed){
+                if (isRed) {
                   labelLeft = '紫';
                   labelRight = 'オレンジ';
                   desc = '10:0（紫がかった）〜 0:10（オレンジがかった）';
-                } else if(isWhite || isSparklingWhite){
+                } else if (isWhite || isSparklingWhite) {
                   labelLeft = 'グリーン';
                   labelRight = 'ゴールド';
                   desc = '10:0（グリーンがかった）〜 0:10（黄金色がかった）';
-                } else if(isRose || isSparklingRose){
+                } else if (isRose || isSparklingRose) {
                   labelLeft = 'ピンク';
                   labelRight = 'オレンジ';
                   desc = '10:0（ピンクがかった）〜 0:10（オレンジがかった）';
-                } else if(isOrange){
+                } else if (isOrange) {
                   labelLeft = '黄金';
                   labelRight = 'ブロンズ';
                   desc = '10:0（黄金色がかった）〜 0:10（銅色がかった）';
@@ -559,18 +559,18 @@ const onSubmit = async (values: FormValues) => {
                   <>
                     <p className='text-sm'>{desc}</p>
                     <p className="text-sm">
-                      {labelLeft} {v.toFixed(1)} : {labelRight} {comp.toFixed(1)} 
+                      {labelLeft} {v.toFixed(1)} : {labelRight} {comp.toFixed(1)}
                     </p>
                     <div className="flex items-center gap-3">
-                      <input 
-                        type="range" 
-                        min={0} 
-                        max={10} 
-                        step={0.1} 
-                        list = "rimRatioTicks"
+                      <input
+                        type="range"
+                        min={0}
+                        max={10}
+                        step={0.1}
+                        list="rimRatioTicks"
                         value={field.value ?? 5}
-                        onChange={(e) => field.onChange(Number(e.target.value))}          
-                        className="w-full accent-gray-700" 
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        className="w-full accent-gray-700"
                       />
                     </div>
                     <datalist id="rimRatioTicks">
@@ -594,11 +594,11 @@ const onSubmit = async (values: FormValues) => {
           {(isSparklingWhite || isSparklingRose) && (
             <div>
               <label className="block text-sm mb-1">泡の強さ</label>
-              <select 
+              <select
                 className="w-full rounded-md px-3 py-2 bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 {...register('sparkleIntensity')}
               >
-                {['弱い','やや弱い','中程度','やや強い','強い'].map(v => <option key={v} value={v}>{v}</option>)}
+                {['弱い', 'やや弱い', '中程度', 'やや強い', '強い'].map(v => <option key={v} value={v}>{v}</option>)}
               </select>
             </div>
           )}
@@ -606,10 +606,10 @@ const onSubmit = async (values: FormValues) => {
           {/* その他の外観の特徴（自由記述） */}
           <div>
             <label className="block text-sm mb-1">その他の外観の特徴</label>
-            <textarea 
-              className="w-full h-28 rounded-md px-3 py-2 bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)] placeholder-[var(--fg-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]" 
+            <textarea
+              className="w-full h-28 rounded-md px-3 py-2 bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)] placeholder-[var(--fg-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
               placeholder="例: 泡のきめ細かさ、涙、濁り、ガス感、粘性 など"
-              {...register('appearanceOther')} 
+              {...register('appearanceOther')}
             />
           </div>
         </section>
@@ -730,7 +730,7 @@ const onSubmit = async (values: FormValues) => {
             </div>
           )}
 
-          
+
 
           {/* 果実の状態（1–5 / 0.1刻み） → 赤ワインの時のみ表示 */}
           {(isRed || isRose || isOrange) && (
@@ -755,7 +755,7 @@ const onSubmit = async (values: FormValues) => {
                           min={1}
                           max={5}
                           step={0.1}
-                          list = "fruitsMaturityTicks"
+                          list="fruitsMaturityTicks"
                           value={field.value}
                           onChange={(e) => field.onChange(Number(e.target.value))}
                           className="w-full accent-gray-700"
@@ -867,7 +867,7 @@ const onSubmit = async (values: FormValues) => {
               placeholder="例: バター、ナッツ、蜂蜜、ペトロール、ミネラルなど自由に記載"
               {...register('aromaOther')}
             />
-           </div>
+          </div>
 
         </section>
 
@@ -1119,7 +1119,7 @@ const onSubmit = async (values: FormValues) => {
               </>
             )}
           />
-          
+
           {/* SAT準拠: 品質 */}
           <div>
             <label className="block text-sm mb-1">品質 (SAT)</label>
@@ -1144,13 +1144,13 @@ const onSubmit = async (values: FormValues) => {
           </div>
         </section>
       </form>
- 
+
       {sent && (
         <p className={`text-sm ${sent.ok ? 'text-green-600' : 'text-red-600'}`}>
           {sent.ok ? '保存しました（ID: ' + sent.id + '）' : `保存に失敗しました: ${sent.error}`}
         </p>
       )}
- 
+
       {/* Tailwindヘルパークラス（簡易） */}
       <style jsx global>{`
         .input { @apply rounded-xl border border-neutral-300 bg-white px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-800; }
