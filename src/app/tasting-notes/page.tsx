@@ -104,8 +104,25 @@ export default async function TastingNotesPage() {
                                     {note.wine_name || "名称未設定"}
                                 </h3>
 
+                                <div className="flex items-center gap-2 text-xs text-gray-600 mb-1">
+                                    {note.country && (
+                                        <span title={note.country}>{getCountryFlag(note.country)}</span>
+                                    )}
+                                    {note.wine_type && (
+                                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${getWineTypeStyle(note.wine_type)}`}>
+                                            {note.wine_type}
+                                        </span>
+                                    )}
+                                </div>
+
                                 {note.vintage && (
-                                    <p className="text-xs text-gray-500 mb-2">{note.vintage}</p>
+                                    <p className="text-xs text-gray-500 mb-0.5">{note.vintage}</p>
+                                )}
+
+                                {note.price && (
+                                    <p className="text-xs text-gray-500 mb-1">
+                                        ¥{note.price.toLocaleString()}
+                                    </p>
                                 )}
 
                                 <div className="mt-auto pt-2 border-t border-gray-50 flex justify-between items-center text-[10px] text-gray-400">
@@ -120,4 +137,65 @@ export default async function TastingNotesPage() {
             </div>
         </div>
     );
+}
+
+function getCountryFlag(countryName: string): string {
+    const countryMap: { [key: string]: string } = {
+        "フランス": "🇫🇷",
+        "イタリア": "🇮🇹",
+        "スペイン": "🇪🇸",
+        "ドイツ": "🇩🇪",
+        "アメリカ": "🇺🇸",
+        "チリ": "🇨🇱",
+        "アルゼンチン": "🇦🇷",
+        "オーストラリア": "🇦🇺",
+        "ニュージーランド": "🇳🇿",
+        "南アフリカ": "🇿🇦",
+        "ポルトガル": "🇵🇹",
+        "日本": "🇯🇵",
+        "France": "🇫🇷",
+        "Italy": "🇮🇹",
+        "Spain": "🇪🇸",
+        "Germany": "🇩🇪",
+        "USA": "🇺🇸",
+        "Chile": "🇨🇱",
+        "Argentina": "🇦🇷",
+        "Australia": "🇦🇺",
+        "New Zealand": "🇳🇿",
+        "South Africa": "🇿🇦",
+        "Portugal": "🇵🇹",
+        "Japan": "🇯🇵",
+    };
+    return countryMap[countryName] || "🏳️";
+}
+
+function getWineTypeStyle(type: string): string {
+    const t = type.toLowerCase();
+    if (t.includes('赤') || t.includes('red')) {
+        return "bg-red-100 text-red-700";
+    }
+    if (t.includes('白') || t.includes('white') || t.includes('sparkli') || t.includes('発泡')) {
+        // Includes Sparkling ("発泡") here as per request if not specified otherwise, 
+        // but let's be careful about logic. 
+        // Request: "白と発泡白およびロゼと発泡ロゼは同じで良い"
+        // If it's "発泡赤" (Sparkling Red), it might get caught here if I'm not careful.
+        // But usually Sparkling Red is rare or simply "Sparkling".
+
+        // Let's check for Rosé first to ensure it's not caught by generic rules if overlap exists.
+        if (t.includes('ロゼ') || t.includes('rose') || t.includes('rosé')) {
+            return "bg-pink-100 text-pink-700";
+        }
+
+        // Then White/Sparkling
+        return "bg-yellow-50 text-yellow-700 border border-yellow-100";
+    }
+    if (t.includes('ロゼ') || t.includes('rose') || t.includes('rosé')) {
+        return "bg-pink-100 text-pink-700";
+    }
+    if (t.includes('オレンジ') || t.includes('orange')) {
+        return "bg-orange-100 text-orange-700";
+    }
+
+    // Default
+    return "bg-gray-100 text-gray-600";
 }
