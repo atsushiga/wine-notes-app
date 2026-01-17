@@ -15,6 +15,16 @@ import {
 } from '@/lib/wineHelpers';
 
 // === 定義：画像シートを意識した選択肢 ===
+function removeUndefined(obj: Record<string, any>) {
+    const newObj: Record<string, any> = {};
+    for (const key in obj) {
+        if (obj[key] !== undefined) {
+            newObj[key] = obj[key];
+        }
+    }
+    return newObj;
+}
+
 const apperance = {
     clarity: [
         { label: '澄んだ', score: 1 },
@@ -188,9 +198,9 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             sat_tannin: undefined,
             sat_finish: undefined,
             sat_quality: undefined,
-            ...defaultValues
+            ...(defaultValues ? removeUndefined(defaultValues) : {})
         },
-        resolver: zodResolver(wineFormSchema)
+        resolver: zodResolver(wineFormSchema) as any
     });
 
     const wineType = watch('wineType');
@@ -234,6 +244,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                 body: JSON.stringify({ filename: file.name, contentType: file.type }),
             });
             const { putUrl, getUrl, error } = await r.json();
+            console.log(putUrl, getUrl, error); // debug
             if (error) throw new Error(error);
 
             const res = await fetch(putUrl, {
