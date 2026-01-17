@@ -24,7 +24,7 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
         model: "gemini-2.0-flash-exp",
         tools: [
             {
-                googleSearch: {},
+                googleSearchRetrieval: {},
             },
         ],
     });

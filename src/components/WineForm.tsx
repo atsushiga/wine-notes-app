@@ -130,7 +130,7 @@ export const wineFormSchema = z.object({
     evaluation: z.string().optional().nullable(),
     rating: z.number().min(0).max(5),
     notes: z.string().optional().nullable(),
-    notes: z.string().optional().nullable(),
+
     vivinoUrl: z.string().optional().nullable(),
 
     // AI Fields
@@ -209,7 +209,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             sat_tannin: undefined,
             sat_finish: undefined,
             sat_quality: undefined,
-            sat_quality: undefined,
+
 
             terroir_info: '',
             producer_philosophy: '',
