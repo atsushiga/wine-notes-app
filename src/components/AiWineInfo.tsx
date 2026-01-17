@@ -37,7 +37,8 @@ export default function AiWineInfo({ wine }: AiWineInfoProps) {
             router.refresh();
         } catch (error) {
             console.error('AI Search Failed:', error);
-            alert('情報の取得に失敗しました。もう一度お試しください。');
+            const errorMessage = error instanceof Error ? error.message : '情報の取得に失敗しました。もう一度お試しください。';
+            alert(`エラー: ${errorMessage}`);
         } finally {
             setIsLoading(false);
         }
