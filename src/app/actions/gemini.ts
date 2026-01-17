@@ -25,7 +25,7 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
         tools: [
             {
                 googleSearch: {},
-            },
+            } as any,
         ],
     });
 
