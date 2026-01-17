@@ -89,3 +89,29 @@ export async function deleteWine(id: number) {
     revalidatePath('/tasting-notes');
     return { success: true };
 }
+
+export async function bulkDeleteWines(ids: number[]) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error('Not authenticated');
+    }
+
+    if (ids.length === 0) {
+        return { success: true };
+    }
+
+    const { error } = await supabase
+        .from('tasting_notes')
+        .delete()
+        .in('id', ids);
+
+    if (error) {
+        console.error('Bulk delete error:', error);
+        throw new Error(`Bulk delete failed: ${error.message}`);
+    }
+
+    revalidatePath('/tasting-notes');
+    return { success: true };
+}
