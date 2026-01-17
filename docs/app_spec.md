@@ -52,6 +52,11 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 | `evaluation` | string? | 総合評価（テキスト） |
 | `notes` | string? | メモ |
 | `sat_...` | string? | SAT準拠の各評価項目 |
+| `terroir_info` | string? | テロワール情報 (AI取得) |
+| `producer_philosophy` | string? | 生産者哲学 (AI取得) |
+| `technical_details` | string? | 技術詳細 (AI取得) |
+| `vintage_analysis` | string? | ヴィンテージ分析 (AI取得) |
+| `search_result_tasting_note` | string? | Web上のテイスティングノート (AI取得) |
 
 ## 5. 機能一覧
 ### 認証
@@ -64,8 +69,10 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 
 ### ワイン一覧・詳細表示
 - グリッド形式での一覧表示
-- 動的ルーティング (`/wines/[id]`) による詳細ページ
-- 詳細なテイスティングデータの表示（チャートやスコアの可視化）
+- **AIによる深掘り検索 (Gemini Grounding)**:
+    - Gemini 2.0 Flash + Google Search Groundingを利用
+    - テロワール、生産者哲学、技術詳細、ヴィンテージ、プロの評価を**日本語で**取得・保存・表示
+    - 詳細ページだけでなく、記録作成フォーム（WineForm）からも直接実行可能
 
 ### 画像管理
 - 外部ドメイン（wine-note.jp）許可

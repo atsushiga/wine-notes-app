@@ -4,6 +4,9 @@ import React, { useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { searchWineDetails } from '@/app/actions/gemini';
+import { Sparkles, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 import {
     round1,
     fruitStateLabel,
@@ -127,7 +130,15 @@ export const wineFormSchema = z.object({
     evaluation: z.string().optional().nullable(),
     rating: z.number().min(0).max(5),
     notes: z.string().optional().nullable(),
+    notes: z.string().optional().nullable(),
     vivinoUrl: z.string().optional().nullable(),
+
+    // AI Fields
+    terroir_info: z.string().optional().nullable(),
+    producer_philosophy: z.string().optional().nullable(),
+    technical_details: z.string().optional().nullable(),
+    vintage_analysis: z.string().optional().nullable(),
+    search_result_tasting_note: z.string().optional().nullable(),
 
     // SAT準拠項目
     sat_nose_intensity: z.union([z.enum(satNoseIntensity), z.literal('')]).optional().nullable(),
@@ -198,6 +209,13 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             sat_tannin: undefined,
             sat_finish: undefined,
             sat_quality: undefined,
+            sat_quality: undefined,
+
+            terroir_info: '',
+            producer_philosophy: '',
+            technical_details: '',
+            vintage_analysis: '',
+            search_result_tasting_note: '',
             ...(defaultValues ? removeUndefined(defaultValues) : {})
         },
         resolver: zodResolver(wineFormSchema) as any
@@ -260,6 +278,41 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
         }
     };
 
+    const [isAiLoading, setIsAiLoading] = useState(false);
+    const [isAiExpanded, setIsAiExpanded] = useState(!!defaultValues?.terroir_info);
+
+    const handleAiSearch = async () => {
+        const name = getValues('wineName');
+        const producer = getValues('producer');
+        const vintage = getValues('vintage');
+
+        if (!name) {
+            alert('ワイン名を入力してください');
+            return;
+        }
+
+        setIsAiLoading(true);
+        try {
+            const result = await searchWineDetails(0, { // ID 0 as dummy for new/unsaved
+                name,
+                winery: producer || undefined,
+                vintage: vintage || undefined,
+            });
+
+            setIsAiExpanded(true);
+            setValue('terroir_info', result.terroir_info, { shouldDirty: true });
+            setValue('producer_philosophy', result.producer_philosophy, { shouldDirty: true });
+            setValue('technical_details', result.technical_details, { shouldDirty: true });
+            setValue('vintage_analysis', result.vintage_analysis, { shouldDirty: true });
+            setValue('search_result_tasting_note', result.search_result_tasting_note, { shouldDirty: true });
+        } catch (e) {
+            console.error(e);
+            alert('AI検索に失敗しました');
+        } finally {
+            setIsAiLoading(false);
+        }
+    };
+
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* タブ：ワインタイプ */}
@@ -312,6 +365,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                     </div>
                 )}
             </section>
+
 
             <section className="gap-4 rounded-2xl bg-white p-4 shadow-sm space-y-3">
                 <h2 className="font-medium">ワイン情報</h2>
@@ -413,6 +467,53 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                         {...register('additionalInfo')}
                     />
                 </div>
+            </section>
+
+            {/* AI Search Section */}
+            <section className="rounded-2xl bg-gradient-to-r from-purple-50 to-indigo-50 p-4 shadow-sm border border-purple-100">
+                <div className="flex items-center justify-between mb-2">
+                    <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-purple-600" />
+                        AI Deep Dive (情報検索)
+                    </h2>
+                    <button
+                        type="button"
+                        onClick={handleAiSearch}
+                        disabled={isAiLoading}
+                        className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
+                    >
+                        {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        {isAiLoading ? '検索中...' : '情報を取得'}
+                    </button>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                    ワイン名・生産者・ヴィンテージを元に、Web上の専門情報を検索・自動入力します。
+                </p>
+
+                {isAiExpanded && (
+                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-700">テロワール</label>
+                            <textarea className="w-full input h-24 text-sm" {...register('terroir_info')} placeholder="AI検索結果がここに表示されます" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-700">生産者・哲学</label>
+                            <textarea className="w-full input h-24 text-sm" {...register('producer_philosophy')} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-700">技術詳細</label>
+                            <textarea className="w-full input h-24 text-sm" {...register('technical_details')} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-700">ヴィンテージ分析</label>
+                            <textarea className="w-full input h-24 text-sm" {...register('vintage_analysis')} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-700">参考テイスティングノート</label>
+                            <textarea className="w-full input h-24 text-sm" {...register('search_result_tasting_note')} />
+                        </div>
+                    </div>
+                )}
             </section>
 
             {/* 外観 */}

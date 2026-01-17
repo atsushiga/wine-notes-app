@@ -59,3 +59,4 @@ pnpm-install.sh
 update_schema.sql
 supabase/migrations/add_user_id_to_tasting_notes.sql
 supabase/migrations/20260117000000_change_vintage_to_text.sql
+supabase/*

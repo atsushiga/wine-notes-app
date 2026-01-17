@@ -57,6 +57,13 @@ export interface TastingNote {
     vivino_url?: string;
     additional_info?: string;
 
+    // AI / Grounding Info
+    terroir_info?: string;
+    producer_philosophy?: string;
+    technical_details?: string;
+    vintage_analysis?: string;
+    search_result_tasting_note?: string;
+
     // SAT Fields
     sat_nose_intensity?: string;
     sat_acidity?: string;

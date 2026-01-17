@@ -14,6 +14,7 @@ import {
     worldLabel,
     intensityLabel,
 } from "@/lib/wineHelpers";
+import AiWineInfo from "./AiWineInfo";
 
 interface Props {
     wine: TastingNote;
@@ -363,6 +364,9 @@ export default function WineDetailView({ wine, onEdit, onDelete, isDeleting }: P
 
                 </div>
             </div>
+
+            {/* AI Analysis Section */}
+            <AiWineInfo wine={wine} />
         </div>
     );
 }
