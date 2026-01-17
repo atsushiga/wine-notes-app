@@ -15,6 +15,10 @@ export default function WineList({ notes }: WineListProps) {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [isDeleting, setIsDeleting] = useState(false);
 
+    // Sort State
+    const [sortKey, setSortKey] = useState<'created_at' | 'price' | 'rating' | 'wine_name'>('created_at');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
     const toggleSelectionMode = () => {
         setIsSelectionMode(!isSelectionMode);
         setSelectedIds([]);
@@ -46,13 +50,62 @@ export default function WineList({ notes }: WineListProps) {
         }
     };
 
+    // Sort Logic
+    // Create a copy before sorting to avoid mutating props directly if they were not readonly
+    const sortedNotes = [...notes].sort((a, b) => {
+        let valA = a[sortKey];
+        let valB = b[sortKey];
+
+        // Handle null/undefined values
+        if (valA === null || valA === undefined) valA = '';
+        if (valB === null || valB === undefined) valB = '';
+
+        if (sortKey === 'price' || sortKey === 'rating') {
+            // Numeric sort
+            const numA = Number(valA) || 0;
+            const numB = Number(valB) || 0;
+            if (numA < numB) return sortOrder === 'asc' ? -1 : 1;
+            if (numA > numB) return sortOrder === 'asc' ? 1 : -1;
+            return 0;
+        }
+
+        // String/Date sort (Date strings compare correctly lexicographically usually, but explicit Date object comparison is safer if formats vary, though ISO strings are fine)
+        if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = e.target.value;
+        const [key, order] = value.split('-');
+        setSortKey(key as any);
+        setSortOrder(order as any);
+    };
+
     return (
         <div className="space-y-6 pb-24">
-            <div className="flex justify-between items-center px-2 pt-2">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center px-2 pt-2 gap-4">
                 <h1 className="text-2xl font-bold text-gray-900">
                     ワイン記録一覧
                 </h1>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
+
+                    {/* Sort Dropdown */}
+                    <select
+                        className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={handleSortChange}
+                        defaultValue="created_at-desc"
+                    >
+                        <option value="created_at-desc">日付 (新しい順)</option>
+                        <option value="created_at-asc">日付 (古い順)</option>
+                        <option value="rating-desc">評価 (高い順)</option>
+                        <option value="rating-asc">評価 (低い順)</option>
+                        <option value="price-desc">価格 (高い順)</option>
+                        <option value="price-asc">価格 (低い順)</option>
+                        <option value="wine_name-asc">名前 (昇順)</option>
+                        <option value="wine_name-desc">名前 (降順)</option>
+                    </select>
+
                     {isSelectionMode && selectedIds.length > 0 && (
                         <button
                             onClick={handleBulkDelete}
@@ -65,8 +118,8 @@ export default function WineList({ notes }: WineListProps) {
                     <button
                         onClick={toggleSelectionMode}
                         className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${isSelectionMode
-                                ? 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                            ? 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                             }`}
                     >
                         {isSelectionMode ? 'キャンセル' : '選択'}
@@ -75,7 +128,7 @@ export default function WineList({ notes }: WineListProps) {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                {notes.map((note) => (
+                {sortedNotes.map((note) => (
                     <div key={note.id} className="relative group block h-full">
                         {/* Selection Overlay / Checkbox */}
                         {isSelectionMode && (
@@ -84,8 +137,8 @@ export default function WineList({ notes }: WineListProps) {
                                 className="absolute inset-0 z-10 cursor-pointer"
                             >
                                 <div className={`absolute top-2 left-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${selectedIds.includes(note.id)
-                                        ? 'bg-blue-600 border-blue-600'
-                                        : 'bg-white/80 border-gray-300'
+                                    ? 'bg-blue-600 border-blue-600'
+                                    : 'bg-white/80 border-gray-300'
                                     }`}>
                                     {selectedIds.includes(note.id) && (
                                         <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
