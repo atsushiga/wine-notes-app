@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, List, BarChart2 } from "lucide-react";
+import { Home, List, BarChart2, Settings } from "lucide-react";
 
 export default function BottomNav() {
     const pathname = usePathname();
@@ -39,6 +39,16 @@ export default function BottomNav() {
                 >
                     <BarChart2 size={24} />
                     <span className="text-xs font-medium">統計</span>
+                </Link>
+                <Link
+                    href="/settings"
+                    className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive("/settings")
+                        ? "text-rose-600"
+                        : "text-gray-500 hover:text-gray-700"
+                        }`}
+                >
+                    <Settings size={24} />
+                    <span className="text-xs font-medium">設定</span>
                 </Link>
             </div>
         </div>
