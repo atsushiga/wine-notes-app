@@ -1198,7 +1198,6 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                     </div>
                 )}
                 <div className="flex items-center justify-between">
-                    <p className="text-sm">推定スコア: </p>
                     <button type="submit" disabled={isSubmitting} className="btn-primary !pointer-events-auto">{isSubmitting ? '送信中…' : submitLabel}</button>
                 </div>
             </section>
