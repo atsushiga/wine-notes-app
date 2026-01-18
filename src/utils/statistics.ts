@@ -55,7 +55,8 @@ export const calculatePriceDistribution = (notes: TastingNote[], binSize: number
 
     return bins.map(b => ({
         range: b.label,
-        count: b.count
+        count: b.count,
+        min: b.min
     }));
 };
 
