@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, List } from "lucide-react";
+import { Home, List, BarChart2 } from "lucide-react";
 
 export default function BottomNav() {
     const pathname = usePathname();
@@ -23,12 +23,22 @@ export default function BottomNav() {
                 <Link
                     href="/tasting-notes"
                     className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive("/tasting-notes")
-                            ? "text-rose-600"
-                            : "text-gray-500 hover:text-gray-700"
+                        ? "text-rose-600"
+                        : "text-gray-500 hover:text-gray-700"
                         }`}
                 >
                     <List size={24} />
                     <span className="text-xs font-medium">一覧</span>
+                </Link>
+                <Link
+                    href="/statistics"
+                    className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive("/statistics")
+                        ? "text-rose-600"
+                        : "text-gray-500 hover:text-gray-700"
+                        }`}
+                >
+                    <BarChart2 size={24} />
+                    <span className="text-xs font-medium">統計</span>
                 </Link>
             </div>
         </div>
