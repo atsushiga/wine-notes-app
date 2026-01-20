@@ -171,9 +171,9 @@ function WineCardContent({ note }: { note: TastingNote }) {
     return (
         <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 flex flex-col h-full transition-transform duration-200 hover:-translate-y-1 hover:shadow-md">
             <div className="relative aspect-[3/3.2] w-full bg-gray-100">
-                {note.image_url ? (
+                {(note.images?.[0]?.thumbnail_url || note.images?.[0]?.url || note.image_url) ? (
                     <Image
-                        src={note.image_url}
+                        src={note.images?.[0]?.thumbnail_url || note.images?.[0]?.url || note.image_url || ''}
                         alt={note.wine_name || "Wine Image"}
                         fill
                         className="object-cover"

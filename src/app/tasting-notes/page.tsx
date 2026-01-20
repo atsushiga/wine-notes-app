@@ -11,7 +11,7 @@ export default async function TastingNotesPage() {
 
     const { data, error } = await supabase
         .from("tasting_notes")
-        .select("*")
+        .select("*, images:wine_images(url, thumbnail_url, display_order)")
         .order("created_at", { ascending: false });
 
     if (error) {

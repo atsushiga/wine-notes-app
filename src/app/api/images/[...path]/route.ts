@@ -20,7 +20,10 @@ export async function GET(
   const resolvedParams = await context.params;
   const key = (resolvedParams.path ?? []).join('/'); // uploads/.../filename.jpg
 
+  console.log(`API Image Request: ${key}`);
+
   if (!key) {
+    console.error("Missing file path");
     return NextResponse.json({ error: 'Missing file path' }, { status: 400 });
   }
 

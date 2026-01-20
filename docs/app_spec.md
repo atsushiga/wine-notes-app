@@ -57,6 +57,17 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 | `technical_details` | string? | 技術詳細 (AI取得) |
 | `vintage_analysis` | string? | ヴィンテージ分析 (AI取得) |
 | `search_result_tasting_note` | string? | Web上のテイスティングノート (AI取得) |
+| `images` | WineImage[] | 関連画像 (1:N) |
+
+### WineImage (ワイン画像)
+| フィールド名 | 型 | 説明 |
+| --- | --- | --- |
+| `id` | uuid | PK |
+| `tasting_note_id` | number | FK (TastingNote) |
+| `url` | string | オリジナル画像のURL (APIパス) |
+| `thumbnail_url` | string? | サムネイル画像のURL (APIパス) |
+| `storage_path` | string? | GCS上のパス |
+| `display_order` | number | 表示順 |
 
 ## 5. 機能一覧
 ### 認証
@@ -98,5 +109,11 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
   - 2カラムレイアウト（左: タイプ/トレンド, 右: 価格）+ 下部（コスパ, 地図）
   - 全体ライトテーマ強制
 ### 画像管理
-- 外部ドメイン（wine-note.jp）許可
+- **ストレージ**: Google Cloud Storage (GCS)
+- **構成**:
+    - `uploads/YYYY/MM/filename`: オリジナル画像
+    - `uploads/YYYY/MM/thumb_v2_filename`: サムネイル画像 (400x400, rotate適用済み)
+- **アクセス**: `/api/images/[...path]` エンドポイントを経由して認証付きで配信（ただし一覧での表示用にはMiddlewareで除外）
+- **複数画像**: `wine_images` テーブルによる 1:N 管理
+- **サムネイル**: アップロード時にクライアント(Canvas)でプレビュー用生成、サーバーサイド(Sharp)で保存用生成・回転補正
 
