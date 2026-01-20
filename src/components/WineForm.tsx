@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { searchWineDetails } from '@/app/actions/gemini';
+import { searchWineDetails, analyzeWineImage } from '@/app/actions/gemini';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -433,6 +433,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
     };
 
     const [isAiLoading, setIsAiLoading] = useState(false);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [isAiExpanded, setIsAiExpanded] = useState(!!defaultValues?.terroir_info);
 
     const handleAiSearch = async () => {
@@ -516,6 +517,40 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                     <div className="sm:col-span-3 mt-2">
                         <p className="text-xs text-gray-500 mb-1">現在の画像:</p>
                         <img src={watch('imageUrl')!} alt="preview" className="h-32 object-contain rounded-md border" />
+
+                        <div className="mt-2">
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    const url = getValues('imageUrl');
+                                    if (!url) return;
+
+                                    try {
+                                        setIsAnalyzing(true);
+                                        const result = await analyzeWineImage(url);
+                                        if (result) {
+                                            if (result.wineName) setValue('wineName', result.wineName, { shouldDirty: true });
+                                            if (result.producer) setValue('producer', result.producer, { shouldDirty: true });
+                                            if (result.vintage) setValue('vintage', result.vintage, { shouldDirty: true });
+                                            if (result.country) setValue('country', result.country, { shouldDirty: true });
+                                            if (result.locality) setValue('locality', result.locality, { shouldDirty: true });
+                                            if (result.price) setValue('price', String(result.price), { shouldDirty: true });
+                                        }
+                                    } catch (e) {
+                                        console.error(e);
+                                        alert('画像解析に失敗しました');
+                                    } finally {
+                                        setIsAnalyzing(false);
+                                    }
+                                }}
+                                disabled={isAnalyzing}
+                                className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold rounded-md shadow-sm hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {isAnalyzing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                AI銘柄検索
+                            </button>
+                            <p className="text-[10px] text-gray-400 mt-1">※画像からワイン情報を自動推定します</p>
+                        </div>
                     </div>
                 )}
             </section>

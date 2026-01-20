@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Storage } from '@google-cloud/storage';
+import { storage, BUCKET } from '@/lib/gcs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const storage = new Storage({
-  projectId: process.env.GCP_PROJECT_ID,
-  credentials: {
-    client_email: process.env.GOOGLE_CLIENT_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  },
-});
-const BUCKET = process.env.GCS_BUCKET_NAME!;
+
 
 interface UploadBody {
   filename: string;
@@ -27,11 +20,13 @@ interface UploadUrlResponse {
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as UploadBody;
-    const filename = body?.filename ?? 'upload.bin';
+    const originalName = body?.filename ?? 'image.jpg';
+    const ext = originalName.split('.').pop() || 'bin';
+    const safeFilename = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
     const contentType = body?.contentType ?? 'application/octet-stream';
 
     const now = new Date();
-    const key = `uploads/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${Date.now()}_${filename}`;
+    const key = `uploads/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${safeFilename}`;
 
     const file = storage.bucket(BUCKET).file(key);
 
@@ -44,10 +39,8 @@ export async function POST(req: NextRequest) {
     });
 
     // プロキシ経由 GET URL
-    const base =
-      process.env.PUBLIC_BASE_URL ??
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-    const getUrl = `${base}/api/images/${encodeURIComponent(key)}`;
+    // Use relative path to avoid dependency on PUBLIC_BASE_URL or ngrok status for preview
+    const getUrl = `/api/images/${key}`;
 
     const payload: UploadUrlResponse = { putUrl, getUrl, key };
     return NextResponse.json(payload, { status: 200 });

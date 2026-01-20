@@ -1,18 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Storage } from '@google-cloud/storage';
+import { storage, BUCKET } from '@/lib/gcs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const storage = new Storage({
-  projectId: process.env.GCP_PROJECT_ID,
-  credentials: {
-    client_email: process.env.GOOGLE_CLIENT_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  },
-});
 
-const BUCKET = process.env.GCS_BUCKET_NAME!;
 
 // Content-Type 取得用型
 interface GcsMeta {
