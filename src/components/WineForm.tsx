@@ -155,6 +155,9 @@ export const wineFormSchema = z.object({
     sat_tannin: z.union([z.enum(satTannin), z.literal('')]).optional().nullable(),
     sat_finish: z.union([z.enum(satFinish), z.literal('')]).optional().nullable(),
     sat_quality: z.union([z.enum(satQuality), z.literal('')]).optional().nullable(),
+
+    // Status
+    status: z.enum(['published', 'draft']).optional().default('published'),
 });
 
 export type WineFormValues = z.infer<typeof wineFormSchema>;
@@ -227,6 +230,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             technical_details: '',
             vintage_analysis: '',
             search_result_tasting_note: '',
+            status: 'published',
             ...(defaultValues ? removeUndefined(defaultValues) : {})
         },
         resolver: zodResolver(wineFormSchema) as any
@@ -374,7 +378,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             producer_philosophy: '',
             technical_details: '',
             vintage_analysis: '',
-            search_result_tasting_note: '',
+            status: 'published',
         };
 
         // @ts-ignore - reset expects partial or values depending on version, strict type match might fail on undefineds but we can cast or just use what we have.
@@ -385,6 +389,88 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
 
         // Also clear any "search result" state
         setIsAiExpanded(false);
+    };
+
+    const handleClear = () => {
+        if (!confirm('入力内容を全てクリアしますか？')) return;
+
+        if (persistKey) {
+            sessionStorage.removeItem(persistKey);
+        }
+
+        const d = new Date();
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+
+        reset({
+            date: `${yyyy}-${mm}-${dd}`,
+            // We need to provide minimal defaults to satisfy types if needed, or let partial works
+            // Providing complete fresh defaults is safest
+            place: '',
+            price: '',
+            imageUrl: '',
+            images: [],
+            wineType: '赤',
+            wineName: '',
+            producer: '',
+            country: '',
+            locality: '',
+            region: '',
+            mainVariety: '',
+            otherVarieties: '',
+            vintage: '2022',
+            additionalInfo: '',
+            intensity: 3.0,
+            rimRatio: 5.0,
+            clarity: '澄んだ',
+            brightness: '輝きのある',
+            sparkleIntensity: '',
+            appearanceOther: '',
+            noseIntensity: '3. 開いている',
+            oldNewWorld: 3.0,
+            aromaNeutrality: 3.0,
+            fruitsMaturity: 1.0,
+            oakAroma: 1,
+            aromas: [],
+            aromaOther: '',
+            sweetness: '辛口',
+            acidityScore: 2.5,
+            tanninScore: 2.5,
+            balanceScore: 3.0,
+            alcoholABV: 12.5,
+            finishLen: 5,
+            palateNotes: '',
+            evaluation: '良質',
+            rating: 3.5,
+            notes: '',
+            vivinoUrl: '',
+            sat_nose_intensity: undefined,
+            sat_acidity: undefined,
+            sat_tannin: undefined,
+            sat_finish: undefined,
+            sat_quality: undefined,
+            terroir_info: '',
+            producer_philosophy: '',
+            technical_details: '',
+            vintage_analysis: '',
+            search_result_tasting_note: '',
+            status: 'published',
+        } as WineFormValues);
+
+        setIsAiExpanded(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleSaveDraft = async (e: React.MouseEvent) => {
+        // Prevent default submit
+        e.preventDefault();
+        setValue('status', 'draft');
+        await handleSubmit(handleFormSubmit)();
+    };
+
+    const handlePublish = () => {
+        setValue('status', 'published');
     };
 
     const wineType = watch('wineType');
@@ -536,6 +622,17 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
 
     return (
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+            <div className="flex justify-between items-center bg-gray-50 px-4 py-2 rounded-lg mb-4">
+                <span className="text-sm text-gray-500">入力フォーム</span>
+                <button
+                    type="button"
+                    onClick={handleClear}
+                    className="text-xs text-red-500 hover:text-red-700 underline"
+                >
+                    入力内容をクリア
+                </button>
+            </div>
+
             {/* タブ：ワインタイプ */}
             <section className="mb-4">
                 <div className="flex flex-wrap gap-2">
@@ -1476,9 +1573,9 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                 </div>
             </section>
 
-            <section className="rounded-2xl bg-white p-4 shadow-sm space-y-2">
+            <section className="sticky bottom-4 z-20 rounded-2xl bg-white/90 backdrop-blur-sm p-4 shadow-lg border border-gray-200 mt-8 space-y-2">
                 {Object.keys(errors).length > 0 && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 mb-2">
                         <p className="font-bold">入力内容に不備があります。</p>
                         <ul className="list-disc pl-5 mt-1">
                             {Object.entries(errors).map(([key, error]) => (
@@ -1489,8 +1586,27 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                         </ul>
                     </div>
                 )}
-                <div className="flex items-center justify-between">
-                    <button type="submit" disabled={isSubmitting} className="btn-primary !pointer-events-auto">{isSubmitting ? '送信中…' : submitLabel}</button>
+                <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+                    <div className="w-full sm:w-auto">
+                        <button
+                            type="button"
+                            onClick={handleSaveDraft}
+                            disabled={isSubmitting}
+                            className="w-full sm:w-auto px-6 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl shadow-sm hover:bg-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300"
+                        >
+                            {isSubmitting ? '保存中...' : '一時保存 (下書き)'}
+                        </button>
+                    </div>
+                    <div className="w-full sm:w-2/3">
+                        <button
+                            type="submit"
+                            onClick={handlePublish}
+                            disabled={isSubmitting}
+                            className="w-full px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 border border-blue-500/20"
+                        >
+                            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : submitLabel}
+                        </button>
+                    </div>
                 </div>
             </section>
 

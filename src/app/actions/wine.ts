@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { WineFormValues } from '@/components/WineForm';
 
+import { appendToSheet, appendToNotion, UnknownRecord } from '@/app/actions/sync';
+
 // Helper to convert camelCase to snake_case for Supabase
 const toSnakeCase = (str: string): string => {
     if (str.startsWith('sat_')) return str;
@@ -44,6 +46,21 @@ export async function updateWine(id: number, data: WineFormValues) {
         throw new Error('Not authenticated');
     }
 
+    // Check current status to see if we are switching from draft to published
+    const { data: currentData, error: fetchError } = await supabase
+        .from('tasting_notes')
+        .select('status')
+        .eq('id', id)
+        .single();
+
+    if (fetchError) {
+        console.error('Error fetching current wine status:', fetchError);
+        // non-fatal, proceed assuming simple update? Or maybe fatal. Let's proceed but warn.
+    }
+
+    const wasDraft = currentData?.status === 'draft';
+    const newStatus = data.status || 'published';
+
     const supabaseData: Record<string, unknown> = {};
     const imagesData = (data.images as any[]) || [];
 
@@ -56,6 +73,9 @@ export async function updateWine(id: number, data: WineFormValues) {
             supabaseData[snakeKey] = value;
         }
     }
+
+    // Ensure status is set
+    supabaseData['status'] = newStatus;
 
     const { error } = await supabase
         .from('tasting_notes')
@@ -97,6 +117,29 @@ export async function updateWine(id: number, data: WineFormValues) {
         }
     }
 
+    // External Sync Logic
+    // If it is 'published' NOW, and (it was 'draft' OR we just want to ensure sync happens on update even if was published)
+    // The requirement suggests "save contents to DB when draft button pressed".
+    // "Content saved as draft" -> "Displayed with editing flag".
+    // It doesn't explicitly say "Sync to Notion/Sheets on EVERY update" but usually Notion/Sheets integration is append-only logs or one-off creation.
+    // The `route.ts` creates new pages/rows. If we update an existing record, we probably DON'T want to duplicate rows in Sheets/Notion every time we edit a typo.
+    // However, if it was a DRAFT (never sent to Notion/Sheets), and now we PUBLISH, we MUST send it.
+
+    if (newStatus === 'published' && wasDraft) {
+        const row: Record<string, unknown> = { ...data, createdAt: new Date().toISOString() };
+        try {
+            // Need data to match what sync expects. WineFormValues keys need to be what sync expects?
+            // api/submit receives raw JSON. 
+            // WineFormValues keys are camelCase.
+            // sync functions expect camelCase (look at `asString(data.wineName)`).
+            // So we can pass `data` directly.
+            // Cast to UnknownRecord just to satisfy TS
+            await appendToSheet(row as unknown as Record<string, unknown>);
+            await appendToNotion(data as unknown as UnknownRecord);
+        } catch (syncError) {
+            console.error('Sync Error (Non-fatal):', syncError);
+        }
+    }
 
 
     revalidatePath(`/wines/${id}`);

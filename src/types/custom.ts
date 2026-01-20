@@ -2,6 +2,7 @@ export interface TastingNote {
     id: number;
     created_at: string;
     user_id?: string;
+    status?: 'published' | 'draft';
 
     // Basic Info
     wine_name: string;

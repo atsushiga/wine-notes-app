@@ -19,6 +19,9 @@ export default function WineList({ notes }: WineListProps) {
     const [sortKey, setSortKey] = useState<'created_at' | 'price' | 'rating' | 'wine_name'>('created_at');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
+    // Filter State
+    const [filterStatus, setFilterStatus] = useState<'all' | 'draft'>('all');
+
     const toggleSelectionMode = () => {
         setIsSelectionMode(!isSelectionMode);
         setSelectedIds([]);
@@ -52,7 +55,14 @@ export default function WineList({ notes }: WineListProps) {
 
     // Sort Logic
     // Create a copy before sorting to avoid mutating props directly if they were not readonly
-    const sortedNotes = [...notes].sort((a, b) => {
+    const filteredNotes = notes.filter((note) => {
+        if (filterStatus === 'draft') {
+            return note.status === 'draft';
+        }
+        return true;
+    });
+
+    const sortedNotes = [...filteredNotes].sort((a, b) => {
         let valA = a[sortKey];
         let valB = b[sortKey];
 
@@ -89,6 +99,16 @@ export default function WineList({ notes }: WineListProps) {
                     ワイン記録一覧
                 </h1>
                 <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
+
+                    {/* Status Filter */}
+                    <select
+                        className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) => setFilterStatus(e.target.value as 'all' | 'draft')}
+                        value={filterStatus}
+                    >
+                        <option value="all">すべて表示</option>
+                        <option value="draft">下書き (編集中) のみ</option>
+                    </select>
 
                     {/* Sort Dropdown */}
                     <select
@@ -190,6 +210,12 @@ function WineCardContent({ note }: { note: TastingNote }) {
                         <span className="text-xs font-bold text-gray-800">
                             {note.rating}
                         </span>
+                    </div>
+                )}
+                {/* Draft Badge */}
+                {note.status === 'draft' && (
+                    <div className="absolute top-2 left-2 bg-yellow-100/90 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm flex items-center space-x-1 border border-yellow-200">
+                        <span className="text-yellow-700 text-xs font-bold">編集中</span>
                     </div>
                 )}
             </div>
