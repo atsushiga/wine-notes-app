@@ -125,6 +125,20 @@ async function appendToSheet(row: Record<string, unknown>): Promise<void> {
 }
 
 async function appendToNotion(data: UnknownRecord) {
+
+  const toAbsoluteUrl = (url: string | undefined): string | undefined => {
+    if (!url) return undefined;
+    if (url.startsWith('http')) return url;
+    const base = process.env.PUBLIC_BASE_URL ??
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    const baseUrl = base.endsWith('/') ? base.slice(0, -1) : base;
+    const path = url.startsWith('/') ? url : `/${url}`;
+    return `${baseUrl}${path}`;
+  };
+
+  const rawImageUrl = asString(data.imageUrl);
+  const imageUrl = toAbsoluteUrl(rawImageUrl);
+
   // ========== properties（DB項目） ==========
   const props: CreatePageParameters['properties'] = {
     // タイトルは必須
@@ -141,14 +155,14 @@ async function appendToNotion(data: UnknownRecord) {
       ? { Place: { rich_text: [{ type: 'text', text: { content: asString(data.place)! } }] } }
       : {}),
 
-    ...(asString(data.imageUrl)
+    ...(imageUrl
       ? {
         ImageURL: {
           files: [
             {
               type: 'external',
               name: 'image',
-              external: { url: asString(data.imageUrl)! },
+              external: { url: imageUrl },
             },
           ],
         },
@@ -209,7 +223,6 @@ async function appendToNotion(data: UnknownRecord) {
     });
   };
 
-  const imageUrl = asString(data.imageUrl);
   if (imageUrl) {
     blocks.push({
       type: 'image',
