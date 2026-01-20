@@ -155,10 +155,11 @@ interface WineFormProps {
     onSubmit: (values: WineFormValues) => Promise<void>;
     isSubmitting?: boolean;
     submitLabel?: string;
+    persistKey?: string; // New prop for persistence key
 }
 
-export default function WineForm({ defaultValues, onSubmit, isSubmitting, submitLabel = '保存する' }: WineFormProps) {
-    const { register, handleSubmit, control, watch, setValue, getValues, formState: { errors } } = useForm<WineFormValues>({
+export default function WineForm({ defaultValues, onSubmit, isSubmitting, submitLabel = '保存する', persistKey }: WineFormProps) {
+    const { register, handleSubmit, control, watch, setValue, getValues, reset, formState: { errors } } = useForm<WineFormValues>({
         defaultValues: {
             date: '',
             place: '',
@@ -220,6 +221,159 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
         },
         resolver: zodResolver(wineFormSchema) as any
     });
+
+    // --- Persistence Logic ---
+    useEffect(() => {
+        if (!persistKey) return;
+
+        // Load from sessionStorage on mount (tab specific)
+        const saved = sessionStorage.getItem(persistKey);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+
+                // Re-calculate date if not saved or safeguard it
+                if (!parsed.date && !getValues('date')) {
+                    const d = new Date();
+                    const yyyy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    parsed.date = `${yyyy}-${mm}-${dd}`;
+                }
+
+                Object.keys(parsed).forEach((key) => {
+                    // explicit typing for key
+                    const k = key as keyof WineFormValues;
+                    if (parsed[k] !== undefined && parsed[k] !== null) {
+                        setValue(k, parsed[k]);
+                    }
+                });
+
+            } catch (e) {
+                console.error("Failed to parse saved draft", e);
+            }
+        }
+    }, [persistKey, setValue]);
+
+    // Save to sessionStorage on change
+    useEffect(() => {
+        if (!persistKey) return;
+        const subscription = watch((value) => {
+            sessionStorage.setItem(persistKey, JSON.stringify(value));
+        });
+        return () => subscription.unsubscribe();
+    }, [watch, persistKey]);
+
+    // Clear storage on successful submit is handled by the parent or we can do it here if we wrap onSubmit.
+    // Since onSubmit is passed in, let's wrap it.
+    const handleFormSubmit = async (data: WineFormValues) => {
+        await onSubmit(data); // wait for parent action
+        // If successful
+        if (persistKey) {
+            sessionStorage.removeItem(persistKey);
+        }
+        // Reset the form to initial state to clear inputs
+        // We have to re-initialize with default values effectively.
+        // We can use the reset() function from hook-form.
+        // We pass defaultValues or empty object to clear.
+
+        // However, we want to keep the 'date' as today probably?
+        const d = new Date();
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+
+        const nextDefaults: Partial<WineFormValues> = {
+            date: `${yyyy}-${mm}-${dd}`,
+            //... other defaults if needed, but the form defaults in useForm will be used if we just reset?
+            // reset(values, options) -> if we pass new values it sets them.
+            // if we pass nothing, it resets to *defaultValues* passed to useForm?
+        };
+
+        // Actually, we defined defaultValues in useForm.
+        // reset() without args resets to the original defaultValues.
+        // But our defaultValues logic for 'date' was inside useForm config.
+        // Let's explicitly reset to a clean state.
+
+        // We need to merge the hardcoded defaults in useForm with the dynamic date.
+
+        // Simpler approach:
+        // Just call reset();
+
+        // But wait, the date logic (useEffect) might run again?
+        // "useEffect(() => { if (!getValues('date')) ... })"
+
+        // If we reset(), the values become the original defaultValues.
+        // If original defaultValues had empty date, the effect will run?
+        // The effect runs on mount or getValues/setValue change.
+
+        // If we simply reload the page? NO, that's not good UX.
+
+        // reset() restores to `defaultValues`.
+        // In this component, `defaultValues` prop is passed.
+        // And inside, we have a fallback object.
+
+        // We can just construct a fresh default object.
+        const freshDefaults: WineFormValues = {
+            date: `${yyyy}-${mm}-${dd}`,
+            place: '',
+            price: '',
+            imageUrl: '',
+            wineType: '赤',
+            wineName: '',
+            producer: '',
+            country: '',
+            locality: '',
+            region: '',
+            mainVariety: '',
+            otherVarieties: '',
+            vintage: '2022',
+            additionalInfo: '',
+            intensity: 3.0,
+            rimRatio: 5.0,
+            clarity: '澄んだ',
+            brightness: '輝きのある',
+            sparkleIntensity: '',
+            appearanceOther: '',
+            noseIntensity: '3. 開いている',
+            oldNewWorld: 3.0,
+            aromaNeutrality: 3.0,
+            fruitsMaturity: 1.0,
+            oakAroma: 1,
+            aromas: [],
+            aromaOther: '',
+            sweetness: '辛口',
+            acidityScore: 2.5,
+            tanninScore: 2.5,
+            balanceScore: 3.0,
+            alcoholABV: 12.5,
+            finishLen: 5,
+            palateNotes: '',
+            evaluation: '良質',
+            rating: 3.5,
+            notes: '',
+            vivinoUrl: '',
+            sat_nose_intensity: undefined,
+            sat_acidity: undefined,
+            sat_tannin: undefined,
+            sat_finish: undefined,
+            sat_quality: undefined,
+            terroir_info: '',
+            producer_philosophy: '',
+            technical_details: '',
+            vintage_analysis: '',
+            search_result_tasting_note: '',
+        };
+
+        // @ts-ignore - reset expects partial or values depending on version, strict type match might fail on undefineds but we can cast or just use what we have.
+        // Actually hook form reset can take values.
+
+        // We need to bring in the `reset` function from `useForm`.
+        reset(freshDefaults);
+
+        // Also clear any "search result" state
+        setIsAiExpanded(false);
+    };
 
     const wineType = watch('wineType');
 
@@ -314,7 +468,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
             {/* タブ：ワインタイプ */}
             <section className="mb-4">
                 <div className="flex flex-wrap gap-2">

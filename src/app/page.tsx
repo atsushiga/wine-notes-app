@@ -39,7 +39,7 @@ export default function Page() {
     <main className="min-h-dvh bg-transparent text-[var(--fg)] transition-colors duration-500 pb-40">
       <h1 className="text-2xl font-semibold mb-4">ワイン・テイスティング記録</h1>
 
-      <WineForm onSubmit={onSubmit} isSubmitting={isSubmitting} />
+      <WineForm onSubmit={onSubmit} isSubmitting={isSubmitting} persistKey="wine-form-new" />
 
       {sent && (
         <p className={`text-sm ${sent.ok ? 'text-green-600' : 'text-red-600'} mt-4 px-4`}>
