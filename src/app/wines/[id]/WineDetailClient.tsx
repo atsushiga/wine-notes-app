@@ -47,6 +47,7 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
         place: wine.place || '',
         price: wine.price ? String(wine.price) : '',
         imageUrl: wine.image_url || '',
+        images: wine.images || [],
 
         // Cast strict enums if data exists, otherwise default or let form handle validation
         wineType: (wine.wine_type as any) || '赤',

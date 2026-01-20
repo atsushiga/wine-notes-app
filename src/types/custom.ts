@@ -70,4 +70,17 @@ export interface TastingNote {
     sat_tannin?: string;
     sat_finish?: string;
     sat_quality?: string;
+
+    // Images (1:N)
+    images?: WineImage[];
+}
+
+export interface WineImage {
+    id: string;
+    tasting_note_id: number;
+    url: string;
+    thumbnail_url?: string;
+    storage_path?: string;
+    display_order: number;
+    created_at?: string;
 }

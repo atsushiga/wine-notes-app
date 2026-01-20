@@ -408,9 +408,12 @@ async function appendToSupabase(data: UnknownRecord, userId?: string): Promise<{
   };
 
   const supabaseData: Record<string, unknown> = {};
+  const imagesData = (data.images as any[]) || []; // Extract images array
 
   // データを変換（空文字列やundefinedはnullに変換）
   for (const [key, value] of Object.entries(data)) {
+    if (key === 'images') continue; // Don't add 'images' column to tasting_notes
+
     const snakeKey = toSnakeCase(key);
     // 空文字列やundefinedはnullに変換（SupabaseのTEXT型で空文字列は許可されない場合があるため）
     if (value === '' || value === undefined) {
@@ -442,7 +445,29 @@ async function appendToSupabase(data: UnknownRecord, userId?: string): Promise<{
     throw new Error(`Supabase insert error: ${error.message}`);
   }
 
-  return { id: String(insertedData.id) };
+  const tastingNoteId = insertedData.id;
+
+  // Insert Images
+  if (imagesData.length > 0) {
+    const imagesToInsert = imagesData.map((img) => ({
+      tasting_note_id: tastingNoteId,
+      url: img.url,
+      thumbnail_url: img.thumbnail_url,
+      storage_path: img.storage_path,
+      display_order: img.display_order ?? 0,
+    }));
+
+    const { error: imageError } = await supabase
+      .from('wine_images')
+      .insert(imagesToInsert);
+
+    if (imageError) {
+      console.error('Error inserting wine images:', imageError);
+      // NOTE: We don't fail the whole request if image insert fails, but maybe we should warn?
+    }
+  }
+
+  return { id: String(tastingNoteId) };
 }
 
 export async function POST(req: NextRequest) {

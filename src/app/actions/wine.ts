@@ -45,7 +45,10 @@ export async function updateWine(id: number, data: WineFormValues) {
     }
 
     const supabaseData: Record<string, unknown> = {};
+    const imagesData = (data.images as any[]) || [];
+
     for (const [key, value] of Object.entries(data)) {
+        if (key === 'images') continue; // Don't add 'images' to tasting_notes update
         const snakeKey = toSnakeCase(key);
         if (value === '' || value === undefined) {
             supabaseData[snakeKey] = null;
@@ -63,6 +66,38 @@ export async function updateWine(id: number, data: WineFormValues) {
         console.error('Update error:', error);
         throw new Error(`Update failed: ${error.message}`);
     }
+
+    // Update Images: Replace strategy
+    // 1. Delete existing
+    const { error: deleteError } = await supabase
+        .from('wine_images')
+        .delete()
+        .eq('tasting_note_id', id);
+
+    if (deleteError) {
+        console.error('Error clearing old images:', deleteError);
+    }
+
+    // 2. Insert new
+    if (imagesData.length > 0) {
+        const imagesToInsert = imagesData.map((img) => ({
+            tasting_note_id: id,
+            url: img.url,
+            thumbnail_url: img.thumbnail_url,
+            storage_path: img.storage_path,
+            display_order: img.display_order ?? 0,
+        }));
+
+        const { error: insertError } = await supabase
+            .from('wine_images')
+            .insert(imagesToInsert);
+
+        if (insertError) {
+            console.error('Error inserting new images:', insertError);
+        }
+    }
+
+
 
     revalidatePath(`/wines/${id}`);
     revalidatePath('/tasting-notes');

@@ -15,6 +15,7 @@ import {
     intensityLabel,
 } from "@/lib/wineHelpers";
 import AiWineInfo from "./AiWineInfo";
+import ImageCarousel from "./ImageCarousel";
 
 interface Props {
     wine: TastingNote;
@@ -100,32 +101,39 @@ export default function WineDetailView({ wine, onEdit, onDelete, isDeleting }: P
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Left Column: Image & Quick Stats */}
                 <div className="space-y-6">
-                    <div className="relative aspect-[3/4] w-full bg-gray-100 rounded-2xl overflow-hidden shadow-sm">
-                        {wine.image_url ? (
-                            <Image
-                                src={wine.image_url}
-                                alt={wine.wine_name || "Wine Image"}
-                                fill
-                                className="object-cover"
-                                sizes="(max-width: 768px) 100vw, 50vw"
-                                priority
-                            />
+                    {/* Image Carousel */}
+                    <div className="bg-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                        {wine.images && wine.images.length > 0 ? (
+                            <ImageCarousel images={wine.images} wineName={wine.wine_name || "Wine"} />
                         ) : (
-                            <div className="flex items-center justify-center h-full text-gray-300">
-                                <span className="text-6xl">🍷</span>
-                            </div>
-                        )}
-                        {wine.rating !== undefined && (
-                            <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-md flex items-center gap-1">
-                                <span className="text-yellow-500 text-lg">★</span>
-                                <span className="text-lg font-bold text-gray-800">
-                                    {round1(wine.rating)}
-                                </span>
-                            </div>
-                        )}
-                        {wine.wine_type && (
-                            <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-sm font-medium">
-                                {wine.wine_type}
+                            <div className="relative aspect-[3/4] w-full">
+                                {wine.image_url ? (
+                                    <Image
+                                        src={wine.image_url}
+                                        alt={wine.wine_name || "Wine Image"}
+                                        fill
+                                        className="object-cover"
+                                        sizes="(max-width: 768px) 100vw, 50vw"
+                                        priority
+                                    />
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-gray-300">
+                                        <span className="text-6xl">🍷</span>
+                                    </div>
+                                )}
+                                {wine.rating !== undefined && (
+                                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-md flex items-center gap-1 z-10">
+                                        <span className="text-yellow-500 text-lg">★</span>
+                                        <span className="text-lg font-bold text-gray-800">
+                                            {round1(wine.rating)}
+                                        </span>
+                                    </div>
+                                )}
+                                {wine.wine_type && (
+                                    <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-sm font-medium z-10">
+                                        {wine.wine_type}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

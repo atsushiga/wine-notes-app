@@ -16,7 +16,7 @@ export default async function WineDetailPage({ params }: Props) {
 
     const { data, error } = await supabase
         .from("tasting_notes")
-        .select("*")
+        .select("*, images:wine_images(*)")
         .eq("id", id)
         .single();
 

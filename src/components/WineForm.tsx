@@ -16,6 +16,9 @@ import {
     balanceLabel,
     finishLenLabel,
 } from '@/lib/wineHelpers';
+import { generateThumbnail } from '@/lib/imageUtils';
+import { WineImage } from '@/types/custom';
+import { Trash2 } from 'lucide-react';
 
 // === 定義：画像シートを意識した選択肢 ===
 function removeUndefined(obj: Record<string, any>) {
@@ -86,7 +89,13 @@ export const wineFormSchema = z.object({
     date: z.string(),
     price: z.string().optional().nullable(),          // 価格（任意）
     place: z.string().optional().nullable(),          // 飲んだ/購入した場所
-    imageUrl: z.string().optional().nullable(),       // ひとまずURL（アップロードは次段）
+    imageUrl: z.string().optional().nullable(),       // ひとまずURL（メイン画像 - 互換性のため残す、または先頭の画像を入れる）
+    images: z.array(z.object({
+        url: z.string(),
+        thumbnail_url: z.string().optional(),
+        storage_path: z.string().optional(),
+        display_order: z.number().optional()
+    })).optional().nullable(),
 
     // ワイン情報
     wineName: z.string().min(1),
@@ -165,6 +174,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             place: '',
             price: '',
             imageUrl: '',
+            images: [],
 
             wineType: '赤',
             wineName: '',
@@ -318,7 +328,9 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             date: `${yyyy}-${mm}-${dd}`,
             place: '',
             price: '',
+
             imageUrl: '',
+            images: [],
             wineType: '赤',
             wineName: '',
             producer: '',
@@ -408,27 +420,81 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
         return aromaGroups;
     })();
 
-    const onFileSelect = async (file: File) => {
-        try {
-            const r = await fetch('/api/upload-url', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ filename: file.name, contentType: file.type }),
-            });
-            const { putUrl, getUrl, error } = await r.json();
-            console.log(putUrl, getUrl, error); // debug
-            if (error) throw new Error(error);
+    const uploadFile = async (file: File | Blob, filename: string): Promise<string> => {
+        const payload = {
+            filename: filename,
+            contentType: file.type || 'application/octet-stream',
+        };
+        const r = await fetch('/api/upload-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const { putUrl, getUrl, error } = await r.json();
+        if (error) throw new Error(error);
 
-            const res = await fetch(putUrl, {
-                method: 'PUT',
-                headers: { 'Content-Type': file.type },
-                body: file,
-            });
-            if (!res.ok) throw new Error('Upload failed');
+        const res = await fetch(putUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': file.type || 'application/octet-stream' },
+            body: file,
+        });
+        if (!res.ok) throw new Error('Upload failed');
+        return getUrl;
+    };
 
-            setValue('imageUrl', getUrl, { shouldDirty: true });
-        } catch (err) {
-            alert(String(err));
+    const handleFilesSelect = async (files: FileList | null) => {
+        if (!files || files.length === 0) return;
+
+        const newImages: { url: string; thumbnail_url?: string; display_order: number }[] = [];
+        const currentImages = getValues('images') || [];
+        let orderOffset = currentImages.length;
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            try {
+                // 1. Generate Thumbnail
+                const thumbnailBlob = await generateThumbnail(file, 400); // slightly larger max just in case
+
+                // 2. Upload Original
+                const originalUrl = await uploadFile(file, file.name);
+
+                // 3. Upload Thumbnail
+                // naming hack for thumbnail: prefix or suffix
+                const thumbName = `thumb_${file.name}`;
+                const thumbUrl = await uploadFile(thumbnailBlob, thumbName);
+
+                newImages.push({
+                    url: originalUrl,
+                    thumbnail_url: thumbUrl,
+                    display_order: orderOffset + i
+                });
+
+                // If this is the first image ever, set it as main imageUrl for compatibility
+                if (orderOffset === 0 && i === 0 && !getValues('imageUrl')) {
+                    setValue('imageUrl', originalUrl, { shouldDirty: true });
+                }
+
+            } catch (err) {
+                console.error("File upload error:", err);
+                alert(`Upload failed for ${file.name}: ${String(err)}`);
+            }
+        }
+
+        if (newImages.length > 0) {
+            setValue('images', [...currentImages, ...newImages], { shouldDirty: true });
+        }
+    };
+
+    const removeImage = (index: number) => {
+        const current = getValues('images') || [];
+        const next = current.filter((_, i) => i !== index);
+        setValue('images', next, { shouldDirty: true });
+
+        // Update mainImageUrl if needed using the first remaining image
+        if (next.length > 0) {
+            setValue('imageUrl', next[0].url, { shouldDirty: true });
+        } else {
+            setValue('imageUrl', '', { shouldDirty: true });
         }
     };
 
@@ -504,19 +570,56 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                             {...register('place')} />
                     </div>
                 </div>
-                <input
-                    type="file"
-                    accept="image/*"
-                    className="sm:col-span-3 rounded-full border"
-                    onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) onFileSelect(f).catch(err => alert(String(err)));
-                    }}
-                />
+                <div className="sm:col-span-3">
+                    <label className="block text-sm mb-1">写真（複数選択可）</label>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="block w-full text-sm text-slate-500 rounded-full border border-gray-300 p-2"
+                        onChange={(e) => {
+                            handleFilesSelect(e.target.files);
+                            // Clear input so same files can be selected again if needed? 
+                            // e.target.value = ''; // Be careful with this in react
+                        }}
+                    />
+                </div>
+
+                {/* Image Preview Grid */}
+                {(watch('images')?.length ?? 0) > 0 && (
+                    <div className="sm:col-span-3 mt-2 grid grid-cols-3 sm:grid-cols-4 gap-4">
+                        {watch('images')?.map((img, idx) => (
+                            <div key={idx} className="relative group aspect-square bg-gray-100 rounded-lg overflow-hidden border">
+                                <img
+                                    src={img.thumbnail_url || img.url}
+                                    alt={`upload-${idx}`}
+                                    className="w-full h-full object-cover"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => removeImage(idx)}
+                                    className="absolute top-1 right-1 bg-white/80 p-1 rounded-full text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+
+                {/* Legacy/Main Image Preview for AI Search (kept hidden or separate?)
+                    Let's allow selecting one image for AI search from the uploaded list
+                */}
+
                 {watch('imageUrl') && (
                     <div className="sm:col-span-3 mt-2">
-                        <p className="text-xs text-gray-500 mb-1">現在の画像:</p>
-                        <img src={watch('imageUrl')!} alt="preview" className="h-32 object-contain rounded-md border" />
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs text-gray-500">AI解析用メイン画像:</span>
+                            {!watch('images') || watch('images')?.length === 0 ? (
+                                <img src={watch('imageUrl')!} alt="main" className="h-10 w-10 object-cover rounded border" />
+                            ) : null}
+                        </div>
 
                         <div className="mt-2">
                             <button
