@@ -7,6 +7,7 @@ export interface TastingNote {
     // Basic Info
     wine_name: string;
     producer?: string;
+    importer?: string; // New field
     vintage?: string;
     price?: number;
     place?: string;
@@ -15,7 +16,7 @@ export interface TastingNote {
     // Wine Type & Region
     wine_type?: string;
     country?: string;
-    region?: string; // locality in form map to region in Notion, but schema might use 'locality' or 'region'
+    region?: string;
     locality?: string;
 
     // Varieties
@@ -24,6 +25,7 @@ export interface TastingNote {
 
     // Appearance
     image_url?: string;
+    color?: number; // Changed to number 0-10
     intensity?: number;
     rim_ratio?: number;
     clarity?: string;
@@ -32,28 +34,32 @@ export interface TastingNote {
     appearance_other?: string;
 
     // Nose
-    nose_intensity?: string;
+    nose_intensity?: number; // Changed string -> number
+    nose_condition?: string; // New: 'Clean' | 'Unclean'
+    development?: string;    // New: 'Young' ...
+
     old_new_world?: number;
     fruits_maturity?: number;
     aroma_neutrality?: number;
-    aromas?: string[]; // Assuming it's stored as array
+    aromas?: string[]; // Structured data
     oak_aroma?: number;
     aroma_other?: string;
 
     // Palate
-    sweetness?: string;
+    sweetness?: number; // New (score)
     acidity_score?: number;
     tannin_score?: number;
-    balance_score?: number;
+    body_score?: number; // Renamed from balance_score
     alcohol_abv?: number;
-    finish_len?: number;
+    finish_score?: number; // New/Renamed from finish_len (length -> score)
     palate_notes?: string;
-    body?: string;     // In route.ts but not in form? found in `pushKV('ボディ', asString(data.body));`
-    alcohol?: string;  // In route.ts text field?
+    // Removed old body/alcohol strings if they conflicts, keeping strictly to new fields + existing useful ones
+    // finish_len was number, replacing with finish_score (number) for clarity as per prompt "finish_score"
 
-    // Evaluation
-    evaluation?: string;
-    rating?: number;
+    // Conclusion
+    quality_score?: number; // New (score)
+    readiness?: string;    // New
+    rating?: number;       // Kept as personal preference
     notes?: string;
     vivino_url?: string;
     additional_info?: string;
@@ -65,12 +71,12 @@ export interface TastingNote {
     vintage_analysis?: string;
     search_result_tasting_note?: string;
 
-    // SAT Fields
-    sat_nose_intensity?: string;
-    sat_acidity?: string;
-    sat_tannin?: string;
-    sat_finish?: string;
-    sat_quality?: string;
+    // SAT Fields (Deprecated/Removed as we integrated them into main fields)
+    // sat_nose_intensity?: string; -> nose_intensity (number)
+    // sat_acidity?: string; -> acidity_score (number)
+    // sat_tannin?: string; -> tannin_score (number)
+    // sat_finish?: string; -> finish_score (number)
+    // sat_quality?: string; -> quality_score (number)
 
     // Images (1:N)
     images?: WineImage[];

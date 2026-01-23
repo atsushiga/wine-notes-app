@@ -63,13 +63,16 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
         additionalInfo: wine.additional_info || '',
 
         intensity: wine.intensity,
+        color: wine.color || '',
         rimRatio: wine.rim_ratio,
         clarity: wine.clarity || '',
         brightness: wine.brightness || '',
         sparkleIntensity: wine.sparkle_intensity || '',
         appearanceOther: wine.appearance_other || '',
 
-        noseIntensity: wine.nose_intensity || '',
+        noseIntensity: wine.nose_intensity,
+        noseCondition: (wine.nose_condition as any) || '良好 (Clean)',
+        development: (wine.development as any) || '若い',
         oldNewWorld: wine.old_new_world,
         aromaNeutrality: wine.aroma_neutrality,
         fruitsMaturity: wine.fruits_maturity,
@@ -77,25 +80,25 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
         aromas: wine.aromas || [],
         aromaOther: wine.aroma_other || '',
 
-        sweetness: wine.sweetness || '',
+        sweetness: wine.sweetness,
         acidityScore: wine.acidity_score,
         tanninScore: wine.tannin_score,
-        balanceScore: wine.balance_score,
+        bodyScore: wine.body_score,
         alcoholABV: wine.alcohol_abv,
-        finishLen: wine.finish_len,
+        finishScore: wine.finish_score,
         palateNotes: wine.palate_notes || '',
 
-        evaluation: wine.evaluation || '',
+        qualityScore: wine.quality_score,
+        readiness: wine.readiness || '今飲めるが熟成可能',
         rating: wine.rating || 0,
         notes: wine.notes || '',
         vivinoUrl: wine.vivino_url || '',
 
-        // SAT
-        sat_nose_intensity: wine.sat_nose_intensity as any,
-        sat_acidity: wine.sat_acidity as any,
-        sat_tannin: wine.sat_tannin as any,
-        sat_finish: wine.sat_finish as any,
-        sat_quality: wine.sat_quality as any,
+        terroir_info: wine.terroir_info || '',
+        producer_philosophy: wine.producer_philosophy || '',
+        technical_details: wine.technical_details || '',
+        vintage_analysis: wine.vintage_analysis || '',
+        search_result_tasting_note: wine.search_result_tasting_note || '',
     };
 
     if (isEditing) {

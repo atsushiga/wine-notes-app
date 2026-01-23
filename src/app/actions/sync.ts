@@ -14,9 +14,13 @@ import {
     oakAromaLabel,
     acidityLabel,
     tanninLabel,
-    balanceLabel,
+    bodyLabel,
     finishLenLabel,
     worldLabel,
+    palateElementLabel,
+    qualityLabel,
+    noseIntensityLabel,
+    colorLabel,
 } from '@/lib/wineHelpers';
 
 // Notion Client
@@ -232,6 +236,7 @@ export async function appendToNotion(data: UnknownRecord) {
     pushHeading('ワイン情報');
     pushKV('ワイン名', asString(data.wineName));
     pushKV('生産者', asString(data.producer));
+    pushKV('輸入元', asString(data.importer));
     pushKV('国', asString(data.country));
     pushKV('地名', asString(data.locality));
     pushKV('主体の品種', asString(data.mainVariety));
@@ -248,6 +253,13 @@ export async function appendToNotion(data: UnknownRecord) {
         }
     }
     {
+        const v = asNumber(data.color);
+        if (typeof v === 'number') {
+            const type = asString(data.wineType) || '赤';
+            pushKV('色調', `${round1(v)} (${colorLabel(v, type)})`);
+        }
+    }
+    {
         const v = asNumber(data.rimRatio);
         if (typeof v === 'number') {
             pushKV('縁の色調', `${round1(v)} (${rimRatioLabel(v)})`);
@@ -260,7 +272,15 @@ export async function appendToNotion(data: UnknownRecord) {
 
     // Nose
     pushHeading('香り');
-    pushKV('香りの強さ', asString(data.noseIntensity));
+    pushKV('コンディション', asString(data.noseCondition));
+    {
+        const v = asNumber(data.noseIntensity);
+        if (typeof v === 'number') {
+            pushKV('香りの強さ', `${round1(v)} (${noseIntensityLabel(v)})`);
+        }
+    }
+    pushKV('熟成段階', asString(data.development));
+
     {
         const v = asNumber(data.oldNewWorld);
         if (typeof v === 'number') {
@@ -287,7 +307,12 @@ export async function appendToNotion(data: UnknownRecord) {
 
     // Palate
     pushHeading('味わい');
-    pushKV('甘味', asString(data.sweetness));
+    {
+        const v = asNumber(data.sweetness);
+        if (typeof v === 'number') {
+            pushKV('甘味', `${round1(v)} (${palateElementLabel(v, 'sweetness')})`);
+        }
+    }
     {
         const v = asNumber(data.acidityScore);
         if (typeof v === 'number') {
@@ -300,20 +325,25 @@ export async function appendToNotion(data: UnknownRecord) {
             pushKV('タンニン', `${round1(v)} (${tanninLabel(v)})`);
         }
     }
-    pushKV('ボディ', asString(data.body));
+
+    // Body / Balance
+    {
+        const v = asNumber(data.bodyScore);
+        if (typeof v === 'number') {
+            pushKV('ボディ', `${round1(v)} (${bodyLabel(v)})`);
+        }
+    }
+
     pushKV('アルコール', asString(data.alcohol));
+
+    // Finish
     {
-        const v = asNumber(data.balanceScore);
+        const v = asNumber(data.finishScore);
         if (typeof v === 'number') {
-            pushKV('バランス', `${round1(v)} (${balanceLabel(v)})`);
+            pushKV('余韻', `${round1(v)} (${finishLenLabel(v)})`);
         }
     }
-    {
-        const v = asNumber(data.finishLen);
-        if (typeof v === 'number') {
-            pushKV('余韻の長さ', `${round1(v)} (${finishLenLabel(v)})`);
-        }
-    }
+
     {
         const v = asNumber(data.alcoholABV);
         if (typeof v === 'number') {
@@ -324,11 +354,19 @@ export async function appendToNotion(data: UnknownRecord) {
 
     // Evaluation
     pushHeading('総合評価');
-    pushKV('評価コメント', asString(data.evaluation));
+    {
+        const v = asNumber(data.qualityScore);
+        if (typeof v === 'number') {
+            pushKV('品質', `SAT: ${round1(v)} (${qualityLabel(v)})`);
+        }
+    }
+    pushKV('熟成の可能性', asString(data.readiness));
+
+    pushKV('評価コメント', asString(data.evaluation)); // Legacy evaluation field? WineForm removed it.
     {
         const v = asNumber(data.rating);
         if (typeof v === 'number') {
-            pushKV('総合評価', `${round1(v)} ⭐️`);
+            pushKV('総合評価(Personal)', `${round1(v)} ⭐️`);
         }
     }
     pushKV('コメント', asString(data.notes));

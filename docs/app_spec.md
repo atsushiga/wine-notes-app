@@ -46,12 +46,19 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 | `intensity` | number? | 外観の濃淡 |
 | `nose_intensity` | string? | 香りの強さ |
 | `aromas` | string[]? | アロマ（配列表現） |
-| `acidity_score` | number? | 酸味スコア |
-| `tannin_score` | number? | タンニンスコア |
-| `balance_score` | number? | バランススコア |
-| `evaluation` | string? | 総合評価（テキスト） |
-| `notes` | string? | メモ |
-| `sat_...` | string? | SAT準拠の各評価項目 |
+| `aromas` | string[]? | アロマ（配列表現） |
+| `acidity_score` | number? | 酸味スコア (0-10) |
+| `tannin_score` | number? | タンニンスコア (0-10) |
+| `body_score` | number? | ボディスクコア (0-10) |
+| `finish_score` | number? | 余韻スコア (0-10) |
+| `quality_score` | number? | 品質スコア (0-10) |
+| `evaluation` | - | (廃止 -> quality_scoreへ移行) |
+| `notes` | string? | 寸評 (自由記述) |
+| `readiness` | string? | 飲み頃 |
+| `color` | number? | 色調 (0-10) |
+| `nose_condition` | string? | 香りのコンディション |
+| `development` | string? | 熟成度 |
+| `sweetness` | number? | 甘味 (1-6) |
 | `terroir_info` | string? | テロワール情報 (AI取得) |
 | `producer_philosophy` | string? | 生産者哲学 (AI取得) |
 | `technical_details` | string? | 技術詳細 (AI取得) |
