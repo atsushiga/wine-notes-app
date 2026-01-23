@@ -63,7 +63,7 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
         additionalInfo: wine.additional_info || '',
 
         intensity: wine.intensity,
-        color: wine.color || '',
+        color: wine.color ?? undefined,
         rimRatio: wine.rim_ratio,
         clarity: wine.clarity || '',
         brightness: wine.brightness || '',

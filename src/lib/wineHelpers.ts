@@ -61,7 +61,7 @@ export const getSatLabel0to10 = (options: readonly string[], score: number) => {
 };
 
 export const colorLabel = (score: number, type: string) => {
-  let options = SAT_CONSTANTS.APPEARANCE.COLOR.RED;
+  let options: readonly string[] = SAT_CONSTANTS.APPEARANCE.COLOR.RED;
   if (type === '白' || type === '発泡白') options = SAT_CONSTANTS.APPEARANCE.COLOR.WHITE;
   else if (type === 'ロゼ' || type === '発泡ロゼ' || type === 'オレンジ') options = SAT_CONSTANTS.APPEARANCE.COLOR.ROSE;
   return getSatLabel0to10(options, score);

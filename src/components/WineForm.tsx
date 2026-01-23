@@ -23,6 +23,7 @@ import { generateThumbnail } from '@/lib/imageUtils';
 import { WineImage } from '@/types/custom';
 import { Trash2 } from 'lucide-react';
 import { SAT_CONSTANTS } from '@/constants/sat';
+import AromaSelector from '@/components/AromaSelector';
 
 // === 定義：画像シートを意識した選択肢 ===
 function removeUndefined(obj: Record<string, any>) {
@@ -67,15 +68,7 @@ export const mainVarieties = [
     'ピノ・グリ', 'ヴィオニエ', 'ゲヴュルツトラミネール', 'アルバリーニョ', '白その他'
 ] as const;
 
-// 代表的アロマ
-const aromaGroups = [
-    { name: '果実（赤）', options: ['イチゴ', 'ラズベリー', 'ブルーベリー', 'カシス', 'ブラックベリー', 'ブラックチェリー', '干しプラム'] },
-    { name: '果実（白）', options: ['レモン', 'グレープフルーツ', '青リンゴ', 'リンゴ', '洋ナシ', 'アプリコット', '白桃', 'トロピカル', 'パッションフルーツ'] },
-    { name: '植物/ハーブ（赤）', options: ['バラ', 'スミレ', '牡丹', 'ドライハーブ', 'ピーマン', 'ユーカリ', 'ミント', '杉', '針葉樹', 'タバコ', '紅茶', 'キノコ'] },
-    { name: '植物/ハーブ（白）', options: ['スイカズラ', 'アカシア', '白バラ', 'キンモクセイ', '菩提樹', 'ミント', 'アニス', 'ヴェルヴェーヌ', 'ハーブ', 'タイム', 'ヘーゼルナッツ'] },
-    { name: '樽/熟成', options: ['ヴァニラ', 'トースト', 'スモーク', 'シナモン', 'ナツメグ', 'コーヒー', 'チョコレート', 'レザー', '黒胡椒', '丁子', '甘草', '生肉', 'ブレット'] },
-    { name: '土/鉱物', options: ['土', '鉛筆の芯', '湿った土', '石灰', '火打石', 'スーボア', 'トリュフ', '樹脂'] }
-] as const;
+// 代表的アロマ (Legacy - moved to SAT_AROMA_DEFINITIONS in AromaSelector)
 
 export const wineFormSchema = z.object({
     //テイスティング情報
@@ -100,6 +93,7 @@ export const wineFormSchema = z.object({
     otherVarieties: z.string().optional().nullable(), // 自由記述
     additionalInfo: z.string().optional().nullable(),
     vintage: z.string().optional().nullable(),
+    importer: z.string().optional().nullable(),
 
     //外観
     wineType: z.enum(wineTypes),
@@ -337,7 +331,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             importer: '',
 
             intensity: 2.0,
-            color: '',
+            color: undefined,
             rimRatio: 5.0,
             clarity: '澄んだ',
             brightness: '輝きのある',
@@ -489,15 +483,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
         }
     }, [getValues, setValue]);
 
-    const filteredAromaGroups = (() => {
-        if (isRed) {
-            return aromaGroups.filter(g => g.name !== ('果実（白）')).filter(g => g.name !== ('植物/ハーブ（白）'));
-        }
-        if (isWhite) {
-            return aromaGroups.filter(g => g.name !== '果実（赤）').filter(g => g.name !== ('植物/ハーブ（赤）'));
-        }
-        return aromaGroups;
-    })();
+    // const filteredAromaGroups = ... (Removed legacy filtering logic)
 
     const uploadFile = async (file: File | Blob, filename: string): Promise<string> => {
         const payload = {
@@ -1143,30 +1129,10 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                         name="aromas"
                         render={({ field }) => (
                             <div className="space-y-4">
-                                {filteredAromaGroups.map(group => (
-                                    <div key={group.name} className="bg-gray-50 p-3 rounded-lg">
-                                        <p className="text-xs font-bold text-gray-500 mb-2">{group.name}</p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {group.options.map(opt => {
-                                                const checked = field.value?.includes(opt) ?? false;
-                                                return (
-                                                    <button
-                                                        type="button"
-                                                        key={opt}
-                                                        className={`px-3 py-1 text-sm rounded-full border transition-colors ${checked ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'}`}
-                                                        onClick={() => {
-                                                            const cur = new Set(field.value || []);
-                                                            checked ? cur.delete(opt) : cur.add(opt);
-                                                            field.onChange(Array.from(cur));
-                                                        }}
-                                                    >
-                                                        {opt}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                ))}
+                                <AromaSelector
+                                    selectedAromas={field.value || []}
+                                    onChange={(newAromas) => field.onChange(newAromas)}
+                                />
                             </div>
                         )}
                     />

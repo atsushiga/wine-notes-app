@@ -45,8 +45,7 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 | `wine_type` | string? | ワインタイプ |
 | `intensity` | number? | 外観の濃淡 |
 | `nose_intensity` | string? | 香りの強さ |
-| `aromas` | string[]? | アロマ（配列表現） |
-| `aromas` | string[]? | アロマ（配列表現） |
+| `aromas` | string[]? | アロマ（WSET Level 3準拠の階層データをフラット化して保存） |
 | `acidity_score` | number? | 酸味スコア (0-10) |
 | `tannin_score` | number? | タンニンスコア (0-10) |
 | `body_score` | number? | ボディスクコア (0-10) |
@@ -84,6 +83,10 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 ### テイスティングノート登録
 - フォーム入力（バリデーション付き）
 - 詳細なテイスティング項目（外観・香り・味・SAT評価）
+- **WSET Level 3準拠のアロマ選択**:
+    - 第一/第二/第三アロマの3階層タブ表示
+    - サブカテゴリによるグルーピング
+    - 検索機能による横断的な用語選択
 - セッションストレージを使用したドラフト保存機能（タブ切り替え時の入力保持・タブ別独立管理）
 
 ### ワイン一覧・詳細表示

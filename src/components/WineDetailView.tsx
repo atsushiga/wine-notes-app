@@ -16,10 +16,23 @@ import {
 } from "@/lib/wineHelpers";
 import { SAT_CONSTANTS } from '@/constants/sat';
 import Link from 'next/link';
+import Image from 'next/image';
 import ImageCarousel from './ImageCarousel';
 import AiWineInfo from './AiWineInfo';
 
-// ... (Props same)
+import { TastingNote } from '@/types/custom';
+
+interface Props {
+    wine: TastingNote;
+    onEdit: () => void;
+    onDelete: () => void;
+    isDeleting: boolean;
+}
+
+const getSatLabel = (options: readonly string[], value: number) => {
+    return options[value - 1] ?? '';
+};
+
 
 export default function WineDetailView({ wine, onEdit, onDelete, isDeleting }: Props) {
     const wineType = wine.wine_type || "";
