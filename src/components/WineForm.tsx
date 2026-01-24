@@ -25,6 +25,7 @@ import { WineImage } from '@/types/custom';
 import { Trash2 } from 'lucide-react';
 import { SAT_CONSTANTS } from '@/constants/sat';
 import AromaSelector from '@/components/AromaSelector';
+import { FieldRow } from '@/components/ui/field-row';
 
 // === 定義：画像シートを意識した選択肢 ===
 function removeUndefined(obj: Record<string, any>) {
@@ -1007,131 +1008,144 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                 tone="soft"
             >
 
-                <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm mb-1">コンディション</label>
+                <div className="grid sm:grid-cols-2 gap-6">
+                    <FieldRow label="コンディション">
                         <select className="w-full input" {...register('noseCondition')}>
                             {SAT_CONSTANTS.NOSE.CONDITION.map(v => <option key={v} value={v}>{v}</option>)}
                         </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm mb-1">熟成段階</label>
+                    </FieldRow>
+                    <FieldRow label="熟成段階">
                         <select className="w-full input" {...register('development')}>
                             {SAT_CONSTANTS.NOSE.DEVELOPMENT.map(v => <option key={v} value={v}>{v}</option>)}
                         </select>
-                    </div>
+                    </FieldRow>
                 </div>
 
-                <div>
-                    <label className="block text-sm mb-1">香りの強さ(Intensity)</label>
-                    <Controller
-                        control={control}
-                        name="noseIntensity"
-                        render={({ field }) => {
-                            const v = Number(field.value ?? 5);
-                            return (
-                                <div className="space-y-1">
-                                    <p className="text-sm text-gray-700">{v}: {noseIntensityLabel(v)}</p>
-                                    <input
-                                        type="range"
-                                        min={0}
-                                        max={10}
-                                        step={0.5}
-                                        value={v}
-                                        onChange={(e) => field.onChange(Number(e.target.value))}
-                                        className="w-full accent-gray-700"
-                                    />
-                                    <div className="flex justify-between text-xs text-gray-400 px-1">
-                                        <span>弱</span><span>強</span>
-                                    </div>
-                                </div>
-                            );
-                        }}
-                    />
-                </div>
-
-                {/* Legacy / Auxiliary Sliders */}
-                {(isRed || isRose || isOrange) && (
-                    <div className="mt-4">
-                        <label className="block text-sm mb-1">旧/新世界（1=旧世界, 5=新世界）</label>
+                <div className="space-y-8 mt-8">
+                    <div>
                         <Controller
                             control={control}
-                            name="oldNewWorld"
+                            name="noseIntensity"
                             render={({ field }) => {
-                                const v = round1(Number(field.value ?? 3));
+                                const v = Number(field.value ?? 5);
                                 return (
-                                    <>
-                                        <p className="text-sm mb-1">{v.toFixed(1)}: {v <= 3 ? '旧世界' : '新世界'}</p>
+                                    <FieldRow
+                                        label="香りの強さ"
+                                        valueText={`${v}: ${noseIntensityLabel(v)}`}
+                                    >
                                         <input
                                             type="range"
-                                            min={1}
-                                            max={5}
-                                            step={0.1}
+                                            min={0}
+                                            max={10}
+                                            step={0.5}
                                             value={v}
                                             onChange={(e) => field.onChange(Number(e.target.value))}
-                                            className="w-full accent-gray-700"
+                                            className="w-full accent-zinc-700"
                                         />
-                                    </>
+                                        <div className="flex justify-between text-xs text-zinc-300 px-1 mt-1">
+                                            <span>弱</span><span>強</span>
+                                        </div>
+                                    </FieldRow>
                                 );
                             }}
                         />
                     </div>
-                )}
 
-                {isWhite && (
-                    <div className="mt-4">
-                        <label className="block text-sm mb-1">ニュートラル / アロマティック</label>
+                    {/* Legacy / Auxiliary Sliders */}
+                    {(isRed || isRose || isOrange) && (
+                        <div>
+                            <Controller
+                                control={control}
+                                name="oldNewWorld"
+                                render={({ field }) => {
+                                    const v = round1(Number(field.value ?? 3));
+                                    return (
+                                        <FieldRow
+                                            label="旧/新世界"
+                                            valueText={`${v.toFixed(1)}: ${v <= 3 ? '旧世界' : '新世界'}`}
+                                        >
+                                            <input
+                                                type="range"
+                                                min={1}
+                                                max={5}
+                                                step={0.1}
+                                                value={v}
+                                                onChange={(e) => field.onChange(Number(e.target.value))}
+                                                className="w-full accent-zinc-700"
+                                            />
+                                            <div className="flex justify-between text-xs text-zinc-300 px-1 mt-1">
+                                                <span>旧世界</span><span>新世界</span>
+                                            </div>
+                                        </FieldRow>
+                                    );
+                                }}
+                            />
+                        </div>
+                    )}
+
+                    {isWhite && (
+                        <div>
+                            <Controller
+                                control={control}
+                                name="aromaNeutrality"
+                                render={({ field }) => {
+                                    const v = round1(Number(field.value ?? 3));
+                                    return (
+                                        <FieldRow
+                                            label="ニュートラル / アロマティック"
+                                            valueText={`${v.toFixed(1)}: ${v <= 3 ? 'ニュートラル' : 'アロマティック'}`}
+                                        >
+                                            <input
+                                                type="range"
+                                                min={1}
+                                                max={5}
+                                                step={0.1}
+                                                value={v}
+                                                onChange={(e) => field.onChange(Number(e.target.value))}
+                                                className="w-full accent-zinc-700"
+                                            />
+                                            <div className="flex justify-between text-xs text-zinc-300 px-1 mt-1">
+                                                <span>ニュートラル</span><span>アロマティック</span>
+                                            </div>
+                                        </FieldRow>
+                                    );
+                                }}
+                            />
+                        </div>
+                    )}
+
+                    <div className="pt-2">
                         <Controller
                             control={control}
-                            name="aromaNeutrality"
+                            name="oakAroma"
                             render={({ field }) => {
-                                const v = round1(Number(field.value ?? 3));
+                                const v = Math.round((field.value ?? 1) * 10) / 10;
                                 return (
-                                    <>
-                                        <p className="text-sm mb-1">{v.toFixed(1)}: {v <= 3 ? 'ニュートラル' : 'アロマティック'}</p>
+                                    <FieldRow
+                                        label="樽香"
+                                        valueText={`${v.toFixed(1)}: ${oakAromaLabel(v)}`}
+                                    >
                                         <input
                                             type="range"
                                             min={1}
                                             max={5}
-                                            step={0.1}
+                                            step={0.5}
                                             value={v}
                                             onChange={(e) => field.onChange(Number(e.target.value))}
-                                            className="w-full accent-gray-700"
+                                            className="w-full accent-zinc-700"
                                         />
-                                    </>
+                                        <div className="flex justify-between text-xs text-zinc-300 px-1 mt-1">
+                                            <span>弱</span><span>強</span>
+                                        </div>
+                                    </FieldRow>
                                 );
                             }}
                         />
                     </div>
-                )}
-
-                <div className="mt-4">
-                    <label htmlFor="oakAroma" className="block text-sm mb-1">樽香</label>
-                    <Controller
-                        control={control}
-                        name="oakAroma"
-                        render={({ field }) => {
-                            const v = Math.round((field.value ?? 1) * 10) / 10;
-                            return (
-                                <div className="flex flex-col gap-1">
-                                    <p className="text-sm mb-1">{v.toFixed(1)}: {oakAromaLabel(v)}</p>
-                                    <input
-                                        type="range"
-                                        min={1}
-                                        max={5}
-                                        step={0.5}
-                                        value={v}
-                                        onChange={(e) => field.onChange(Number(e.target.value))}
-                                        className="w-full accent-gray-700"
-                                    />
-                                </div>
-                            );
-                        }}
-                    />
                 </div>
 
-                <div className="space-y-2 mt-4">
-                    <p className="text-sm font-medium">印象（アロマ）</p>
+                <div className="space-y-3 mt-10 border-t border-gray-100 pt-6">
+                    <p className="text-sm font-semibold text-zinc-800">印象（アロマ）</p>
                     <Controller
                         control={control}
                         name="aromas"
