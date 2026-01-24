@@ -5,8 +5,9 @@ import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { searchWineDetails, analyzeWineImage } from '@/app/actions/gemini';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles, Loader2, Eye, Wind, Grape, Award } from 'lucide-react';
 import { useState } from 'react';
+import { SectionCard } from '@/components/ui/section-card';
 import {
     colorLabel,
     intensityLabel,
@@ -600,7 +601,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
     };
 
     return (
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="mx-auto w-full max-w-xl px-4 pb-24 md:max-w-2xl space-y-8">
             <div className="flex justify-between items-center bg-gray-50 px-4 py-2 rounded-lg mb-4">
                 <span className="text-sm text-gray-500">入力フォーム</span>
                 <button
@@ -889,9 +890,12 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             </section>
 
             {/* 外観 */}
-            {/* 外観 */}
-            <section className="rounded-2xl p-4 shadow-sm bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)]">
-                <h2 className="font-medium">外観</h2>
+            <SectionCard
+                title="外観"
+                description="色、清澄度、濃淡の評価"
+                icon={<Eye size={18} />}
+                tone="neutral"
+            >
                 <div className="grid sm:grid-cols-3 gap-3">
                     <div>
                         <label className="block text-sm mb-1">清澄度</label>
@@ -993,11 +997,15 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                         {...register('appearanceOther')}
                     />
                 </div>
-            </section>
+            </SectionCard>
 
             {/* 香り */}
-            <section className="rounded-2xl bg-white p-4 shadow-sm space-y-4">
-                <h2 className="font-medium">香り</h2>
+            <SectionCard
+                title="香り"
+                description="強さ、質、特徴の分析"
+                icon={<Wind size={18} />}
+                tone="soft"
+            >
 
                 <div className="grid sm:grid-cols-2 gap-4">
                     <div>
@@ -1146,11 +1154,15 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                     />
                 </div>
 
-            </section>
+            </SectionCard>
 
             {/* 味わい */}
-            <section className="rounded-2xl bg-white p-4 shadow-sm space-y-4">
-                <h2 className="font-medium">味わい</h2>
+            <SectionCard
+                title="味わい"
+                description="甘味、酸味、タンニン、ボディ、余韻"
+                icon={<Grape size={18} />}
+                tone="soft"
+            >
 
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {/* Sweetness */}
@@ -1306,7 +1318,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                         {...register('palateNotes')}
                     />
                 </div>
-            </section>
+            </SectionCard>
 
             {/* 補足 */}
             <section className="rounded-2xl bg-white p-4 shadow-sm space-y-3">
@@ -1320,8 +1332,12 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             </section>
 
             {/* 総合評価 */}
-            <section className="rounded-2xl bg-white p-4 shadow-sm space-y-4">
-                <h2 className="font-medium">総合評価</h2>
+            <SectionCard
+                title="総合評価"
+                description="品質、熟成の可能性、全体の感想"
+                icon={<Award size={18} />}
+                tone="focus"
+            >
 
                 <div>
                     <label className="block text-sm mb-1 font-medium">品質評価 (Quality)</label>
@@ -1396,7 +1412,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                         )}
                     />
                 </div>
-            </section>
+            </SectionCard>
 
             <section className="sticky bottom-4 z-20 rounded-2xl bg-white/90 backdrop-blur-sm p-4 shadow-lg border border-gray-200 mt-8 space-y-2">
                 {Object.keys(errors).length > 0 && (
