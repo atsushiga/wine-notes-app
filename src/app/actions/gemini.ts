@@ -101,29 +101,140 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
     });
 
     const prompt = `
-    Please search for detailed information about the following wine:
-    Name: ${query.name}
-    Producer/Winery: ${query.winery || "Unknown"}
-    Vintage: ${query.vintage || "Unknown"}
+    You are assisting a wine tasting note application.
+    Search the web for reliable, professional information about the following wine and summarize it in Japanese.
 
-    I need professional and detailed information for the following 5 sections in Japanese (日本語).
-    Return the result strictly as a valid JSON object with the keys exactly as listed below. Do not include markdown code blocks.
+    Wine:
+    - Name: ${query.name}
+    - Producer/Winery: ${query.winery || "Unknown"}
+    - Vintage: ${query.vintage || "Unknown"}
 
-    1. terroir_info: Detailed description of the terroir (soil, climate, location) of the vineyard in Japanese.
-    2. producer_philosophy: The producer's winemaking philosophy and history in Japanese.
-    3. technical_details: Technical details like grape varieties, fermentation method, aging process (barrels, duration) in Japanese.
-    4. vintage_analysis: Characteristics of this specific vintage (${query.vintage}) in that region in Japanese. If specific vintage info is hard to find, describe the general vintage characteristics of the region for that year.
-    5. search_result_tasting_note: Professional tasting notes found online (aroma, palate, finish) in Japanese.
+    Goal:
+    Create calm, factual “reference material” to support the user’s own tasting notes
+    in a SAT / WSET Level 3 context.
+    This content is NOT a conclusion or evaluation, but background information.
 
-    JSON Keys:
-    - terroir_info
-    - producer_philosophy
-    - technical_details
-    - vintage_analysis
-    - search_result_tasting_note
-    
-    If information is missing, provide a reasonable "Information not available" message for that field in Japanese, but try your best to find it.
-  `;
+    --------------------------------------------------
+    Critical writing rules (VERY IMPORTANT):
+    - Do NOT use promotional or marketing language
+    (e.g. 「素晴らしい」「最高」「圧倒的」「世界的に高評価」).
+    - Avoid strong conclusions. Prefer cautious phrasing:
+    「〜とされる」「〜が見られる」「〜と報告されている」「一般に〜の傾向」.
+    - Never tell the user what they “should” taste or conclude.
+    - When summarizing tasting notes, distinguish clearly between:
+    a) professional reports found online
+    b) general regional or stylistic tendencies
+    - Use SAT / WSET-style descriptors where appropriate
+    (e.g. Medium(+), Pronounced, Long),
+    but only when supported by sources or clearly stated as typical style.
+    - Keep each section concise and easy to scan.
+    - Write in neutral, textbook-like Japanese suitable for exam study.
+
+    --------------------------------------------------
+    Fallback search policy (EXTREMELY IMPORTANT):
+
+    If reliable information about the exact wine / producer / vintage
+    cannot be found, broaden the scope step-by-step.
+
+    Use this fallback order and DO NOT skip levels unless necessary:
+
+    Tier 0: Exact wine + producer + vintage (most specific)
+    Tier 1: Appellation / village / commune (e.g. Margaux AOC)
+    Tier 2: Sub-region (e.g. Médoc, Haut-Médoc)
+    Tier 3: Regional level (e.g. Bordeaux, Left Bank)
+    Tier 4: Country or grape general style (last resort)
+
+    For EACH field, explicitly state the reference scope
+    at the beginning of the text in Japanese, for example:
+
+    「【参照範囲: Tier0（生産者・キュヴェ固有）】」
+    「【参照範囲: Tier1（AOC: Margaux）】」
+    「【参照範囲: Tier2（地域: Médoc）】」
+
+    If a broader Tier is used, briefly explain why
+    (e.g. lack of producer-specific primary sources).
+    Never present Tier1–4 information as if it were Tier0 facts.
+
+    --------------------------------------------------
+    Field-specific accuracy guidelines (IMPORTANT):
+
+    - terroir_info:
+    Tier1–3 information is acceptable and often valuable.
+    Start with a short defining sentence (what/where/who) before details.
+    Focus on soil, climate, location, and their general implications.
+
+    - producer_philosophy:
+    Prefer Tier0 only.
+    Start with a short defining sentence (what/where/who) before details.
+    Describe producer history, positioning, and winemaking philosophy (if available).
+    If unavailable, clearly state that producer-specific philosophy
+    could not be confirmed and avoid speculation.
+
+    - technical_details:
+    Prefer Tier0.
+    This section is especially important for interpreting the tasting note.
+    Provide more detailed and informative content than other sections.
+
+    Include, where possible:
+        - grape varieties and vine age (if known)
+        - yield level (low / controlled / typical, if reported)
+        - fermentation vessel and temperature tendency
+        - maceration length and extraction style
+        - malolactic fermentation details
+        - aging vessel type, size, duration, and new oak ratio
+        - filtration / fining approach (if mentioned)
+        - stylistic intention relevant to structure and aroma
+
+    Avoid speculation, but do not be overly brief.
+    This section may be longer and more descriptive than others.
+
+    If unavailable, describe “commonly reported” or “typical” methods
+    at the applicable Tier, clearly labeled as such.
+
+    - vintage_analysis:
+    Tier2–3 is acceptable and often appropriate.
+    Use regional vintage reports when exact producer data is unavailable.
+
+    - search_result_tasting_note:
+    Prefer Tier0 professional tasting notes.
+    Summarize professional tasting notes found online (aroma / palate / finish / structure).
+    Briefly mention acidity, tannin, and finish length using SAT-style terms when reasonably supported.
+    If unavailable, summarize commonly reported regional style,
+    clearly labeled as general tendency.
+    If reports vary, mention the range briefly.
+
+    --------------------------------------------------
+    Output format:
+
+    Return STRICTLY a valid JSON object (no markdown, no code blocks)
+    with EXACTLY the following keys:
+
+    1. terroir_info
+    2. producer_philosophy
+    3. technical_details
+    4. vintage_analysis
+    5. search_result_tasting_note
+
+    Each field must be a single Japanese text string.
+    Do not use markdown or code blocks. Use plain text in a structured way.
+
+    --------------------------------------------------
+    Missing information handling:
+
+    If information cannot be found even after applying the fallback policy,
+    write a short Japanese explanation such as:
+
+    「公開情報から一次ソースで確認できず
+    （公式資料・信頼できる専門レビューが見当たらないため）」
+
+    but still provide the most appropriate broader Tier information if possible.
+
+    Overall tone reminder:
+    This content functions as background material for study and interpretation,
+    similar to a wine exam reference book.
+    Clarity and usefulness are more important than brevity.
+    `;
+
 
     try {
         const result = await model.generateContent(prompt);
