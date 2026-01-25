@@ -863,6 +863,9 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                 <p className="text-sm text-gray-600 mb-4">
                     ワイン名・生産者・ヴィンテージを元に、Web上の専門情報を検索・自動入力します。
                 </p>
+                <p className="text-sm text-gray-400 mb-4">
+                    ※ AIによる参考情報です。評価や記述はあくまで補助的な材料として扱い、実際の香り・味わいの判断はご自身の感覚を優先してください
+                </p>
 
                 {isAiExpanded && (
                     <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
