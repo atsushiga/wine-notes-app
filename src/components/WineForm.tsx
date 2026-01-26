@@ -5,7 +5,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { searchWineDetails, analyzeWineImage } from '@/app/actions/gemini';
-import { Sparkles, Loader2, Eye, Wind, Grape, Award } from 'lucide-react';
+import { Sparkles, Loader2, Eye, Wind, Grape, Award, Bot, ChevronDown, ChevronUp, BookOpen, User, Settings, Calendar, FileText } from 'lucide-react';
 import { useState } from 'react';
 import { SectionCard } from '@/components/ui/section-card';
 import {
@@ -463,6 +463,8 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
     };
 
     const wineType = watch('wineType');
+    const wineNameValue = watch('wineName');
+    const hasWineName = !!wineNameValue;
 
     useEffect(() => {
         document.body.setAttribute('data-winetype', wineType ?? '');
@@ -567,7 +569,10 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
 
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [isAiExpanded, setIsAiExpanded] = useState(!!defaultValues?.terroir_info);
+    const [isAiExpanded, setIsAiExpanded] = useState(false);
+    const [showTooltip, setShowTooltip] = useState(false);
+
+
 
     const handleAiSearch = async () => {
         const name = getValues('wineName');
@@ -843,55 +848,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                 </div>
             </section>
 
-            {/* AI Search Section */}
-            <section className="rounded-2xl bg-gradient-to-r from-purple-50 to-indigo-50 p-4 shadow-sm border border-purple-100">
-                <div className="flex items-center justify-between mb-2">
-                    <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-purple-600" />
-                        AI Deep Dive (情報検索)
-                    </h2>
-                    <button
-                        type="button"
-                        onClick={handleAiSearch}
-                        disabled={isAiLoading}
-                        className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
-                    >
-                        {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                        {isAiLoading ? '検索中...' : '情報を取得'}
-                    </button>
-                </div>
-                <p className="text-sm text-gray-600 mb-4">
-                    ワイン名・生産者・ヴィンテージを元に、Web上の専門情報を検索・自動入力します。
-                </p>
-                <p className="text-sm text-gray-400 mb-4">
-                    ※ AIによる参考情報です。評価や記述はあくまで補助的な材料として扱い、実際の香り・味わいの判断はご自身の感覚を優先してください
-                </p>
 
-                {isAiExpanded && (
-                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <div>
-                            <label className="block text-sm font-medium mb-1 text-gray-700">テロワール</label>
-                            <textarea className="w-full input h-24 text-sm" {...register('terroir_info')} placeholder="AI検索結果がここに表示されます" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1 text-gray-700">生産者・哲学</label>
-                            <textarea className="w-full input h-24 text-sm" {...register('producer_philosophy')} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1 text-gray-700">技術詳細</label>
-                            <textarea className="w-full input h-24 text-sm" {...register('technical_details')} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1 text-gray-700">ヴィンテージ分析</label>
-                            <textarea className="w-full input h-24 text-sm" {...register('vintage_analysis')} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1 text-gray-700">参考テイスティングノート</label>
-                            <textarea className="w-full input h-24 text-sm" {...register('search_result_tasting_note')} />
-                        </div>
-                    </div>
-                )}
-            </section>
 
             {/* 外観 */}
             <SectionCard
@@ -1468,10 +1425,130 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                 </div>
             </section>
 
+            {/* AI Search Section (Deep Dive) - Moved to bottom */}
+            <section id="ai-deep-dive" className="rounded-2xl bg-gray-50 p-4 border border-gray-100">
+                <button
+                    type="button"
+                    onClick={() => setIsAiExpanded(!isAiExpanded)}
+                    className="w-full flex items-center justify-between group"
+                >
+                    <div className="flex items-center gap-2">
+                        <div className="bg-purple-100 p-2 rounded-full">
+                            <Sparkles className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div className="text-left">
+                            <h2 className="font-bold text-gray-900">AI Deep Dive</h2>
+                            <p className="text-xs text-gray-500">Web上の専門情報を検索・参照</p>
+                        </div>
+                    </div>
+                    {isAiExpanded ? (
+                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                    ) : (
+                        <ChevronDown className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
+                    )}
+                </button>
+
+                {isAiExpanded && (
+                    <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={handleAiSearch}
+                                disabled={isAiLoading}
+                                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-md disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                {isAiLoading ? '検索中...' : '情報を取得する'}
+                            </button>
+                        </div>
+
+                        <p className="text-sm text-gray-600 bg-white p-3 rounded-lg border border-gray-100">
+                            ワイン名・生産者・ヴィンテージを元に、Web上の専門情報を検索します。
+                            <br />
+                            <span className="text-xs text-gray-400 block mt-1">※ 既に情報が入力されている場合は上書きされます。</span>
+                        </p>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
+                                    <BookOpen className="w-4 h-4 text-emerald-600" /> テロワール
+                                </label>
+                                <textarea className="w-full input h-24 text-sm bg-purple-50/30" {...register('terroir_info')} placeholder="AI検索結果がここに表示されます" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
+                                    <User className="w-4 h-4 text-blue-600" /> 生産者・哲学
+                                </label>
+                                <textarea className="w-full input h-24 text-sm bg-purple-50/30" {...register('producer_philosophy')} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
+                                    <Settings className="w-4 h-4 text-gray-600" /> 技術詳細
+                                </label>
+                                <textarea className="w-full input h-24 text-sm bg-purple-50/30" {...register('technical_details')} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-orange-600" /> ヴィンテージ分析
+                                </label>
+                                <textarea className="w-full input h-24 text-sm bg-purple-50/30" {...register('vintage_analysis')} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
+                                    <FileText className="w-4 h-4 text-red-600" /> 参考テイスティングノート
+                                </label>
+                                <textarea className="w-full input h-24 text-sm bg-purple-50/30" {...register('search_result_tasting_note')} />
+                            </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-gray-200 mt-4 text-center">
+                            <p className="text-xs text-gray-500">
+                                ※本情報は参考情報です。実際の評価はご自身の感覚を優先してください。
+                            </p>
+                        </div>
+                    </div>
+                )}
+            </section>
+
+            {/* Floating Navigation Icon */}
+            <div className="fixed bottom-24 right-4 z-50 flex flex-col items-end gap-2 text-right pointer-events-none">
+                {/* Tooltip Wrapper */}
+                <div className={`transition-all duration-300 transform ${showTooltip ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} pointer-events-auto`}>
+                    <div className="bg-gray-800 text-white text-xs px-3 py-2 rounded-lg shadow-lg mb-1 max-w-[150px]">
+                        ワイン名を記入するとAI検索ができます
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    onMouseEnter={() => !hasWineName && setShowTooltip(true)}
+                    onMouseLeave={() => setShowTooltip(false)}
+                    onClick={() => {
+                        if (!hasWineName) {
+                            setShowTooltip(true);
+                            setTimeout(() => setShowTooltip(false), 3000);
+                            return;
+                        }
+                        const el = document.getElementById('ai-deep-dive');
+                        if (el) {
+                            el.scrollIntoView({ behavior: 'smooth' });
+                            setIsAiExpanded(true);
+                        }
+                    }}
+                    className={`pointer-events-auto shadow-lg border border-gray-200 p-3 rounded-full transition-all active:scale-95 flex items-center justify-center ${hasWineName
+                        ? 'bg-white text-gray-600 hover:bg-gray-50'
+                        : 'bg-gray-100 text-gray-400'
+                        }`}
+                    aria-label="Goto AI Deep Dive"
+                >
+                    <Bot size={24} />
+                </button>
+            </div>
+
             <style jsx global>{`
             .input { @apply rounded-xl border border-neutral-300 bg-white px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-800; }
             .btn-primary { @apply rounded-xl bg-neutral-900 px-4 py-2 text-white shadow-sm hover:opacity-90 disabled:opacity-50; }
         `}</style>
-        </form>
+        </form >
     );
 }
