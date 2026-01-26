@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, List, BarChart2, Settings } from "lucide-react";
+import { NotebookPen, List, BarChart2, Settings } from "lucide-react";
 
 export default function BottomNav() {
     const pathname = usePathname();
@@ -17,7 +17,7 @@ export default function BottomNav() {
                     className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive("/") ? "text-rose-600" : "text-gray-500 hover:text-gray-700"
                         }`}
                 >
-                    <Home size={24} />
+                    <NotebookPen size={24} />
                     <span className="text-xs font-medium">記録</span>
                 </Link>
                 <Link
