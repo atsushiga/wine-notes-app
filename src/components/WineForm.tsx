@@ -1376,7 +1376,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                 </div>
             </SectionCard>
 
-            <section className="sticky bottom-4 z-20 rounded-2xl bg-white/90 backdrop-blur-sm p-4 shadow-lg border border-gray-200 mt-8 space-y-2">
+            <section className="sticky bottom-18 z-20 rounded-2xl bg-white/90 backdrop-blur-sm p-4 shadow-lg border border-gray-200 mt-8 space-y-2">
                 {Object.keys(errors).length > 0 && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 mb-2">
                         <p className="font-bold">入力内容に不備があります。</p>
@@ -1397,7 +1397,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                             disabled={isSubmitting}
                             className="w-full sm:w-auto px-6 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl shadow-sm hover:bg-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300"
                         >
-                            {isSubmitting ? '保存中...' : '一時保存 (下書き)'}
+                            {isSubmitting ? '保存中...' : '一時保存'}
                         </button>
                     </div>
                     <div className="w-full sm:w-2/3">
@@ -1499,7 +1499,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             </section>
 
             {/* Floating Navigation Icon */}
-            <div className="fixed bottom-24 right-4 z-50 flex flex-col items-end gap-2 text-right pointer-events-none">
+            <div className="fixed bottom-40 right-4 z-50 flex flex-col items-end gap-2 text-right pointer-events-none">
                 {/* Tooltip Wrapper */}
                 <div className={`transition-all duration-300 transform ${showTooltip ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} pointer-events-auto`}>
                     <div className="bg-gray-800 text-white text-xs px-3 py-2 rounded-lg shadow-lg mb-1 max-w-[150px]">
