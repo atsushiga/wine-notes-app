@@ -2,7 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/supabase';
 import { createClient } from '@/utils/supabase/server';
-import { appendToSheet, appendToNotion, UnknownRecord } from '@/app/actions/sync';
+// import { appendToSheet, appendToNotion, UnknownRecord } from '@/app/actions/sync';
+
+type UnknownRecord = Record<string, unknown>;
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic';
@@ -134,16 +136,8 @@ export async function POST(req: NextRequest) {
     const supabaseResult = await appendToSupabase(data, userId, status);
 
     // 2. その後、既存のNotion/Sheets連携を実行 (下書き以外の場合のみ)
-    if (status !== 'draft') {
-      const row: Record<string, unknown> = { ...data, createdAt: new Date().toISOString() };
-      try {
-        await appendToSheet(row);
-        await appendToNotion(data);
-      } catch (syncError) {
-        console.error('Sync Error (Non-fatal):', syncError);
-        // We don't fail the request if external sync fails, but we assume it's "saved" in Supabase
-      }
-    }
+    // Notion/Sheets sync removed.
+    // if (status !== 'draft') { ... }
 
     return NextResponse.json({ ok: true, id: supabaseResult.id }, { status: 200 });
   } catch (err: unknown) {

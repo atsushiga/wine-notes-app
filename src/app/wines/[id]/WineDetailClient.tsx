@@ -27,7 +27,7 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
     };
 
     const handleDelete = async () => {
-        if (!confirm('本当に削除しますか？この操作は取り消せません。\n※Google SheetsおよびNotionのデータは削除されません。')) return;
+        if (!confirm('本当に削除しますか？この操作は取り消せません。')) return;
 
         setIsDeleting(true);
         try {
