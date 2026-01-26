@@ -207,7 +207,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             readiness: '今飲めるが熟成可能',
             rating: 3.5,
             notes: '',
-            vivinoUrl: '',
+
 
 
             terroir_info: '',
@@ -362,7 +362,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             readiness: '今飲めるが熟成可能',
             rating: 3.0,
             notes: '',
-            vivinoUrl: '',
+
 
             terroir_info: '',
             producer_philosophy: '',
@@ -438,7 +438,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             readiness: '今飲めるが熟成可能',
             rating: 3.5,
             notes: '',
-            vivinoUrl: '',
+
             terroir_info: '',
             producer_philosophy: '',
             technical_details: '',
@@ -1294,16 +1294,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                 </div>
             </SectionCard>
 
-            {/* 補足 */}
-            <section className="rounded-2xl bg-white p-4 shadow-sm space-y-3">
-                <h2 className="font-medium">補足</h2>
-                <div className="grid sm:grid-cols-3 gap-3">
-                    <div className="sm:col-span-3">
-                        <label className="block text-sm mb-1">Vivino URL</label>
-                        <input className="w-full input" placeholder="https://www.vivino.com/..." {...register('vivinoUrl')} />
-                    </div>
-                </div>
-            </section>
+
 
             {/* 総合評価 */}
             <SectionCard
