@@ -640,21 +640,18 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             </section>
 
             {/* 基本情報 */}
-            <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-2xl bg-white p-4 shadow-sm">
-                <h2 className="font-medium">基本情報</h2>
-                <div>
-                    <label className="block text-sm mb-1">日付</label>
-                    <input type="date" className="w-full input" {...register('date')} />
-                </div>
-                <div className="grid sm:grid-cols-3 gap-3">
-                    <div className="sm:col-span-2">
-                        <label className="block text-sm mb-1">飲んだ/購入した場所</label>
+            <SectionCard title="基本情報" icon={<Calendar size={18} />} tone="neutral">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <FieldRow label="日付">
+                        <input type="date" className="w-full input" {...register('date')} />
+                    </FieldRow>
+                    <FieldRow label="飲んだ/購入した場所">
                         <input className="w-full input" placeholder="例: 自宅 / ○○レストラン / △△ワインショップ"
                             {...register('place')} />
-                    </div>
+                    </FieldRow>
                 </div>
-                <div className="sm:col-span-3">
-                    <label className="block text-sm mb-1">写真（複数選択可）</label>
+                <div className="mt-6">
+                    <label className="block text-sm font-medium text-zinc-700 mb-2">写真（複数選択可）</label>
                     <input
                         type="file"
                         accept="image/*"
@@ -739,26 +736,29 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                         </div>
                     </div>
                 )}
-            </section>
 
 
-            <section className="gap-4 rounded-2xl bg-white p-4 shadow-sm space-y-3">
-                <h2 className="font-medium">ワイン情報</h2>
-                <div className='grid grid-cols-1 sm:grid-cols-2'>
-                    <div>
-                        <label className="block text-sm mb-1">ワイン名*（例: Domaine X, cuvée）</label>
+            </SectionCard>
+
+
+            {/* ワイン情報 */}
+            <SectionCard title="ワイン情報" icon={<FileText size={18} />} tone="neutral">
+                <div className='grid grid-cols-1 gap-6'>
+                    <FieldRow label="ワイン名*" hint="例: Domaine X, cuvée">
                         <input className="w-full input" placeholder="Wine name" {...register('wineName')} />
-                        {errors.wineName && <p className="text-red-600 text-sm">必須です</p>}
+                        {errors.wineName && <p className="text-red-600 text-sm mt-1">必須です</p>}
+                    </FieldRow>
+
+                    <div className="grid sm:grid-cols-2 gap-6">
+                        <FieldRow label="生産者">
+                            <input className="w-full input" {...register('producer')} />
+                        </FieldRow>
+                        <FieldRow label="ヴィンテージ">
+                            <input className="w-full input" placeholder="例: 2021" {...register('vintage')} />
+                        </FieldRow>
                     </div>
-                    <div>
-                        <label className="block text-sm mb-1">生産者</label>
-                        <input className="w-full input" {...register('producer')} />
-                    </div>
-                    <div>
-                        <label className="block text-sm mb-1">ヴィンテージ</label>
-                        <input className="w-full input" placeholder="例: 2021" {...register('vintage')} />
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
+
+                    <div className="grid sm:grid-cols-2 gap-6">
                         <Controller
                             control={control}
                             name="price"
@@ -770,8 +770,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                                         : '';
 
                                 return (
-                                    <div>
-                                        <label className="block text-sm mb-1">ボトル価格</label>
+                                    <FieldRow label="ボトル価格">
                                         <div className="flex items-center gap-2">
                                             <input
                                                 type="text"
@@ -787,66 +786,71 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                                             />
                                             <span className="text-gray-600">円</span>
                                         </div>
-                                    </div>
+                                    </FieldRow>
                                 );
                             }}
 
                         />
+                        <FieldRow label="輸入元">
+                            <input className="w-full input" placeholder="Importer" {...register('importer')} />
+                        </FieldRow>
                     </div>
-                    <div>
-                        <label className="block text-sm mb-1">輸入元</label>
-                        <input className="w-full input" placeholder="Importer" {...register('importer')} />
-                    </div>
-                    <div>
-                        <label className="block text-sm mb-1">色</label>
-                        <input
-                            type="text"
-                            value={watch('wineType') ?? ''}
-                            readOnly
-                            className="w-full input bg-gray-50 text-gray-700 cursor-default"
-                        />
-                    </div>
-                </div>
-                <h3 className="font-medium">生産地</h3>
-                <div className="grid sm:grid-cols-2 gap-3">
-                    <div>
-                        <label className="block text-sm mb-1">国</label>
-                        <select className="w-full input" {...register('country')}>
-                            <option value="">未選択</option>
-                            {countries.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm mb-1">地名（地域/村/畑など）</label>
-                        <input className="w-full input" placeholder="例: ブルゴーニュ／ニュイ＝サン＝ジョルジュ／レ・ダモード"
-                            {...register('locality')} />
-                    </div>
-                </div>
-                <h3 className="font-medium">品種</h3>
-                <div className="grid sm:grid-cols-2 gap-3">
-                    <div>
-                        <label className="block text-sm mb-1">主体の品種</label>
-                        <select className="w-full input" {...register('mainVariety')}>
-                            <option value="">未選択</option>
-                            {mainVarieties.map(v => <option key={v} value={v}>{v}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm mb-1">その他（補助品種・ブレンド等）</label>
-                        <input className="w-full input" placeholder="例: プティ・ヴェルド 5% など"
-                            {...register('otherVarieties')} />
-                    </div>
-                </div>
 
-                <div className="sm:col-span-3">
-                    <label className="block text-sm mb-1">補足情報（自由入力）</label>
-                    <textarea
-                        className="w-full input h-28"
-                        placeholder="例: 畑情報、区画、樹齢、醸造メモ、輸入元メモ、保存環境 など自由に"
-                        {...register('additionalInfo')}
-                    />
+                    <div className="grid sm:grid-cols-2 gap-6">
+                        <FieldRow label="色">
+                            <input
+                                type="text"
+                                value={watch('wineType') ?? ''}
+                                readOnly
+                                className="w-full input bg-gray-50 text-gray-700 cursor-default"
+                            />
+                        </FieldRow>
+                        <div />
+                    </div>
+
+                    <div className="pt-2 border-t border-dashed border-gray-200">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-4">生産地</h4>
+                        <div className="grid sm:grid-cols-2 gap-6">
+                            <FieldRow label="国">
+                                <select className="w-full input" {...register('country')}>
+                                    <option value="">未選択</option>
+                                    {countries.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </FieldRow>
+                            <FieldRow label="地名（地域/村/畑など）">
+                                <input className="w-full input" placeholder="例: ブルゴーニュ／ニュイ＝サン＝ジョルジュ／レ・ダモード"
+                                    {...register('locality')} />
+                            </FieldRow>
+                        </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-dashed border-gray-200">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-4">品種</h4>
+                        <div className="grid sm:grid-cols-2 gap-6">
+                            <FieldRow label="主体の品種">
+                                <select className="w-full input" {...register('mainVariety')}>
+                                    <option value="">未選択</option>
+                                    {mainVarieties.map(v => <option key={v} value={v}>{v}</option>)}
+                                </select>
+                            </FieldRow>
+                            <FieldRow label="その他（補助品種・ブレンド等）">
+                                <input className="w-full input" placeholder="例: プティ・ヴェルド 5% など"
+                                    {...register('otherVarieties')} />
+                            </FieldRow>
+                        </div>
+                    </div>
+
+                    <div className="pt-2">
+                        <FieldRow label="補足情報（自由入力）">
+                            <textarea
+                                className="w-full input h-28"
+                                placeholder="例: 畑情報、区画、樹齢、醸造メモ、輸入元メモ、保存環境 など自由に"
+                                {...register('additionalInfo')}
+                            />
+                        </FieldRow>
+                    </div>
                 </div>
-            </section>
+            </SectionCard>
 
 
 
@@ -857,9 +861,8 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                 icon={<Eye size={18} />}
                 tone="neutral"
             >
-                <div className="grid sm:grid-cols-3 gap-3">
-                    <div>
-                        <label className="block text-sm mb-1">清澄度</label>
+                <div className="grid sm:grid-cols-2 gap-6">
+                    <FieldRow label="清澄度">
                         <select
                             className="w-full rounded-md px-3 py-2 bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                             {...register('clarity')}
@@ -868,95 +871,93 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                                 <option key={v.label} value={v.label}>{v.label}</option>
                             ))}
                         </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm mb-1">輝き</label>
+                    </FieldRow>
+                    <FieldRow label="輝き">
                         <select className="w-full input" {...register('brightness')}>
                             {apperance.brightness.map(v => (
                                 <option key={v.label} value={v.label}>{v.label}</option>
                             ))}
                         </select>
-                    </div>
+                    </FieldRow>
                 </div>
 
-                <div className="grid sm:grid-cols-2 gap-4 mt-4">
-                    <div>
-                        <label className="block text-sm mb-1 font-medium">濃淡 (Intensity)</label>
-                        <Controller
-                            control={control}
-                            name="intensity"
-                            render={({ field }) => {
-                                const v = Number(field.value ?? 5);
-                                return (
-                                    <div className="space-y-1">
-                                        <p className="text-sm text-gray-700">{v}: {intensityLabel(v)}</p>
-                                        <input
-                                            type="range"
-                                            min={0}
-                                            max={10}
-                                            step={0.5}
-                                            value={v}
-                                            onChange={(e) => field.onChange(Number(e.target.value))}
-                                            className="w-full accent-gray-700"
-                                        />
-                                        <div className="flex justify-between text-xs text-gray-400 px-1">
-                                            <span>淡</span><span>濃</span>
-                                        </div>
+                <div className="grid sm:grid-cols-2 gap-x-6 gap-y-8 mt-8">
+                    <Controller
+                        control={control}
+                        name="intensity"
+                        render={({ field }) => {
+                            const v = Number(field.value ?? 5);
+                            return (
+                                <FieldRow
+                                    label="濃淡 (Intensity)"
+                                    valueText={`${v}: ${intensityLabel(v)}`}
+                                >
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={10}
+                                        step={0.5}
+                                        value={v}
+                                        onChange={(e) => field.onChange(Number(e.target.value))}
+                                        className="w-full accent-gray-700"
+                                    />
+                                    <div className="flex justify-between text-xs text-gray-400 px-1 mt-1">
+                                        <span>淡</span><span>濃</span>
                                     </div>
-                                );
-                            }}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm mb-1 font-medium">色調 (Color)</label>
-                        <Controller
-                            control={control}
-                            name="color"
-                            render={({ field }) => {
-                                const v = Number(field.value ?? 5);
-                                return (
-                                    <div className="space-y-1">
-                                        <p className="text-sm text-gray-700">{v}: {colorLabel(v, wineType)}</p>
-                                        <input
-                                            type="range"
-                                            min={0}
-                                            max={10}
-                                            step={0.5}
-                                            value={v}
-                                            onChange={(e) => field.onChange(Number(e.target.value))}
-                                            className="w-full accent-gray-700"
-                                        />
-                                        <div className="flex justify-between text-xs text-gray-400 px-1">
-                                            <span>淡/緑</span><span>濃/褐</span>
-                                        </div>
+                                </FieldRow>
+                            );
+                        }}
+                    />
+                    <Controller
+                        control={control}
+                        name="color"
+                        render={({ field }) => {
+                            const v = Number(field.value ?? 5);
+                            return (
+                                <FieldRow
+                                    label="色調 (Color)"
+                                    valueText={`${v}: ${colorLabel(v, wineType)}`}
+                                >
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={10}
+                                        step={0.5}
+                                        value={v}
+                                        onChange={(e) => field.onChange(Number(e.target.value))}
+                                        className="w-full accent-gray-700"
+                                    />
+                                    <div className="flex justify-between text-xs text-gray-400 px-1 mt-1">
+                                        <span>淡/緑</span><span>濃/褐</span>
                                     </div>
-                                );
-                            }}
-                        />
-                    </div>
+                                </FieldRow>
+                            );
+                        }}
+                    />
                 </div>
 
                 {/* Rim Ratio (Hidden from form as requested) */}
 
                 {(isSparklingWhite || isSparklingRose) && (
-                    <div className='mt-4'>
-                        <label className="block text-sm mb-1">泡の強さ</label>
-                        <select
-                            className="w-full rounded-md px-3 py-2 bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                            {...register('sparkleIntensity')}
-                        >
-                            {['弱い', 'やや弱い', '中程度', 'やや強い', '強い'].map(v => <option key={v} value={v}>{v}</option>)}
-                        </select>
+                    <div className='mt-6'>
+                        <FieldRow label="泡の強さ">
+                            <select
+                                className="w-full rounded-md px-3 py-2 bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                                {...register('sparkleIntensity')}
+                            >
+                                {['弱い', 'やや弱い', '中程度', 'やや強い', '強い'].map(v => <option key={v} value={v}>{v}</option>)}
+                            </select>
+                        </FieldRow>
                     </div>
                 )}
 
-                <div className='mt-4'>
-                    <label className="block text-sm mb-1">その他の外観の特徴</label>
-                    <textarea
-                        className="w-full h-28 rounded-md px-3 py-2 bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)] placeholder-[var(--fg-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                        placeholder="例: 泡のきめ細かさ、涙、濁り、ガス感、粘性 など"
-                        {...register('appearanceOther')}
-                    />
+                <div className='mt-6'>
+                    <FieldRow label="その他の外観の特徴" hint="例: 泡のきめ細かさ、涙、濁り、ガス感、粘性 など">
+                        <textarea
+                            className="w-full h-24 rounded-md px-3 py-2 bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)] placeholder-[var(--fg-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                            {...register('appearanceOther')}
+                        />
+                    </FieldRow>
                 </div>
             </SectionCard>
 
@@ -1140,26 +1141,54 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
 
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {/* Sweetness */}
-                    <div>
-                        <label className="block text-sm mb-1 font-medium">甘味</label>
+                    <FieldRow label="甘味">
                         <select className="w-full input" {...register('sweetness')}>
                             {SAT_CONSTANTS.PALATE.SWEETNESS.map((label, index) => (
                                 <option key={label} value={index + 1}>{label}</option>
                             ))}
                         </select>
-                    </div>
+                    </FieldRow>
 
                     {/* Acidity */}
-                    <div>
-                        <label className="block text-sm mb-1 font-medium">酸味</label>
+                    <Controller
+                        control={control}
+                        name="acidityScore"
+                        render={({ field }) => {
+                            const v = Number(field.value ?? 5);
+                            return (
+                                <FieldRow
+                                    label="酸味"
+                                    valueText={`${v}: ${palateElementLabel(v, 'acidity')}`}
+                                >
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={10}
+                                        step={0.5}
+                                        value={v}
+                                        onChange={(e) => field.onChange(Number(e.target.value))}
+                                        className="w-full accent-gray-700"
+                                    />
+                                    <div className="flex justify-between text-xs text-gray-400 px-1 mt-1">
+                                        <span>低</span><span>高</span>
+                                    </div>
+                                </FieldRow>
+                            );
+                        }}
+                    />
+
+                    {/* Tannin */}
+                    {(isRed || isOrange) && (
                         <Controller
                             control={control}
-                            name="acidityScore"
+                            name="tanninScore"
                             render={({ field }) => {
                                 const v = Number(field.value ?? 5);
                                 return (
-                                    <div className="space-y-1">
-                                        <p className="text-sm text-gray-700">{v}: {palateElementLabel(v, 'acidity')}</p>
+                                    <FieldRow
+                                        label="タンニン"
+                                        valueText={`${v}: ${palateElementLabel(v, 'tannin')}`}
+                                    >
                                         <input
                                             type="range"
                                             min={0}
@@ -1169,49 +1198,17 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                                             onChange={(e) => field.onChange(Number(e.target.value))}
                                             className="w-full accent-gray-700"
                                         />
-                                        <div className="flex justify-between text-xs text-gray-400 px-1">
+                                        <div className="flex justify-between text-xs text-gray-400 px-1 mt-1">
                                             <span>低</span><span>高</span>
                                         </div>
-                                    </div>
+                                    </FieldRow>
                                 );
                             }}
                         />
-                    </div>
-
-                    {/* Tannin */}
-                    {(isRed || isOrange) && (
-                        <div>
-                            <label className="block text-sm mb-1 font-medium">タンニン</label>
-                            <Controller
-                                control={control}
-                                name="tanninScore"
-                                render={({ field }) => {
-                                    const v = Number(field.value ?? 5);
-                                    return (
-                                        <div className="space-y-1">
-                                            <p className="text-sm text-gray-700">{v}: {palateElementLabel(v, 'tannin')}</p>
-                                            <input
-                                                type="range"
-                                                min={0}
-                                                max={10}
-                                                step={0.5}
-                                                value={v}
-                                                onChange={(e) => field.onChange(Number(e.target.value))}
-                                                className="w-full accent-gray-700"
-                                            />
-                                            <div className="flex justify-between text-xs text-gray-400 px-1">
-                                                <span>低</span><span>高</span>
-                                            </div>
-                                        </div>
-                                    );
-                                }}
-                            />
-                        </div>
                     )}
 
                     {/* Alcohol */}
-                    <div>
-                        <label className="block text-sm mb-1 font-medium">アルコール度数</label>
+                    <FieldRow label="アルコール度数">
                         <div className="flex items-center gap-2">
                             <input
                                 type="number"
@@ -1222,98 +1219,19 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                             />
                             <span className="text-sm">%</span>
                         </div>
-                    </div>
+                    </FieldRow>
 
                     {/* Body */}
-                    <div>
-                        <label className="block text-sm mb-1 font-medium">ボディ</label>
-                        <Controller
-                            control={control}
-                            name="bodyScore"
-                            render={({ field }) => {
-                                const v = Number(field.value ?? 5);
-                                return (
-                                    <div className="space-y-1">
-                                        <p className="text-sm text-gray-700">{v}: {palateElementLabel(v, 'body')}</p>
-                                        <input
-                                            type="range"
-                                            min={0}
-                                            max={10}
-                                            step={0.5}
-                                            value={v}
-                                            onChange={(e) => field.onChange(Number(e.target.value))}
-                                            className="w-full accent-gray-700"
-                                        />
-                                        <div className="flex justify-between text-xs text-gray-400 px-1">
-                                            <span>軽</span><span>重</span>
-                                        </div>
-                                    </div>
-                                );
-                            }}
-                        />
-                    </div>
-
-                    {/* Finish */}
-                    <div>
-                        <label className="block text-sm mb-1 font-medium">余韻</label>
-                        <Controller
-                            control={control}
-                            name="finishScore"
-                            render={({ field }) => {
-                                const v = Number(field.value ?? 5);
-                                return (
-                                    <div className="space-y-1">
-                                        <p className="text-sm text-gray-700">{v}: {finishLenLabel(v)}</p>
-                                        <input
-                                            type="range"
-                                            min={0}
-                                            max={10}
-                                            step={0.5}
-                                            value={v}
-                                            onChange={(e) => field.onChange(Number(e.target.value))}
-                                            className="w-full accent-gray-700"
-                                        />
-                                        <div className="flex justify-between text-xs text-gray-400 px-1">
-                                            <span>短</span><span>長</span>
-                                        </div>
-                                    </div>
-                                );
-                            }}
-                        />
-                    </div>
-                </div>
-
-                <div className="mt-4">
-                    <label htmlFor="palateNotes" className="block text-sm mb-1">味わいの補足</label>
-                    <textarea
-                        id="palateNotes"
-                        className="w-full input h-24"
-                        placeholder="例: 温度が上がると甘味の印象が増す、時間経過でタンニンが丸くなる 等"
-                        {...register('palateNotes')}
-                    />
-                </div>
-            </SectionCard>
-
-
-
-            {/* 総合評価 */}
-            <SectionCard
-                title="総合評価"
-                description="品質、熟成の可能性、全体の感想"
-                icon={<Award size={18} />}
-                tone="focus"
-            >
-
-                <div>
-                    <label className="block text-sm mb-1 font-medium">品質評価 (Quality)</label>
                     <Controller
                         control={control}
-                        name="qualityScore"
+                        name="bodyScore"
                         render={({ field }) => {
                             const v = Number(field.value ?? 5);
                             return (
-                                <div className="space-y-1">
-                                    <p className="text-sm text-gray-700">{v}: {qualityLabel(v)}</p>
+                                <FieldRow
+                                    label="ボディ"
+                                    valueText={`${v}: ${palateElementLabel(v, 'body')}`}
+                                >
                                     <input
                                         type="range"
                                         min={0}
@@ -1323,59 +1241,138 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                                         onChange={(e) => field.onChange(Number(e.target.value))}
                                         className="w-full accent-gray-700"
                                     />
-                                    <div className="flex justify-between text-xs text-gray-400 px-1">
-                                        <span>低</span><span>高</span>
+                                    <div className="flex justify-between text-xs text-gray-400 px-1 mt-1">
+                                        <span>軽</span><span>重</span>
                                     </div>
-                                </div>
+                                </FieldRow>
+                            );
+                        }}
+                    />
+
+                    {/* Finish */}
+                    <Controller
+                        control={control}
+                        name="finishScore"
+                        render={({ field }) => {
+                            const v = Number(field.value ?? 5);
+                            return (
+                                <FieldRow
+                                    label="余韻"
+                                    valueText={`${v}: ${finishLenLabel(v)}`}
+                                >
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={10}
+                                        step={0.5}
+                                        value={v}
+                                        onChange={(e) => field.onChange(Number(e.target.value))}
+                                        className="w-full accent-gray-700"
+                                    />
+                                    <div className="flex justify-between text-xs text-gray-400 px-1 mt-1">
+                                        <span>短</span><span>長</span>
+                                    </div>
+                                </FieldRow>
                             );
                         }}
                     />
                 </div>
 
-                <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm mb-1">熟成の可能性 (Readiness)</label>
-                        <select className="w-full input" {...register('readiness')}>
-                            {SAT_CONSTANTS.CONCLUSION.READINESS.map(v => <option key={v} value={v}>{v}</option>)}
-                        </select>
-                    </div>
+                <div className="mt-8">
+                    <FieldRow label="味わいの補足" hint="例: 温度が上がると甘味の印象が増す、時間経過でタンニンが丸くなる 等">
+                        <textarea
+                            id="palateNotes"
+                            className="w-full input h-24"
+                            {...register('palateNotes')}
+                        />
+                    </FieldRow>
                 </div>
-                <div className="">
-                    <label className="block text-sm mb-1">寸評 (Notes)</label>
-                    <textarea className="w-full input h-28" {...register('notes')} placeholder="自由記述" />
-                </div>
+            </SectionCard>
 
-                <div className="pt-4 border-t border-gray-100">
-                    <label className="block text-sm mb-1 font-medium">個人的な好み (Rating)</label>
+
+
+            {/* 総合評価 */}
+            {/* 総合評価 */}
+            <SectionCard
+                title="総合評価"
+                description="品質、熟成の可能性、全体の感想"
+                icon={<Award size={18} />}
+                tone="focus"
+            >
+
+                <div className="space-y-8">
                     <Controller
                         control={control}
-                        name="rating"
-                        render={({ field }) => (
-                            <>
-                                <div className="relative inline-block select-none" aria-label={`Rating ${round1(field.value)} of 5`}>
-                                    <div className="text-2xl tracking-tight text-neutral-300">★★★★★</div>
-                                    <div
-                                        className="absolute top-0 left-0 overflow-hidden text-2xl tracking-tight text-yellow-500 pointer-events-none"
-                                        style={{ width: `${(Math.max(0, Math.min(5, Number(field.value))) / 5) * 100}%` }}
-                                    >
-                                        ★★★★★
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 mt-1">
+                        name="qualityScore"
+                        render={({ field }) => {
+                            const v = Number(field.value ?? 5);
+                            return (
+                                <FieldRow
+                                    label="品質評価 (Quality)"
+                                    valueText={`${v}: ${qualityLabel(v)}`}
+                                >
                                     <input
                                         type="range"
                                         min={0}
-                                        max={5}
-                                        step={0.1}
-                                        value={field.value}
+                                        max={10}
+                                        step={0.5}
+                                        value={v}
                                         onChange={(e) => field.onChange(Number(e.target.value))}
-                                        className="w-full"
+                                        className="w-full accent-gray-700"
                                     />
-                                    <span className="w-12 text-right">{round1(field.value).toFixed(1)}</span>
-                                </div>
-                            </>
-                        )}
+                                    <div className="flex justify-between text-xs text-gray-400 px-1 mt-1">
+                                        <span>低</span><span>高</span>
+                                    </div>
+                                </FieldRow>
+                            );
+                        }}
                     />
+
+                    <div className="grid sm:grid-cols-2 gap-6">
+                        <FieldRow label="熟成の可能性 (Readiness)">
+                            <select className="w-full input" {...register('readiness')}>
+                                {SAT_CONSTANTS.CONCLUSION.READINESS.map(v => <option key={v} value={v}>{v}</option>)}
+                            </select>
+                        </FieldRow>
+                    </div>
+
+                    <FieldRow label="寸評 (Notes)">
+                        <textarea className="w-full input h-28" {...register('notes')} placeholder="自由記述" />
+                    </FieldRow>
+
+                    <div className="pt-6 border-t border-gray-100">
+                        <FieldRow label="個人的な好み (Rating)">
+                            <Controller
+                                control={control}
+                                name="rating"
+                                render={({ field }) => (
+                                    <>
+                                        <div className="relative inline-block select-none" aria-label={`Rating ${round1(field.value)} of 5`}>
+                                            <div className="text-2xl tracking-tight text-neutral-300">★★★★★</div>
+                                            <div
+                                                className="absolute top-0 left-0 overflow-hidden text-2xl tracking-tight text-yellow-500 pointer-events-none"
+                                                style={{ width: `${(Math.max(0, Math.min(5, Number(field.value))) / 5) * 100}%` }}
+                                            >
+                                                ★★★★★
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 mt-1">
+                                            <input
+                                                type="range"
+                                                min={0}
+                                                max={5}
+                                                step={0.1}
+                                                value={field.value}
+                                                onChange={(e) => field.onChange(Number(e.target.value))}
+                                                className="w-full"
+                                            />
+                                            <span className="w-12 text-right text-lg font-medium text-yellow-600">{round1(field.value).toFixed(1)}</span>
+                                        </div>
+                                    </>
+                                )}
+                            />
+                        </FieldRow>
+                    </div>
                 </div>
             </SectionCard>
 
