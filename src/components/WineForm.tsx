@@ -744,14 +744,14 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             {/* ワイン情報 */}
             <SectionCard title="ワイン情報" icon={<FileText size={18} />} tone="neutral">
                 <div className='grid grid-cols-1 gap-6'>
-                    <FieldRow label="ワイン名*" hint="例: Domaine X, cuvée">
-                        <input className="w-full input" placeholder="Wine name" {...register('wineName')} />
+                    <FieldRow label="ワイン名*">
+                        <input className="w-full input" placeholder="例: Bourgogne Rouge" {...register('wineName')} />
                         {errors.wineName && <p className="text-red-600 text-sm mt-1">必須です</p>}
                     </FieldRow>
 
                     <div className="grid sm:grid-cols-2 gap-6">
                         <FieldRow label="生産者">
-                            <input className="w-full input" {...register('producer')} />
+                            <input className="w-full input" placeholder="例: Domaine X" {...register('producer')} />
                         </FieldRow>
                         <FieldRow label="ヴィンテージ">
                             <input className="w-full input" placeholder="例: 2021" {...register('vintage')} />
