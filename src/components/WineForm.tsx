@@ -81,9 +81,9 @@ export const wineFormSchema = z.object({
     imageUrl: z.string().optional().nullable(),       // ひとまずURL（メイン画像 - 互換性のため残す、または先頭の画像を入れる）
     images: z.array(z.object({
         url: z.string(),
-        thumbnail_url: z.string().optional(),
-        storage_path: z.string().optional(),
-        display_order: z.number().optional()
+        thumbnail_url: z.string().optional().nullable(),
+        storage_path: z.string().optional().nullable(),
+        display_order: z.number().optional().nullable()
     })).optional().nullable(),
 
     // ワイン情報
