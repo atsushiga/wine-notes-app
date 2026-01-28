@@ -75,6 +75,18 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 | `storage_path` | string? | GCS上のパス |
 | `display_order` | number | 表示順 |
 
+### GeoVocab (地名ボキャブラリー)
+| フィールド名 | 型 | 説明 |
+| --- | --- | --- |
+| `id` | bigint | PK (Identity) |
+| `name` | string | 地名 (英語/原語) |
+| `name_norm` | string | 正規化名称 (検索用) |
+| `name_ja` | string? | 地名 (日本語) |
+| `level` | string | 地域レベル (province/region_1/region_2) |
+| `country` | string | 国名 |
+| `parent_hint` | string? | 親地域のヒント |
+
+
 ## 5. 機能一覧
 ### 認証
 - Supabase Auth を利用
@@ -87,6 +99,11 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
     - 第一/第二/第三アロマの3階層タブ表示
     - サブカテゴリによるグルーピング
     - 検索機能による横断的な用語選択
+- **地名サジェスト機能**:
+    - `geo_vocab` テーブル（約1900語）を利用した地名入力補完
+    - 国選択に連動したフィルタリング
+    - 日本語/英語によるインクリメンタルサーチ (Debounce + IME対応)
+    - 候補のランキング表示 (日本語優先表示、Prefixマッチ優先)
 - セッションストレージを使用したドラフト保存機能（タブ切り替え時の入力保持・タブ別独立管理）
 
 ### ワイン一覧・詳細表示

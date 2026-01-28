@@ -8,6 +8,7 @@ import { searchWineDetails, analyzeWineImage } from '@/app/actions/gemini';
 import { Sparkles, Loader2, Eye, Wind, Grape, Award, Bot, ChevronDown, ChevronUp, BookOpen, User, Settings, Calendar, FileText } from 'lucide-react';
 import { useState } from 'react';
 import { SectionCard } from '@/components/ui/section-card';
+import { LocalityCombobox } from '@/components/wine/form/LocalityCombobox';
 import {
     colorLabel,
     intensityLabel,
@@ -818,8 +819,19 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                                 </select>
                             </FieldRow>
                             <FieldRow label="地名（地域/村/畑など）">
-                                <input className="w-full input" placeholder="例: ブルゴーニュ／ニュイ＝サン＝ジョルジュ／レ・ダモード"
-                                    {...register('locality')} />
+                                <Controller
+                                    control={control}
+                                    name="locality"
+                                    render={({ field }) => (
+                                        <LocalityCombobox
+                                            value={field.value ?? ''}
+                                            onChange={field.onChange}
+                                            countryJa={watch('country')}
+                                            placeholder="例: ブルゴーニュ／ニュイ＝サン＝ジョルジュ／レ・ダモード"
+                                            disabled={isSubmitting}
+                                        />
+                                    )}
+                                />
                             </FieldRow>
                         </div>
                     </div>

@@ -37,7 +37,7 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
     const [buffer] = await file.download();
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const prompt = `
     Analyze this wine label image and extract the following information.
@@ -92,7 +92,7 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
+        model: "gemini-2.0-flash",
         tools: [
             {
                 googleSearch: {},
