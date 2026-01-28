@@ -41,6 +41,7 @@ async function appendToSupabase(data: UnknownRecord, userId?: string, status?: s
       otherVarieties: 'other_varieties',
       additionalInfo: 'additional_info',
       sparkleIntensity: 'sparkle_intensity',
+      localityVocabId: 'locality_vocab_id',
     };
 
     if (replacements[str]) {

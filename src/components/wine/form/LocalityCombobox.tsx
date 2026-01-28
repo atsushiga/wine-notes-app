@@ -15,6 +15,7 @@ interface Suggestion {
 interface LocalityComboboxProps {
     value?: string;
     onChange: (value: string) => void;
+    onSelectId?: (id: number | null) => void;
     countryJa?: string | null;
     disabled?: boolean;
     placeholder?: string;
@@ -23,6 +24,7 @@ interface LocalityComboboxProps {
 export function LocalityCombobox({
     value = '',
     onChange,
+    onSelectId,
     countryJa,
     disabled,
     placeholder = '例: Napa Valley'
@@ -85,6 +87,7 @@ export function LocalityCombobox({
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newValue = e.target.value;
         onChange(newValue);
+        if (onSelectId) onSelectId(null); // Clear ID on any manual edit
 
         // Reset selection flag because user is typing
         isSelectionRef.current = false;
@@ -142,6 +145,7 @@ export function LocalityCombobox({
 
         isSelectionRef.current = true; // Mark as selection to potentially skip re-fetch (though onChange triggers it)
         onChange(displayVal);
+        if (onSelectId) onSelectId(s.id);
         setShowSuggestions(false);
 
         // Don't clear suggestions immediately? No, close list.

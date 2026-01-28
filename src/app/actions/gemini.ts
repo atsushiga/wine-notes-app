@@ -16,6 +16,7 @@ export interface WineImageAnalysis {
     vintage: string;
     country: string;
     locality: string;
+    locality_vocab_id?: number | null;
     price: number | null;
 }
 
@@ -29,7 +30,7 @@ interface GeoCandidate {
     similarity: number;
 }
 
-async function resolveLocality(countryJa: string, localityText: string): Promise<string | null> {
+async function resolveLocality(countryJa: string, localityText: string): Promise<{ name: string; id: number } | null> {
     if (!localityText || localityText.trim().length === 0) return null;
     // Normalized search term
     const qNorm = localityText.trim().toLowerCase();
@@ -100,7 +101,10 @@ async function resolveLocality(countryJa: string, localityText: string): Promise
             const selected = candidates.find((c: any) => c.id === json.selected_id);
             if (selected) {
                 // Return canonical label: prefer name_ja
-                return selected.name_ja || selected.name;
+                return {
+                    name: selected.name_ja || selected.name,
+                    id: selected.id
+                };
             }
         }
 
@@ -170,10 +174,11 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
     // --- Locality Resolution Step ---
     try {
         if (analysis.locality && analysis.country) {
-            const canonicalLocality = await resolveLocality(analysis.country, analysis.locality);
-            if (canonicalLocality) {
-                console.log(`Locality resolved: "${analysis.locality}" -> "${canonicalLocality}"`);
-                analysis.locality = canonicalLocality;
+            const result = await resolveLocality(analysis.country, analysis.locality);
+            if (result) {
+                console.log(`Locality resolved: "${analysis.locality}" -> "${result.name}" (ID: ${result.id})`);
+                analysis.locality = result.name;
+                analysis.locality_vocab_id = result.id;
             } else {
                 console.log(`Locality resolution skipped or failed for "${analysis.locality}"`);
                 // Keep original

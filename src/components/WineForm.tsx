@@ -91,6 +91,7 @@ export const wineFormSchema = z.object({
     producer: z.string().optional().nullable(),
     country: z.string().optional().nullable(),        // セレクト
     locality: z.string().optional().nullable(),       // 自由記述（地名）
+    locality_vocab_id: z.number().optional().nullable(),
     region: z.string().optional().nullable(),
     mainVariety: z.string().optional().nullable(),    // 主体の品種（セレクト）
     otherVarieties: z.string().optional().nullable(), // 自由記述
@@ -172,6 +173,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             producer: '',
             country: '',
             locality: '',
+            locality_vocab_id: null,
             region: '',
             mainVariety: '',
             otherVarieties: '',
@@ -408,6 +410,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
             producer: '',
             country: '',
             locality: '',
+            locality_vocab_id: null,
             region: '',
             mainVariety: '',
             otherVarieties: '',
@@ -717,7 +720,10 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                                             if (result.producer) setValue('producer', result.producer, { shouldDirty: true });
                                             if (result.vintage) setValue('vintage', result.vintage, { shouldDirty: true });
                                             if (result.country) setValue('country', result.country, { shouldDirty: true });
-                                            if (result.locality) setValue('locality', result.locality, { shouldDirty: true });
+                                            if (result.locality) {
+                                                setValue('locality', result.locality, { shouldDirty: true });
+                                                setValue('locality_vocab_id', result.locality_vocab_id ?? null, { shouldDirty: true });
+                                            }
                                             if (result.price) setValue('price', String(result.price), { shouldDirty: true });
                                         }
                                     } catch (e) {
@@ -827,6 +833,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
                                             value={field.value ?? ''}
                                             onChange={field.onChange}
                                             countryJa={watch('country')}
+                                            onSelectId={(id) => setValue('locality_vocab_id', id, { shouldDirty: true })}
                                             placeholder="例: ブルゴーニュ／ニュイ＝サン＝ジョルジュ／レ・ダモード"
                                             disabled={isSubmitting}
                                         />

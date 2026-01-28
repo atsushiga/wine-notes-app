@@ -41,6 +41,7 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 | `producer` | string? | 生産者 |
 | `country` | string? | 国 |
 | `region/locality` | string? | 地域/地名 |
+| `locality_vocab_id` | bigint? | 地名ID (geo_vocab FK) |
 | `main_variety` | string? | 主体品種 |
 | `wine_type` | string? | ワインタイプ |
 | `intensity` | number? | 外観の濃淡 |
@@ -104,6 +105,9 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
     - 国選択に連動したフィルタリング
     - 日本語/英語によるインクリメンタルサーチ (Debounce + IME対応)
     - 候補のランキング表示 (日本語優先表示、Prefixマッチ優先)
+    - **IDの保存**:
+        - サジェストから選択された場合、`locality_vocab_id` も同時に保存
+        - 選択後に自由編集された場合は、IDは破棄(NULL)されテキストのみ保存
 - セッションストレージを使用したドラフト保存機能（タブ切り替え時の入力保持・タブ別独立管理）
 - **AIラベル解析**:
     - Gemini 2.0 Flash を利用したラベル画像からの情報抽出
