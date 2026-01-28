@@ -5,6 +5,8 @@ import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 
 import { storage, BUCKET } from "@/lib/gcs";
+import { COUNTRY_MAP } from "@/lib/geoUtils";
+import { getSupabaseClient } from "@/lib/supabase";
 
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
@@ -17,15 +19,105 @@ export interface WineImageAnalysis {
     price: number | null;
 }
 
+interface GeoCandidate {
+    id: number;
+    name: string;
+    name_ja: string | null;
+    level: string;
+    country: string | null;
+    parent_hint: string | null;
+    similarity: number;
+}
+
+async function resolveLocality(countryJa: string, localityText: string): Promise<string | null> {
+    if (!localityText || localityText.trim().length === 0) return null;
+    // Normalized search term
+    const qNorm = localityText.trim().toLowerCase();
+
+    // Resolve country filter
+    let targetCountry: string | null = null;
+    if (countryJa && COUNTRY_MAP[countryJa] !== undefined) {
+        targetCountry = COUNTRY_MAP[countryJa]; // Can be null if 'その他'
+    }
+
+    const supabase = getSupabaseClient();
+
+    try {
+        // 1. Candidate Retrieval
+        const { data: candidates, error } = await supabase.rpc('search_geo_vocab', {
+            search_term: qNorm,
+            target_country: targetCountry,
+            max_results: 20
+        });
+
+        if (error || !candidates || candidates.length === 0) {
+            console.warn("Locality resolution: No candidates or error", error);
+            return null;
+        }
+
+        // 2. Gemini Re-ranking
+        const genAI = new GoogleGenerativeAI(apiKey!);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+        const candidateListJson = JSON.stringify(candidates.map((c: any) => ({
+            id: c.id,
+            primary_label: c.name_ja || c.name,
+            name: c.name,
+            level: c.level,
+            parent_hint: c.parent_hint,
+            country: c.country
+        })));
+
+        const prompt = `
+        You must choose the best matching candidate from the provided list for the given locality.
+        
+        Input:
+        - Extracted Locality: "${localityText}"
+        - Extracted Country (JP): "${countryJa}" (Mapped: "${targetCountry || 'None'}")
+        - Candidates:
+        ${candidateListJson}
+
+        Instructions:
+        1. Compare the "Extracted Locality" with the "Candidates".
+        2. Select the candidate that represents the same region.
+        3. You MUST NOT invent regions or IDs. Select from the list only.
+        4. If none match well, return selected_id: null.
+
+        Return JSON ONLY:
+        {
+            "selected_id": number | null,
+            "confidence": number, // 0.0 to 1.0
+            "reason": "short explanation <= 200 chars"
+        }
+        `;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text().replace(/```json/g, "").replace(/```/g, "").trim();
+        const json = JSON.parse(text);
+
+        if (json.selected_id) {
+            const selected = candidates.find((c: any) => c.id === json.selected_id);
+            if (selected) {
+                // Return canonical label: prefer name_ja
+                return selected.name_ja || selected.name;
+            }
+        }
+
+        return null; // Fallback to original text if null returned
+
+    } catch (e) {
+        console.error("resolveLocality failed:", e);
+        return null;
+    }
+}
+
 export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnalysis> {
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
     }
 
     // Extract key from URL
-    // URL format: .../api/images/uploads/2024/01/123456_filename.jpg
-    // or direct GCS URL. Assuming our API format:
-    // We need to extract everything after /api/images/
     const urlParts = imageUrl.split('/api/images/');
     if (urlParts.length < 2) {
         throw new Error("Invalid image URL format.");
@@ -64,7 +156,7 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
         {
             inlineData: {
                 data: buffer.toString("base64"),
-                mimeType: "image/jpeg", // Assuming JPEG for simplicity, or we should detect
+                mimeType: "image/jpeg", // Assuming JPEG for simplicity
             },
         },
     ]);
@@ -73,7 +165,25 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
     const text = response.text();
     const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
-    return JSON.parse(cleanedText) as WineImageAnalysis;
+    const analysis = JSON.parse(cleanedText) as WineImageAnalysis;
+
+    // --- Locality Resolution Step ---
+    try {
+        if (analysis.locality && analysis.country) {
+            const canonicalLocality = await resolveLocality(analysis.country, analysis.locality);
+            if (canonicalLocality) {
+                console.log(`Locality resolved: "${analysis.locality}" -> "${canonicalLocality}"`);
+                analysis.locality = canonicalLocality;
+            } else {
+                console.log(`Locality resolution skipped or failed for "${analysis.locality}"`);
+                // Keep original
+            }
+        }
+    } catch (err) {
+        console.error("Locality resolution error (non-blocking):", err);
+    }
+
+    return analysis;
 }
 
 
