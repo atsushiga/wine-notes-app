@@ -19,6 +19,7 @@ export interface TastingNote {
     region?: string;
     locality?: string;
     locality_vocab_id?: number | null;
+    locality_vocab?: { name: string; name_ja?: string };
 
     // Varieties
     main_variety?: string;

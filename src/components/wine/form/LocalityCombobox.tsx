@@ -33,6 +33,8 @@ export function LocalityCombobox({
     const [isLoading, setIsLoading] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
+    const [secondaryText, setSecondaryText] = useState<string | null>(null);
+
     // Use a ref to track composition state prevents re-renders during IME
     const isComposingRef = useRef(false);
 
@@ -88,6 +90,7 @@ export function LocalityCombobox({
         const newValue = e.target.value;
         onChange(newValue);
         if (onSelectId) onSelectId(null); // Clear ID on any manual edit
+        setSecondaryText(null); // Clear secondary text on manual edit
 
         // Reset selection flag because user is typing
         isSelectionRef.current = false;
@@ -129,26 +132,19 @@ export function LocalityCombobox({
     };
 
     const handleSelect = (s: Suggestion) => {
-        // Prefer Japanese name if available and suitable? 
-        // The requirement says "Primary line: name_ja if present else name".
-        // But for the VALUE to save, usually we want the Name used in the UI (User Preference).
-        // If the user is Japanese, they might prefer Name JA.
-        // However, the input is free text.
-        // Let's set the input to the primary display name (JA if exists, else EN).
-        // OR should we save the standardized English name?
-        // "User can freely continue editing".
-        // The user requirement says "Input is always free".
-        // "Return: name, name_ja ...".
-        // Let's use name_ja if available, else name.
-
         const displayVal = s.name_ja || s.name;
+
+        // Show secondary English name if we are using Japanese name
+        if (s.name_ja && s.name !== s.name_ja) {
+            setSecondaryText(s.name);
+        } else {
+            setSecondaryText(null);
+        }
 
         isSelectionRef.current = true; // Mark as selection to potentially skip re-fetch (though onChange triggers it)
         onChange(displayVal);
         if (onSelectId) onSelectId(s.id);
         setShowSuggestions(false);
-
-        // Don't clear suggestions immediately? No, close list.
     };
 
     const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -184,6 +180,11 @@ export function LocalityCombobox({
                     </div>
                 )}
             </div>
+            {secondaryText && (
+                <div className="text-xs text-gray-400 mt-1 pl-1 font-medium">
+                    {secondaryText}
+                </div>
+            )}
 
             {showSuggestions && suggestions.length > 0 && (
                 <ul className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto text-sm">
@@ -196,15 +197,16 @@ export function LocalityCombobox({
                             <div className="flex flex-col">
                                 <span className="font-medium text-gray-900">
                                     {s.name_ja || s.name}
-                                    {/* If we show JA, show EN in parens? Or just use secondary. */}
                                 </span>
-                                <span className="text-xs text-gray-500 truncate">
-                                    {/* Secondary Line: EN Name (if different), Level, Parent Hint */}
-                                    {s.name_ja && s.name !== s.name_ja ? `${s.name} · ` : ''}
+                                {s.name_ja && s.name !== s.name_ja && (
+                                    <span className="text-xs text-gray-500">
+                                        {s.name}
+                                    </span>
+                                )}
+                                <span className="text-xs text-gray-400 truncate">
                                     {s.level}
                                     {s.parent_hint ? ` · ${s.parent_hint}` : ''}
                                     {s.country && s.country !== countryJa ? ` · ${s.country}` : ''}
-                                    {/* Note: logic for country display is approximate since we have countryJa which is JA label vs s.country which is EN */}
                                 </span>
                             </div>
                         </li>

@@ -126,7 +126,15 @@ export default function WineDetailView({ wine, onEdit, onDelete, isDeleting }: P
                             <div className="flex justify-between"><dt className="text-gray-500">ヴィンテージ</dt><dd className="font-medium">{wine.vintage || "-"}</dd></div>
                             <div className="flex justify-between"><dt className="text-gray-500">生産者</dt><dd className="font-medium text-right">{wine.producer || "-"}</dd></div>
                             {wine.importer && <div className="flex justify-between"><dt className="text-gray-500">輸入元</dt><dd className="font-medium text-right">{wine.importer}</dd></div>}
-                            <div className="flex justify-between"><dt className="text-gray-500">国 / 地域</dt><dd className="font-medium text-right">{[wine.country, wine.locality || wine.region].filter(Boolean).join(" / ") || "-"}</dd></div>
+                            <div className="flex justify-between">
+                                <dt className="text-gray-500">国 / 地域</dt>
+                                <dd className="font-medium text-right flex flex-col items-end">
+                                    <span>{[wine.country, wine.locality || wine.region].filter(Boolean).join(" / ") || "-"}</span>
+                                    {wine.locality_vocab && wine.locality_vocab.name !== wine.locality && (
+                                        <span className="text-xs text-gray-400 font-normal">{wine.locality_vocab.name}</span>
+                                    )}
+                                </dd>
+                            </div>
                             <div className="flex justify-between"><dt className="text-gray-500">品種</dt><dd className="font-medium text-right">{[wine.main_variety, wine.other_varieties].filter(Boolean).join(", ") || "-"}</dd></div>
                             <div className="flex justify-between"><dt className="text-gray-500">価格</dt><dd className="font-medium">{wine.price ? `¥${wine.price.toLocaleString()}` : "-"}</dd></div>
                         </dl>
