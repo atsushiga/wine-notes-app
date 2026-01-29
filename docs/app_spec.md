@@ -83,6 +83,7 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 | `name` | string | 地名 (英語/原語) |
 | `name_norm` | string | 正規化名称 (検索用) |
 | `name_ja` | string? | 地名 (日本語) |
+| `name_ja_reading` | string? | 地名 (日本語読み) |
 | `level` | string | 地域レベル (province/region_1/region_2) |
 | `country` | string | 国名 |
 | `parent_hint` | string? | 親地域のヒント |
@@ -103,8 +104,8 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 - **地名サジェスト機能**:
     - `geo_vocab` テーブル（約1900語）を利用した地名入力補完
     - 国選択に連動したフィルタリング
-    - 日本語/英語によるインクリメンタルサーチ (Debounce + IME対応)
-    - 候補のランキング表示 (日本語優先表示、Prefixマッチ優先)
+    - 日本語/英語/日本語読みによるインクリメンタルサーチ (Debounce + IME対応)
+    - 候補のランキング表示 (日本語優先表示、Prefixマッチ優先、類似度考慮)
     - **IDの保存**:
         - サジェストから選択された場合、`locality_vocab_id` も同時に保存
         - 選択後に自由編集された場合は、IDは破棄(NULL)されテキストのみ保存
