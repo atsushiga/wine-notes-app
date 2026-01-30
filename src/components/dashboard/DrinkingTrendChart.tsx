@@ -3,6 +3,7 @@
 
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Card } from '@/components/ui/Card';
 
 interface TrendData {
     month: string;
@@ -15,7 +16,7 @@ interface Props {
 
 const DrinkingTrendChart: React.FC<Props> = ({ data }) => {
     return (
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-zinc-200 h-[300px]">
+        <Card className="p-6 h-[300px]">
             <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">飲酒トレンド (月別)</h3>
             <div className="w-full h-[220px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -42,7 +43,7 @@ const DrinkingTrendChart: React.FC<Props> = ({ data }) => {
                     </LineChart>
                 </ResponsiveContainer>
             </div>
-        </div>
+        </Card>
     );
 };
 

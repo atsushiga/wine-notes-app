@@ -1,10 +1,15 @@
 'use client';
-import React, { useState } from 'react';
-import WineForm, { WineFormValues } from '@/components/WineForm';
+import React, { useState, useRef } from 'react';
+import WineForm, { WineFormValues, WineFormHandle } from '@/components/WineForm';
+import { ContentContainer } from '@/components/layout/ContentContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { RotateCcw } from 'lucide-react';
 
 export default function Page() {
   const [sent, setSent] = useState<null | { ok: boolean; id?: string; error?: string }>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentWineType, setCurrentWineType] = useState('赤');
+  const formRef = useRef<WineFormHandle>(null);
 
   const onSubmit = async (values: WineFormValues) => {
     setSent(null);
@@ -35,17 +40,40 @@ export default function Page() {
     }
   };
 
-  return (
-    <main className="min-h-dvh bg-transparent text-[var(--fg)] transition-colors duration-500 pb-40">
-      <h1 className="text-2xl font-semibold mb-4">ワイン・テイスティング記録</h1>
+  const handleClear = () => {
+    formRef.current?.clear();
+  };
 
-      <WineForm onSubmit={onSubmit} isSubmitting={isSubmitting} persistKey="wine-form-new" />
+  return (
+    <ContentContainer size="form" className="pb-40">
+      <PageHeader
+        title="テイスティング記録"
+        subtitle="感性を言葉にして、記憶に残す"
+        accentColor="var(--accent)"
+        actions={
+          <button
+            onClick={handleClear}
+            className="flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
+          >
+            <RotateCcw size={16} />
+            <span>入力をクリア</span>
+          </button>
+        }
+      />
+
+      <WineForm
+        ref={formRef}
+        onSubmit={onSubmit}
+        isSubmitting={isSubmitting}
+        persistKey="wine-form-new"
+        onWineTypeChange={setCurrentWineType}
+      />
 
       {sent && (
         <p className={`text-sm ${sent.ok ? 'text-green-600' : 'text-red-600'} mt-4 px-4`}>
           {sent.ok ? '保存しました（ID: ' + sent.id + '）' : `保存に失敗しました: ${sent.error}`}
         </p>
       )}
-    </main>
+    </ContentContainer>
   );
 }

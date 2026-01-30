@@ -5,6 +5,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { TastingNote } from '@/types/custom';
 import { bulkDeleteWines } from '@/app/actions/wine';
+import { ContentContainer } from '@/components/layout/ContentContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { Card } from '@/components/ui/Card';
 
 interface WineListProps {
     notes: TastingNote[];
@@ -93,59 +96,59 @@ export default function WineList({ notes }: WineListProps) {
     };
 
     return (
-        <div className="space-y-6 pb-24">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center px-2 pt-2 gap-4">
-                <h1 className="text-2xl font-bold text-gray-900">
-                    ワイン記録一覧
-                </h1>
-                <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-
-                    {/* Status Filter */}
-                    <select
-                        className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        onChange={(e) => setFilterStatus(e.target.value as 'all' | 'draft')}
-                        value={filterStatus}
-                    >
-                        <option value="all">すべて表示</option>
-                        <option value="draft">下書き (編集中) のみ</option>
-                    </select>
-
-                    {/* Sort Dropdown */}
-                    <select
-                        className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        onChange={handleSortChange}
-                        defaultValue="created_at-desc"
-                    >
-                        <option value="created_at-desc">日付 (新しい順)</option>
-                        <option value="created_at-asc">日付 (古い順)</option>
-                        <option value="rating-desc">評価 (高い順)</option>
-                        <option value="rating-asc">評価 (低い順)</option>
-                        <option value="price-desc">価格 (高い順)</option>
-                        <option value="price-asc">価格 (低い順)</option>
-                        <option value="wine_name-asc">名前 (昇順)</option>
-                        <option value="wine_name-desc">名前 (降順)</option>
-                    </select>
-
-                    {isSelectionMode && selectedIds.length > 0 && (
-                        <button
-                            onClick={handleBulkDelete}
-                            disabled={isDeleting}
-                            className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50"
+        <ContentContainer size="wide" className="pb-24">
+            <PageHeader
+                title="ワイン記録一覧"
+                subtitle="過去のテイスティングノートを振り返る"
+                actions={
+                    <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
+                        {/* Status Filter */}
+                        <select
+                            className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onChange={(e) => setFilterStatus(e.target.value as 'all' | 'draft')}
+                            value={filterStatus}
                         >
-                            {isDeleting ? '削除中...' : `${selectedIds.length}件を削除`}
+                            <option value="all">すべて表示</option>
+                            <option value="draft">下書き (編集中) のみ</option>
+                        </select>
+
+                        {/* Sort Dropdown */}
+                        <select
+                            className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onChange={handleSortChange}
+                            defaultValue="created_at-desc"
+                        >
+                            <option value="created_at-desc">日付 (新しい順)</option>
+                            <option value="created_at-asc">日付 (古い順)</option>
+                            <option value="rating-desc">評価 (高い順)</option>
+                            <option value="rating-asc">評価 (低い順)</option>
+                            <option value="price-desc">価格 (高い順)</option>
+                            <option value="price-asc">価格 (低い順)</option>
+                            <option value="wine_name-asc">名前 (昇順)</option>
+                            <option value="wine_name-desc">名前 (降順)</option>
+                        </select>
+
+                        {isSelectionMode && selectedIds.length > 0 && (
+                            <button
+                                onClick={handleBulkDelete}
+                                disabled={isDeleting}
+                                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50"
+                            >
+                                {isDeleting ? '削除中...' : `${selectedIds.length}件を削除`}
+                            </button>
+                        )}
+                        <button
+                            onClick={toggleSelectionMode}
+                            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${isSelectionMode
+                                ? 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                                }`}
+                        >
+                            {isSelectionMode ? 'キャンセル' : '選択'}
                         </button>
-                    )}
-                    <button
-                        onClick={toggleSelectionMode}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${isSelectionMode
-                            ? 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                            }`}
-                    >
-                        {isSelectionMode ? 'キャンセル' : '選択'}
-                    </button>
-                </div>
-            </div>
+                    </div>
+                }
+            />
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                 {sortedNotes.map((note) => (
@@ -183,13 +186,13 @@ export default function WineList({ notes }: WineListProps) {
                     </div>
                 ))}
             </div>
-        </div>
+        </ContentContainer>
     );
 }
 
 function WineCardContent({ note }: { note: TastingNote }) {
     return (
-        <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 flex flex-col h-full transition-transform duration-200 hover:-translate-y-1 hover:shadow-md">
+        <Card className="overflow-hidden flex flex-col h-full transition-transform duration-200 hover:-translate-y-1 hover:shadow-md border-gray-200">
             <div className="relative aspect-[3/3.2] w-full bg-gray-100">
                 {(note.images?.[0]?.thumbnail_url || note.images?.[0]?.url || note.image_url) ? (
                     <Image
@@ -220,7 +223,7 @@ function WineCardContent({ note }: { note: TastingNote }) {
                 )}
             </div>
 
-            <div className="p-3 flex flex-col flex-grow">
+            <div className="p-3 flex flex-col flex-grow bg-[var(--card-bg)]">
                 <h3 className="font-semibold text-gray-900 text-sm line-clamp-2 mb-1">
                     {note.wine_name || "名称未設定"}
                 </h3>
@@ -246,13 +249,13 @@ function WineCardContent({ note }: { note: TastingNote }) {
                     </p>
                 )}
 
-                <div className="mt-auto pt-2 border-t border-gray-50 flex justify-between items-center text-[10px] text-gray-400">
+                <div className="mt-auto pt-2 border-t border-gray-100 flex justify-between items-center text-[10px] text-gray-400">
                     <span suppressHydrationWarning>
                         {new Date(note.created_at).toLocaleDateString("ja-JP")}
                     </span>
                 </div>
             </div>
-        </div>
+        </Card>
     );
 }
 

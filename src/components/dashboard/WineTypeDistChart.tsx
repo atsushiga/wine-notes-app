@@ -3,6 +3,7 @@
 
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
+import { Card } from '@/components/ui/Card';
 
 interface WineTypeStats {
     name: string;
@@ -35,7 +36,7 @@ const WineTypeDistChart: React.FC<Props> = ({ data }) => {
     const types = data.map(d => d.name);
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-zinc-200 h-[150px]">
+        <Card className="p-6 h-[150px]">
             <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-2">ワインタイプ比率</h3>
             <div className="w-full h-[80px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -60,7 +61,7 @@ const WineTypeDistChart: React.FC<Props> = ({ data }) => {
                     </BarChart>
                 </ResponsiveContainer>
             </div>
-        </div>
+        </Card>
     );
 };
 

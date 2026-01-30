@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useImperativeHandle, forwardRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -157,9 +157,14 @@ interface WineFormProps {
     isSubmitting?: boolean;
     submitLabel?: string;
     persistKey?: string; // New prop for persistence key
+    onWineTypeChange?: (type: string) => void;
 }
 
-export default function WineForm({ defaultValues, onSubmit, isSubmitting, submitLabel = '保存する', persistKey }: WineFormProps) {
+export interface WineFormHandle {
+    clear: () => void;
+}
+
+const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onSubmit, isSubmitting, submitLabel = '保存する', persistKey, onWineTypeChange }, ref) => {
     const { register, handleSubmit, control, watch, setValue, getValues, reset, formState: { errors } } = useForm<WineFormValues>({
         defaultValues: {
             date: '',
@@ -455,6 +460,10 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    useImperativeHandle(ref, () => ({
+        clear: handleClear
+    }));
+
     const handleSaveDraft = async (e: React.MouseEvent) => {
         // Prevent default submit
         e.preventDefault();
@@ -472,6 +481,25 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
 
     useEffect(() => {
         document.body.setAttribute('data-winetype', wineType ?? '');
+        if (onWineTypeChange && wineType) {
+            onWineTypeChange(wineType);
+        }
+    }, [wineType, onWineTypeChange]);
+
+    // Accent Color Effect
+    useEffect(() => {
+        const root = document.documentElement;
+        let accentColor = '#881337'; // default primary (burgundy)
+
+        switch (wineType) {
+            case '赤': accentColor = '#be123c'; break; // rose-700
+            case '白': accentColor = '#f59e0b'; break; // amber-500
+            case 'ロゼ': accentColor = '#ec4899'; break; // pink-500
+            case 'オレンジ': accentColor = '#f97316'; break; // orange-500
+            case '発泡白': accentColor = '#eab308'; break; // yellow-500
+            case '発泡ロゼ': accentColor = '#fb7185'; break; // rose-400
+        }
+        root.style.setProperty('--accent', accentColor);
     }, [wineType]);
 
     const isRed = wineType === '赤';
@@ -611,17 +639,7 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
     };
 
     return (
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="mx-auto w-full max-w-xl px-4 pb-24 md:max-w-2xl space-y-8">
-            <div className="flex justify-between items-center bg-gray-50 px-4 py-2 rounded-lg mb-4">
-                <span className="text-sm text-gray-500">入力フォーム</span>
-                <button
-                    type="button"
-                    onClick={handleClear}
-                    className="text-xs text-red-500 hover:text-red-700 underline"
-                >
-                    入力内容をクリア
-                </button>
-            </div>
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="w-full pb-24 space-y-8">
 
             {/* タブ：ワインタイプ */}
             <section className="mb-4">
@@ -1558,4 +1576,6 @@ export default function WineForm({ defaultValues, onSubmit, isSubmitting, submit
         `}</style>
         </form >
     );
-}
+});
+
+export default WineForm;

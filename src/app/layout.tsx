@@ -4,8 +4,9 @@ import "./globals.css";
 import { Inter } from 'next/font/google';
 
 import BottomNav from "@/components/bottom-nav";
+import { AppShell } from "@/components/layout/AppShell";
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 
 const geistSans = Geist({
@@ -26,15 +27,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja" suppressHydrationWarning>
-      {/* 
-        data-winetype はここでは空にしておく
-        page.tsx 側の useEffect で動的に書き換える
-      */}
-      <body className={inter.className} data-winetype="">
-        <div className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8 pb-32">
+      <body className={inter.className}>
+        <AppShell>
           {children}
-        </div>
-        <BottomNav />
+          <BottomNav />
+        </AppShell>
       </body>
     </html>
   )

@@ -2,6 +2,8 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import { ContentContainer } from '@/components/layout/ContentContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { TastingNote } from '@/types/custom';
 import KPICards from './KPICards';
 import WineTypeDistChart from './WineTypeDistChart';
@@ -33,10 +35,11 @@ const DashboardLayout: React.FC<Props> = ({ notes }) => {
     const startDate = useMemo(() => calculateEarliestDate(notes), [notes]);
 
     return (
-        <div className="w-full max-w-7xl mx-auto px-4 py-8">
-            <h1 className="text-2xl font-bold mb-8 text-zinc-800 border-l-4 border-amber-800 pl-4">
-                統計ダッシュボード
-            </h1>
+        <ContentContainer size="wide" className="py-8">
+            <PageHeader
+                title="統計ダッシュボード"
+                subtitle="データの可視化と分析"
+            />
 
             <KPICards totalWines={totalWines} recentWines={recentWines} startDate={startDate} />
 
@@ -62,7 +65,7 @@ const DashboardLayout: React.FC<Props> = ({ notes }) => {
                 <RegionMap data={regionData} />
             </div>
 
-        </div>
+        </ContentContainer>
     );
 };
 

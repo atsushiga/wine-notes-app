@@ -3,6 +3,7 @@
 
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Card } from '@/components/ui/Card';
 
 interface PriceBin {
     range: string;
@@ -16,7 +17,7 @@ interface Props {
 
 const PriceHistogram: React.FC<Props> = ({ data }) => {
     return (
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-zinc-200 h-full min-h-[474px] flex flex-col">
+        <Card className="p-6 h-full min-h-[474px] flex flex-col">
             <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-2 flex-none">価格帯分布</h3>
             <div className="w-full flex-grow min-h-0">
                 <ResponsiveContainer width="100%" height="100%">
@@ -42,7 +43,7 @@ const PriceHistogram: React.FC<Props> = ({ data }) => {
                     </BarChart>
                 </ResponsiveContainer>
             </div>
-        </div>
+        </Card>
     );
 };
 

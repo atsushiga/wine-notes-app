@@ -26,8 +26,6 @@ export default async function StatisticsPage() {
     const notes = (data as unknown as TastingNote[]) || [];
 
     return (
-        <main className="min-h-screen bg-zinc-50 transition-colors duration-500">
-            <DashboardLayout notes={notes} />
-        </main>
+        <DashboardLayout notes={notes} />
     );
 }

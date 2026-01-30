@@ -5,85 +5,91 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  color-scheme: light;
-  --surface: #ffffff;
-  --surface-muted: #f8fafc;      /* ほんのりカード */
-  --fg: #111827;                 /* メイン文字 */
-  --fg-muted: #6b7280;           /* 補助文字 */
-  --border: #e5e7eb;
-  --accent: #0ea5e9;             /* デフォルトアクセント（青） */
-  --bg-tint: rgba(255, 255, 255, 0.9);
+  /* Base Colors - Warm Neutral / Pale Rose Theme */
+  --app-bg: #fff1f2;
+  /* rose-50 base */
+  --card-bg: #ffffff;
+  --border: #e2e8f0;
+  /* slate-200 */
+
+  --text: #1f2937;
+  /* gray-900 */
+  --text-muted: #64748b;
+  /* slate-500 */
+
+  --primary: #881337;
+  /* rose-900 (Burgundy) */
+  --primary-foreground: #ffffff;
+
+  --ring: #fda4af;
+  /* rose-300 */
+
+  /* Runtime Accent - Default to Primary if not specified */
+  --accent: var(--primary);
+  --accent-muted: #fff1f2;
+  /* rose-50 */
+
+  --radius: 1rem;
+  /* Rounded-2xl (16px) */
 }
 
-/* === Dark === */
-:root.dark, .dark :root {
-  --surface: #0b0f19;
-  --surface-muted: #111827;
-  --fg: #e5e7eb;
-  --fg-muted: #9ca3af;
-  --border: #1f2937;
-  --accent: #38bdf8;             /* ダーク時の青寄りアクセント */
-  --bg-tint: rgba(10, 10, 10, 0.9);
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* === Dark Mode Support (Optional/Partial) === */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --app-bg: #0f172a;
+    /* slate-900 */
+    --card-bg: #1e293b;
+    /* slate-800 */
+    --border: #334155;
+    /* slate-700 */
+
+    --text: #f8fafc;
+    /* slate-50 */
+    --text-muted: #94a3b8;
+    /* slate-400 */
+
+    --primary: #be123c;
+    /* rose-700 */
+    --accent-muted: #334155;
   }
 }
 
+@theme inline {
+  --color-background: var(--app-bg);
+  --color-foreground: var(--text);
+}
+
 body {
-  background: var(--bg-tint);
-  color: var(--fg);  
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--app-bg);
+  color: var(--text);
+  font-family: var(--font-inter), sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* === wineType別アクセント（PageやMainに data-winetype を付与） === */
-[data-winetype="赤"]      { 
-  --accent: #be123c; 
-  --bg-tint: rgba(190, 18, 60, 0.08);   /* rose-700を淡く */
-} /* rose-700 */
-[data-winetype="白"]      { 
-  --accent: #f59e0b; 
-  --bg-tint: rgba(245, 158, 11, 0.07);  /* amber-500を淡く */
+/* === Layout Utilities === */
+.content-container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
-[data-winetype="ロゼ"]    { 
-  --accent: #ec4899; 
-  --bg-tint: rgba(236, 72, 153, 0.08);  /* pink-500を淡く */
-} /* pink-500 */
-[data-winetype="オレンジ"]{ 
-  --accent: #f97316; 
-  --bg-tint: rgba(249, 115, 22, 0.08);  /* orange-500を淡く */
-} /* orange-500 */
-[data-winetype="発泡白"]  { 
-  --accent: #eab308; 
-  --bg-tint: rgba(234, 179, 8, 0.07);   /* yellow-500を淡く */
-} /* yellow-500 */
-[data-winetype="発泡ロゼ"]{ 
-  --accent: #fb7185; 
-  --bg-tint: rgba(251, 113, 133, 0.08); /* rose-400を淡く */
-} /* rose-400 */
 
-/* 入力のアクセント色（range/checkbox/radioなど） */
-.input-accent { accent-color: var(--accent); }
+@media (min-width: 640px) {
+  .content-container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
 
-/* よく使うパターンのヘルパー（任意） */
-.theme-surface { background: var(--surface); color: var(--fg); }
-.theme-muted   { background: var(--surface-muted); color: var(--fg); }
-.theme-border  { border-color: var(--border); }
-.theme-fg      { color: var(--fg); }
-.theme-fgmuted { color: var(--fg-muted); }
+/* === Wine Type Accents === */
+/* These will be set dynamically via style={{ "--accent": "..." } as CSSProperties} or consistent classes */
 
-.range--light {
-  color-scheme: light; /* ← これだけで未充填側が黒っぽくなりにくい */
+/* Common Utils */
+.text-muted {
+  color: var(--text-muted);
+}
+
+.border-theme {
+  border-color: var(--border);
 }

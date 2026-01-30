@@ -3,6 +3,7 @@
 import React from 'react';
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps';
 import { scaleQuantile } from 'd3-scale';
+import { Card } from '@/components/ui/Card';
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
@@ -84,7 +85,7 @@ const RegionMap: React.FC<Props> = ({ data }) => {
         ]);
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-zinc-200 h-[500px] relative">
+        <Card className="p-6 h-[500px] relative">
             <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">産地マップ</h3>
             <div
                 className="w-full h-[420px] bg-zinc-50 rounded border border-zinc-100 overflow-hidden relative cursor-move"
@@ -174,7 +175,7 @@ const RegionMap: React.FC<Props> = ({ data }) => {
                 </div>
             </div>
             <p className="text-xs text-right text-zinc-400 mt-2">※ 日本語の国名は自動変換してマッピングしています</p>
-        </div>
+        </Card>
     );
 };
 
