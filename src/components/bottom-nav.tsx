@@ -10,11 +10,11 @@ export default function BottomNav() {
     const isActive = (path: string) => pathname === path;
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white shadow-lg z-50 pb-safe">
+        <div className="fixed bottom-0 left-0 right-0 border-t border-[var(--border)] bg-[var(--card-bg)] shadow-lg z-50 pb-safe">
             <div className="flex justify-around items-center h-16">
                 <Link
                     href="/"
-                    className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive("/") ? "text-rose-600" : "text-gray-500 hover:text-gray-700"
+                    className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive("/") ? "text-[var(--primary)]" : "text-[var(--text-muted)] hover:text-[var(--text)]"
                         }`}
                 >
                     <NotebookPen size={24} />
@@ -23,8 +23,8 @@ export default function BottomNav() {
                 <Link
                     href="/tasting-notes"
                     className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive("/tasting-notes")
-                        ? "text-rose-600"
-                        : "text-gray-500 hover:text-gray-700"
+                        ? "text-[var(--primary)]"
+                        : "text-[var(--text-muted)] hover:text-[var(--text)]"
                         }`}
                 >
                     <List size={24} />
@@ -33,8 +33,8 @@ export default function BottomNav() {
                 <Link
                     href="/statistics"
                     className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive("/statistics")
-                        ? "text-rose-600"
-                        : "text-gray-500 hover:text-gray-700"
+                        ? "text-[var(--primary)]"
+                        : "text-[var(--text-muted)] hover:text-[var(--text)]"
                         }`}
                 >
                     <BarChart2 size={24} />
@@ -43,8 +43,8 @@ export default function BottomNav() {
                 <Link
                     href="/settings"
                     className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive("/settings")
-                        ? "text-rose-600"
-                        : "text-gray-500 hover:text-gray-700"
+                        ? "text-[var(--primary)]"
+                        : "text-[var(--text-muted)] hover:text-[var(--text)]"
                         }`}
                 >
                     <Settings size={24} />

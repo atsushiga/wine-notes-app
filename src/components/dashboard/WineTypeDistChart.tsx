@@ -37,14 +37,20 @@ const WineTypeDistChart: React.FC<Props> = ({ data }) => {
 
     return (
         <Card className="p-6 h-[150px]">
-            <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-2">ワインタイプ比率</h3>
+            <h3 className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wider mb-2">ワインタイプ比率</h3>
             <div className="w-full h-[80px]">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart layout="vertical" data={chartData}>
                         <XAxis type="number" hide />
                         <YAxis type="category" dataKey="name" hide />
                         <Tooltip
-                            contentStyle={{ backgroundColor: 'var(--bg-popup)', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                            contentStyle={{
+                                backgroundColor: 'var(--card-bg)',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border)',
+                                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                                color: 'var(--text)'
+                            }}
                             cursor={{ fill: 'transparent' }}
                         />
                         {types.map((type) => (

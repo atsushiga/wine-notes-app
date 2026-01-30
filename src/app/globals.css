@@ -27,6 +27,26 @@
   --ring: #fda4af;
   /* rose-300 */
 
+  /* Surface Variants */
+  --surface-2: #f8fafc;
+  /* slate-50 - sunken/subtle */
+
+  /* Chip / Badge */
+  --chip-bg: #f1f5f9;
+  /* slate-100 */
+  --chip-border: #e2e8f0;
+  /* slate-200 */
+  --chip-text: #475569;
+  /* slate-600 */
+
+  /* Charts */
+  --chart-grid: #e2e8f0;
+  /* slate-200 */
+  --chart-axis: #94a3b8;
+  /* slate-400 */
+  --chart-text: #64748b;
+  /* slate-500 */
+
   /* Runtime Accent - Default to Primary if not specified */
   --accent: var(--primary);
   --accent-muted: #fff1f2;
@@ -61,6 +81,23 @@
 
     --ring: #fb7185;
     /* rose-400 */
+
+    --surface-2: #0f172a;
+    /* slate-900 - sunken relative to card */
+
+    --chip-bg: #334155;
+    /* slate-700 - elevated relative to card */
+    --chip-border: #475569;
+    /* slate-600 */
+    --chip-text: #cbd5e1;
+    /* slate-300 */
+
+    --chart-grid: #334155;
+    /* slate-700 */
+    --chart-axis: #64748b;
+    /* slate-500 */
+    --chart-text: #94a3b8;
+    /* slate-400 */
 
     --accent-muted: #334155;
   }

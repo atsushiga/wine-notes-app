@@ -8,6 +8,7 @@ import { bulkDeleteWines } from '@/app/actions/wine';
 import { ContentContainer } from '@/components/layout/ContentContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card } from '@/components/ui/Card';
+import { FORM_CONTROL_BASE } from '@/constants/styles';
 
 interface WineListProps {
     notes: TastingNote[];
@@ -104,7 +105,7 @@ export default function WineList({ notes }: WineListProps) {
                     <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
                         {/* Status Filter */}
                         <select
-                            className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={`${FORM_CONTROL_BASE} w-auto`}
                             onChange={(e) => setFilterStatus(e.target.value as 'all' | 'draft')}
                             value={filterStatus}
                         >
@@ -114,7 +115,7 @@ export default function WineList({ notes }: WineListProps) {
 
                         {/* Sort Dropdown */}
                         <select
-                            className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={`${FORM_CONTROL_BASE} w-auto`}
                             onChange={handleSortChange}
                             defaultValue="created_at-desc"
                         >
@@ -139,9 +140,9 @@ export default function WineList({ notes }: WineListProps) {
                         )}
                         <button
                             onClick={toggleSelectionMode}
-                            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${isSelectionMode
-                                ? 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${isSelectionMode
+                                ? 'bg-[var(--chip-bg)] text-[var(--text)] border-[var(--chip-border)] hover:bg-[var(--border)]'
+                                : 'bg-[var(--card-bg)] text-[var(--text)] border-[var(--border)] hover:bg-[var(--surface-2)]'
                                 }`}
                         >
                             {isSelectionMode ? 'キャンセル' : '選択'}
@@ -161,7 +162,7 @@ export default function WineList({ notes }: WineListProps) {
                             >
                                 <div className={`absolute top-2 left-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${selectedIds.includes(note.id)
                                     ? 'bg-blue-600 border-blue-600'
-                                    : 'bg-white/80 border-gray-300'
+                                    : 'bg-[var(--card-bg)]/80 border-[var(--border)]'
                                     }`}>
                                     {selectedIds.includes(note.id) && (
                                         <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -192,8 +193,8 @@ export default function WineList({ notes }: WineListProps) {
 
 function WineCardContent({ note }: { note: TastingNote }) {
     return (
-        <Card className="overflow-hidden flex flex-col h-full transition-transform duration-200 hover:-translate-y-1 hover:shadow-md border-gray-200">
-            <div className="relative aspect-[3/3.2] w-full bg-gray-100">
+        <Card className="overflow-hidden flex flex-col h-full transition-transform duration-200 hover:-translate-y-1 hover:shadow-md">
+            <div className="relative aspect-[3/3.2] w-full bg-[var(--surface-2)]">
                 {(note.images?.[0]?.thumbnail_url || note.images?.[0]?.url || note.image_url) ? (
                     <Image
                         src={note.images?.[0]?.thumbnail_url || note.images?.[0]?.url || note.image_url || ''}
@@ -203,32 +204,32 @@ function WineCardContent({ note }: { note: TastingNote }) {
                         sizes="(max-width: 768px) 50vw, 33vw"
                     />
                 ) : (
-                    <div className="flex items-center justify-center h-full text-gray-300">
+                    <div className="flex items-center justify-center h-full text-[var(--text-muted)] opacity-30">
                         <span className="text-4xl">🍷</span>
                     </div>
                 )}
                 {note.rating && (
-                    <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm flex items-center space-x-1">
+                    <div className="absolute top-2 right-2 bg-[var(--card-bg)]/90 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm flex items-center space-x-1 border border-[var(--border)]">
                         <span className="text-yellow-500 text-xs">★</span>
-                        <span className="text-xs font-bold text-gray-800">
+                        <span className="text-xs font-bold text-[var(--text)]">
                             {note.rating}
                         </span>
                     </div>
                 )}
                 {/* Draft Badge */}
                 {note.status === 'draft' && (
-                    <div className="absolute top-2 left-2 bg-yellow-100/90 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm flex items-center space-x-1 border border-yellow-200">
-                        <span className="text-yellow-700 text-xs font-bold">編集中</span>
+                    <div className="absolute top-2 left-2 bg-yellow-100/90 dark:bg-yellow-900/50 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm flex items-center space-x-1 border border-yellow-200 dark:border-yellow-800">
+                        <span className="text-yellow-700 dark:text-yellow-200 text-xs font-bold">編集中</span>
                     </div>
                 )}
             </div>
 
             <div className="p-3 flex flex-col flex-grow bg-[var(--card-bg)]">
-                <h3 className="font-semibold text-gray-900 text-sm line-clamp-2 mb-1">
+                <h3 className="font-semibold text-[var(--text)] text-sm line-clamp-2 mb-1">
                     {note.wine_name || "名称未設定"}
                 </h3>
 
-                <div className="flex items-center gap-2 text-xs text-gray-600 mb-1">
+                <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mb-1">
                     {note.country && (
                         <span title={note.country}>{getCountryFlag(note.country)}</span>
                     )}
@@ -240,16 +241,16 @@ function WineCardContent({ note }: { note: TastingNote }) {
                 </div>
 
                 {note.vintage && (
-                    <p className="text-xs text-gray-500 mb-0.5">{note.vintage}</p>
+                    <p className="text-xs text-[var(--text-muted)] mb-0.5">{note.vintage}</p>
                 )}
 
                 {note.price && (
-                    <p className="text-xs text-gray-500 mb-1">
+                    <p className="text-xs text-[var(--text-muted)] mb-1">
                         ¥{note.price.toLocaleString()}
                     </p>
                 )}
 
-                <div className="mt-auto pt-2 border-t border-gray-100 flex justify-between items-center text-[10px] text-gray-400">
+                <div className="mt-auto pt-2 border-t border-[var(--border)] flex justify-between items-center text-[10px] text-[var(--text-muted)]">
                     <span suppressHydrationWarning>
                         {new Date(note.created_at).toLocaleDateString("ja-JP")}
                     </span>
@@ -293,19 +294,19 @@ function getCountryFlag(countryName: string): string {
 function getWineTypeStyle(type: string): string {
     const t = type.toLowerCase();
     if (t.includes('赤') || t.includes('red')) {
-        return "bg-red-100 text-red-700";
+        return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200 border border-red-200 dark:border-red-800";
     }
     if (t.includes('白') || t.includes('white') || t.includes('sparkli') || t.includes('発泡')) {
         if (t.includes('ロゼ') || t.includes('rose') || t.includes('rosé')) {
-            return "bg-pink-100 text-pink-700";
+            return "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-200 border border-pink-200 dark:border-pink-800";
         }
-        return "bg-yellow-50 text-yellow-700 border border-yellow-100";
+        return "bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800";
     }
     if (t.includes('ロゼ') || t.includes('rose') || t.includes('rosé')) {
-        return "bg-pink-100 text-pink-700";
+        return "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-200 border border-pink-200 dark:border-pink-800";
     }
     if (t.includes('オレンジ') || t.includes('orange')) {
-        return "bg-orange-100 text-orange-700";
+        return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-200 border border-orange-200 dark:border-orange-800";
     }
-    return "bg-gray-100 text-gray-600";
+    return "bg-[var(--chip-bg)] text-[var(--chip-text)] border border-[var(--chip-border)]";
 }

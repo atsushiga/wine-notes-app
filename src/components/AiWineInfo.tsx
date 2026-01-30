@@ -46,14 +46,14 @@ export default function AiWineInfo({ wine }: AiWineInfoProps) {
 
     if (!hasAiData && !isLoading) {
         return (
-            <div className="mt-8 p-6 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl border border-purple-100 shadow-sm">
+            <div className="mt-8 p-6 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-2xl border border-purple-100 dark:border-purple-800 shadow-sm">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                     <div>
-                        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-[var(--text)] flex items-center gap-2">
                             <Sparkles className="w-5 h-5 text-purple-600" />
                             AIによる深掘り検索
                         </h3>
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="text-sm text-[var(--text-muted)] mt-1">
                             Geminiを使用して、テロワール、生産者の哲学、技術詳細などをWebから検索・取得します。
                         </p>
                     </div>
@@ -71,10 +71,10 @@ export default function AiWineInfo({ wine }: AiWineInfoProps) {
 
     if (isLoading) {
         return (
-            <div className="mt-8 p-12 bg-gray-50 rounded-2xl border border-gray-100 flex flex-col items-center justify-center text-center animate-pulse">
+            <div className="mt-8 p-12 bg-[var(--surface-2)] rounded-2xl border border-[var(--border)] flex flex-col items-center justify-center text-center animate-pulse">
                 <Loader2 className="w-8 h-8 text-purple-600 animate-spin mb-4" />
-                <h3 className="text-lg font-bold text-gray-900">AIが情報を収集中...</h3>
-                <p className="text-sm text-gray-500 mt-2">Web上の専門情報を検索・分析しています。<br />これには数十秒かかる場合があります。</p>
+                <h3 className="text-lg font-bold text-[var(--text)]">AIが情報を収集中...</h3>
+                <p className="text-sm text-[var(--text-muted)] mt-2">Web上の専門情報を検索・分析しています。<br />これには数十秒かかる場合があります。</p>
             </div>
         );
     }
@@ -82,7 +82,7 @@ export default function AiWineInfo({ wine }: AiWineInfoProps) {
     // Has Data
     return (
         <div className="mt-8 space-y-6">
-            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2 pb-2 border-b border-gray-200">
+            <h3 className="text-xl font-bold text-[var(--text)] flex items-center gap-2 pb-2 border-b border-[var(--border)]">
                 <Sparkles className="w-6 h-6 text-purple-600" />
                 AI Wine Analysis
             </h3>
@@ -110,12 +110,12 @@ export default function AiWineInfo({ wine }: AiWineInfoProps) {
                 />
             </div>
 
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <div className="bg-[var(--card-bg)] p-6 rounded-2xl shadow-sm border border-[var(--border)]">
+                <h4 className="text-lg font-bold text-[var(--text)] mb-4 flex items-center gap-2">
                     <FileText className="w-5 h-5 text-red-600" />
                     Web上のテイスティングノート
                 </h4>
-                <p className="text-gray-700 whitespace-pre-wrap leading-relaxed text-sm">
+                <p className="text-[var(--text)] whitespace-pre-wrap leading-relaxed text-sm">
                     {wine.search_result_tasting_note || "情報なし"}
                 </p>
             </div>
@@ -126,12 +126,12 @@ export default function AiWineInfo({ wine }: AiWineInfoProps) {
 function InfoCard({ title, icon, content }: { title: string; icon: React.ReactNode; content?: string }) {
     if (!content) return null;
     return (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-            <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+        <div className="bg-[var(--card-bg)] p-6 rounded-2xl shadow-sm border border-[var(--border)] hover:shadow-md transition-shadow">
+            <h4 className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-wide mb-3 flex items-center gap-2">
                 {icon}
                 {title}
             </h4>
-            <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">
+            <p className="text-[var(--text)] text-sm leading-relaxed whitespace-pre-wrap">
                 {content}
             </p>
         </div>

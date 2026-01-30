@@ -37,7 +37,7 @@ const ImageCarousel: React.FC<PropType> = ({ images, wineName }) => {
 
     return (
         <div className="relative group">
-            <div className="overflow-hidden bg-gray-100 rounded-2xl aspect-[3/4]" ref={emblaRef}>
+            <div className="overflow-hidden bg-[var(--surface-2)] rounded-2xl aspect-[3/4]" ref={emblaRef}>
                 <div className="flex h-full touch-pan-y">
                     {sortedImages.map((img, index) => (
                         <div className="relative flex-[0_0_100%] min-w-0" key={img.id || index}>
@@ -59,16 +59,16 @@ const ImageCarousel: React.FC<PropType> = ({ images, wineName }) => {
             {sortedImages.length > 1 && (
                 <>
                     <button
-                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/50 hover:bg-white/80 p-2 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-[var(--card-bg)]/60 hover:bg-[var(--card-bg)]/80 p-2 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0 border border-[var(--border)]"
                         onClick={scrollPrev}
                     >
-                        <ChevronLeft className="w-6 h-6 text-gray-800" />
+                        <ChevronLeft className="w-6 h-6 text-[var(--text)]" />
                     </button>
                     <button
-                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/50 hover:bg-white/80 p-2 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-[var(--card-bg)]/60 hover:bg-[var(--card-bg)]/80 p-2 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0 border border-[var(--border)]"
                         onClick={scrollNext}
                     >
-                        <ChevronRight className="w-6 h-6 text-gray-800" />
+                        <ChevronRight className="w-6 h-6 text-[var(--text)]" />
                     </button>
 
                     {/* Dots */}
@@ -77,8 +77,8 @@ const ImageCarousel: React.FC<PropType> = ({ images, wineName }) => {
                             <button
                                 key={index}
                                 className={`w-2 h-2 rounded-full transition-all ${index === selectedIndex
-                                        ? 'bg-white w-4'
-                                        : 'bg-white/50 hover:bg-white/80'
+                                    ? 'bg-white w-4'
+                                    : 'bg-white/50 hover:bg-white/80'
                                     }`}
                                 onClick={() => emblaApi && emblaApi.scrollTo(index)}
                             />

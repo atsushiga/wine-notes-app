@@ -86,16 +86,12 @@ const RegionMap: React.FC<Props> = ({ data }) => {
 
     return (
         <Card className="p-6 h-[500px] relative">
-            <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">産地マップ</h3>
+            <h3 className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wider mb-4">産地マップ</h3>
             <div
-                className="w-full h-[420px] bg-zinc-50 rounded border border-zinc-100 overflow-hidden relative cursor-move"
+                className="w-full h-[420px] bg-[var(--surface-2)] rounded border border-[var(--border)] overflow-hidden relative cursor-move"
                 onMouseMove={(e) => {
                     // Update tooltip position if visible
                     if (tooltip.visible) {
-                        // Calculate relative position to the container if needed, 
-                        // but sticking to clientX/Y for fixed overlay is usually easier.
-                        // However, we need to subtract the container's offset if we render absolute.
-                        // Let's use fixed positioning for the tooltip to avoid overflow issues.
                         setTooltip(prev => ({ ...prev, x: e.clientX, y: e.clientY }));
                     }
                 }}
@@ -111,8 +107,8 @@ const RegionMap: React.FC<Props> = ({ data }) => {
                                         <Geography
                                             key={geo.rsmKey}
                                             geography={geo}
-                                            fill={cur ? colorScale(cur) : "#EEE"}
-                                            stroke="#D6D6DA"
+                                            fill={cur ? colorScale(cur) : "var(--card-bg)"}
+                                            stroke="var(--border)"
                                             strokeWidth={0.5}
                                             style={{
                                                 default: { outline: "none" },
@@ -148,7 +144,7 @@ const RegionMap: React.FC<Props> = ({ data }) => {
                 {/* Tooltip Overlay */}
                 {tooltip.visible && (
                     <div
-                        className="fixed z-[9999] bg-zinc-900/90 text-white text-xs p-3 rounded-lg pointer-events-none transform -translate-x-1/2 -translate-y-full mt-[-10px] shadow-xl backdrop-blur-sm"
+                        className="fixed z-[9999] bg-[var(--chip-bg)] border border-[var(--chip-border)] text-[var(--chip-text)] text-xs p-3 rounded-lg pointer-events-none transform -translate-x-1/2 -translate-y-full mt-[-10px] shadow-xl backdrop-blur-sm"
                         style={{ left: tooltip.x, top: tooltip.y }}
                     >
                         {tooltip.content}
@@ -157,24 +153,24 @@ const RegionMap: React.FC<Props> = ({ data }) => {
             </div>
 
             {/* Legend */}
-            <div className="absolute top-20 right-8 bg-white/90 p-3 rounded-lg shadow-sm border border-zinc-100 text-xs backdrop-blur-sm">
-                <div className="font-semibold mb-2 text-zinc-600">本数</div>
+            <div className="absolute top-20 right-8 bg-[var(--card-bg)]/90 p-3 rounded-lg shadow-sm border border-[var(--border)] text-xs backdrop-blur-sm">
+                <div className="font-semibold mb-2 text-[var(--text-muted)]">本数</div>
                 <div className="flex flex-col space-y-2">
                     <div className="flex items-center">
-                        <div className="w-3 h-3 mr-2 bg-gray-200 rounded-sm"></div>
-                        <span className="text-zinc-500">0本</span>
+                        <div className="w-3 h-3 mr-2 bg-[var(--surface-2)] rounded-sm border border-[var(--border)]"></div>
+                        <span className="text-[var(--text-muted)]">0本</span>
                     </div>
                     <div className="flex items-center">
                         <div className="w-3 h-3 mr-2 rounded-sm" style={{ backgroundColor: "#ffad9f" }}></div>
-                        <span className="text-zinc-500">1-3本</span>
+                        <span className="text-[var(--text-muted)]">1-3本</span>
                     </div>
                     <div className="flex items-center">
                         <div className="w-3 h-3 mr-2 rounded-sm" style={{ backgroundColor: "#9e2a2b" }}></div>
-                        <span className="text-zinc-500">4本以上</span>
+                        <span className="text-[var(--text-muted)]">4本以上</span>
                     </div>
                 </div>
             </div>
-            <p className="text-xs text-right text-zinc-400 mt-2">※ 日本語の国名は自動変換してマッピングしています</p>
+            <p className="text-xs text-right text-[var(--text-muted)] mt-2">※ 日本語の国名は自動変換してマッピングしています</p>
         </Card>
     );
 };
