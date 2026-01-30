@@ -41,7 +41,7 @@ export function SectionCard({
             <div className="flex items-start justify-between mb-4">
                 <div className="flex gap-3">
                     {icon && (
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-50 text-[var(--text-muted)] border border-gray-100">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--app-bg)] text-[var(--text-muted)] border border-[var(--border)]">
                             {icon}
                         </div>
                     )}

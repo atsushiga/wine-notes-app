@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { SAT_AROMA_DEFINITIONS } from '@/constants/sat_aromas';
 import { Search, ChevronDown, ChevronRight, Check, X, History, Trophy, BookOpen } from 'lucide-react';
 import { useAromaHistory } from '@/hooks/useAromaHistory';
+import { FORM_CONTROL_BASE } from '@/constants/styles';
 
 interface AromaSelectorProps {
     selectedAromas: string[];
@@ -88,20 +89,20 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
     const isSearching = searchQuery.length > 0;
 
     return (
-        <div className="space-y-4 border rounded-lg p-4 bg-white shadow-sm border-zinc-100">
+        <div className="space-y-4 border rounded-lg p-4 bg-[var(--card-bg)] shadow-sm border-[var(--border)]">
             <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                    <h3 className="font-medium text-gray-900">アロマ (SAT)</h3>
-                    <span className="text-sm text-gray-500">{selectedAromas.length} items</span>
+                    <h3 className="font-medium text-[var(--text)]">アロマ (SAT)</h3>
+                    <span className="text-sm text-[var(--text-muted)]">{selectedAromas.length} items</span>
                 </div>
 
                 {/* Search Bar */}
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] w-4 h-4" />
                     <input
                         type="text"
                         placeholder="アロマを検索..."
-                        className="w-full pl-9 pr-4 py-2 text-sm border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-gray-50 focus:bg-white transition-colors"
+                        className={`${FORM_CONTROL_BASE} pl-9 text-sm`}
                         value={searchQuery}
                         onChange={(e) => {
                             setSearchQuery(e.target.value);
@@ -112,7 +113,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                         <button
                             type="button"
                             onClick={() => setSearchQuery('')}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)]"
                         >
                             <X className="w-4 h-4" />
                         </button>
@@ -138,7 +139,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                                 flex-shrink-0 px-2.5 py-1 rounded-full text-xs border transition-colors whitespace-nowrap
                                                 ${selectedAromas.includes(term)
                                                     ? 'bg-blue-50 text-blue-700 border-blue-100'
-                                                    : 'bg-white text-gray-500 border-gray-100 hover:bg-gray-50 hover:text-gray-700'}
+                                                    : 'bg-[var(--card-bg)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--app-bg)] hover:text-[var(--text)]'}
                                             `}
                                         >
                                             {term}
@@ -164,7 +165,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                                 flex-shrink-0 px-2.5 py-1 rounded-full text-xs border transition-colors whitespace-nowrap
                                                 ${selectedAromas.includes(term)
                                                     ? 'bg-amber-50 text-amber-700 border-amber-100'
-                                                    : 'bg-white text-gray-500 border-gray-100 hover:bg-gray-50 hover:text-gray-700'}
+                                                    : 'bg-[var(--card-bg)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--app-bg)] hover:text-[var(--text)]'}
                                             `}
                                         >
                                             {term}
@@ -179,14 +180,14 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
 
                 {/* Shelf: Visual Grouping of Selected Aromas (Toned Down) */}
                 {selectedAromas.length > 0 && (
-                    <div className="flex flex-col gap-3 p-3 bg-zinc-50/50 rounded-lg border border-zinc-100/50">
+                    <div className="flex flex-col gap-3 p-3 bg-[var(--app-bg)]/50 rounded-lg border border-[var(--border)]">
                         {/* Primary */}
                         {groupedSelected['Primary'].length > 0 && (
                             <div className="flex flex-col sm:flex-row sm:gap-4 sm:items-start gap-1">
                                 <span className="text-[10px] uppercase tracking-wide text-zinc-400 w-16 flex-shrink-0 sm:mt-1.5 font-medium">Primary</span>
                                 <div className="flex flex-wrap gap-1.5">
                                     {groupedSelected['Primary'].map(term => (
-                                        <MountedShelfChip key={term} term={term} onRemove={() => toggleAroma(term)} colorClass="bg-green-50 text-green-700 border-green-100" />
+                                        <MountedShelfChip key={term} term={term} onRemove={() => toggleAroma(term)} colorClass="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800" />
                                     ))}
                                 </div>
                             </div>
@@ -198,7 +199,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                 <span className="text-[10px] uppercase tracking-wide text-zinc-400 w-16 flex-shrink-0 sm:mt-1.5 font-medium">Secondary</span>
                                 <div className="flex flex-wrap gap-1.5">
                                     {groupedSelected['Secondary'].map(term => (
-                                        <MountedShelfChip key={term} term={term} onRemove={() => toggleAroma(term)} colorClass="bg-orange-50 text-orange-700 border-orange-100" />
+                                        <MountedShelfChip key={term} term={term} onRemove={() => toggleAroma(term)} colorClass="bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-orange-100 dark:border-orange-800" />
                                     ))}
                                 </div>
                             </div>
@@ -210,7 +211,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                 <span className="text-[10px] uppercase tracking-wide text-zinc-400 w-16 flex-shrink-0 sm:mt-1.5 font-medium">Tertiary</span>
                                 <div className="flex flex-wrap gap-1.5">
                                     {groupedSelected['Tertiary'].map(term => (
-                                        <MountedShelfChip key={term} term={term} onRemove={() => toggleAroma(term)} colorClass="bg-amber-50 text-amber-800 border-amber-100" />
+                                        <MountedShelfChip key={term} term={term} onRemove={() => toggleAroma(term)} colorClass="bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-400 border-amber-100 dark:border-amber-800" />
                                     ))}
                                 </div>
                             </div>
@@ -222,7 +223,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                 <span className="text-[10px] uppercase tracking-wide text-zinc-400 w-16 flex-shrink-0 sm:mt-1.5 font-medium">Other</span>
                                 <div className="flex flex-wrap gap-1.5">
                                     {groupedSelected['Other'].map(term => (
-                                        <MountedShelfChip key={term} term={term} onRemove={() => toggleAroma(term)} colorClass="bg-gray-100 text-gray-600 border-gray-200" />
+                                        <MountedShelfChip key={term} term={term} onRemove={() => toggleAroma(term)} colorClass="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700" />
                                     ))}
                                 </div>
                             </div>
@@ -232,12 +233,12 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
             </div>
 
             {/* Collapsible Browse Section (Quiet) */}
-            <div className={`mt-4 ${!isSearching ? 'border-t border-zinc-100 pt-4' : ''}`}>
+            <div className={`mt-4 ${!isSearching ? 'border-t border-[var(--border)] pt-4' : ''}`}>
                 {!isSearching && (
                     <button
                         type="button"
                         onClick={() => setIsBrowseOpen(!isBrowseOpen)}
-                        className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-800 transition-colors mb-2 group w-full"
+                        className="flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--text)] transition-colors mb-2 group w-full"
                     >
                         {isBrowseOpen ? <ChevronDown size={14} className="text-zinc-400 group-hover:text-zinc-600" /> : <ChevronRight size={14} className="text-zinc-400 group-hover:text-zinc-600" />}
                         <span className={isBrowseOpen ? "font-medium" : "decoration-zinc-300 underline-offset-4 group-hover:underline"}>
@@ -251,7 +252,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                     <div className="animate-in slide-in-from-top-2 fade-in duration-200">
                         {/* Layer Tabs */}
                         {!isSearching && (
-                            <div className="flex border-b border-zinc-100 overflow-x-auto mb-4 scrollbar-hide">
+                            <div className="flex border-b border-[var(--border)] overflow-x-auto mb-4 scrollbar-hide">
                                 {SAT_AROMA_DEFINITIONS.map((layer, idx) => (
                                     <button
                                         key={layer.layer}
@@ -259,7 +260,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                         onClick={() => setActiveLayerIndex(idx)}
                                         className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeLayerIndex === idx
                                             ? 'border-blue-400 text-blue-600'
-                                            : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-200'
+                                            : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--border)]'
                                             }`}
                                     >
                                         {layer.layer.split(' ')[0]}
@@ -274,13 +275,13 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                 <div className="space-y-6">
                                     {filteredDefinitions.map((layer) => (
                                         <div key={layer.layer}>
-                                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                                            <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">
                                                 {layer.layer}
                                             </h4>
                                             <div className="space-y-4 pl-2 border-l-2 border-gray-100">
                                                 {layer.categories.map((category) => (
                                                     <div key={category.name}>
-                                                        <div className="text-sm font-medium text-gray-700 mb-2">
+                                                        <div className="text-sm font-medium text-[var(--text)] mb-2">
                                                             {category.name}
                                                         </div>
                                                         <div className="flex flex-wrap gap-2">
@@ -307,7 +308,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                             ) : (
                                 // Regular Tab View with "Show More" logic
                                 <div className="space-y-4">
-                                    <div className="text-xs text-gray-500 bg-zinc-50 p-2 rounded border border-zinc-100">
+                                    <div className="text-xs text-[var(--text-muted)] bg-[var(--app-bg)] p-2 rounded border border-[var(--border)]">
                                         {SAT_AROMA_DEFINITIONS[activeLayerIndex].description}
                                     </div>
 
@@ -319,18 +320,18 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                         const hiddenCount = category.terms.length - 6;
 
                                         return (
-                                            <div key={category.name} className="border border-zinc-100 rounded-lg overflow-hidden transition-all duration-200">
+                                            <div key={category.name} className="border border-[var(--border)] rounded-lg overflow-hidden transition-all duration-200">
                                                 <button
                                                     onClick={() => toggleCategory(category.name)}
-                                                    className="w-full flex items-center justify-between p-3 bg-white hover:bg-gray-50 transition-colors text-left"
+                                                    className="w-full flex items-center justify-between p-3 bg-[var(--card-bg)] hover:bg-[var(--app-bg)] transition-colors text-left"
                                                     type="button"
                                                 >
-                                                    <span className="font-medium text-sm text-gray-700">{category.name}</span>
-                                                    {isExpanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                                                    <span className="font-medium text-sm text-[var(--text)]">{category.name}</span>
+                                                    {isExpanded ? <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" /> : <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />}
                                                 </button>
 
                                                 {isExpanded && (
-                                                    <div className="p-3 pt-0 bg-white border-t border-zinc-50">
+                                                    <div className="p-3 pt-0 bg-[var(--card-bg)] border-t border-[var(--border)]">
                                                         <div className="flex flex-wrap gap-2 pt-3">
                                                             {displayTerms.map((term) => (
                                                                 <AromaChip
@@ -385,7 +386,7 @@ function AromaChip({ term, selected, onClick }: { term: string; selected: boolea
                 group relative px-3 py-1.5 rounded-full text-xs transition-all border
                 ${selected
                     ? 'bg-blue-600 text-white border-blue-600 shadow-sm pl-7'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'}
+                    : 'bg-[var(--card-bg)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--text-muted)] hover:bg-[var(--app-bg)]'}
             `}
         >
             {selected && (

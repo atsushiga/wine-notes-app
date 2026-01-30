@@ -27,6 +27,7 @@ import { Trash2 } from 'lucide-react';
 import { SAT_CONSTANTS } from '@/constants/sat';
 import AromaSelector from '@/components/AromaSelector';
 import { FieldRow } from '@/components/ui/field-row';
+import { FORM_CONTROL_BASE } from '@/constants/styles';
 
 // === 定義：画像シートを意識した選択肢 ===
 function removeUndefined(obj: Record<string, any>) {
@@ -650,7 +651,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                             <button
                                 key={t}
                                 type="button"
-                                className={`px-3 py-1.5 rounded-full border ${active ? 'bg-black text-white' : 'bg-white'}`}
+                                className={`px-3 py-1.5 rounded-full border transition-colors ${active ? 'bg-[var(--text)] text-[var(--app-bg)] border-[var(--text)]' : 'bg-[var(--card-bg)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--app-bg)]'}`}
                                 onClick={() => setValue('wineType', t, { shouldDirty: true })}
                             >
                                 {t}
@@ -665,20 +666,20 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             <SectionCard title="基本情報" icon={<Calendar size={18} />} tone="neutral">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <FieldRow label="日付">
-                        <input type="date" className="w-full input" {...register('date')} />
+                        <input type="date" className={FORM_CONTROL_BASE} {...register('date')} />
                     </FieldRow>
                     <FieldRow label="飲んだ/購入した場所">
-                        <input className="w-full input" placeholder="例: 自宅 / ○○レストラン / △△ワインショップ"
+                        <input className={FORM_CONTROL_BASE} placeholder="例: 自宅 / ○○レストラン / △△ワインショップ"
                             {...register('place')} />
                     </FieldRow>
                 </div>
                 <div className="mt-6">
-                    <label className="block text-sm font-medium text-zinc-700 mb-2">写真（複数選択可）</label>
+                    <label className="block text-sm font-medium text-[var(--text)] mb-2">写真（複数選択可）</label>
                     <input
                         type="file"
                         accept="image/*"
                         multiple
-                        className="block w-full text-sm text-slate-500 rounded-full border border-gray-300 p-2"
+                        className="block w-full text-sm text-[var(--text-muted)] rounded-full border border-[var(--border)] p-2 bg-[var(--input-bg)]"
                         onChange={(e) => {
                             handleFilesSelect(e.target.files);
                             // Clear input so same files can be selected again if needed? 
@@ -691,7 +692,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 {(watch('images')?.length ?? 0) > 0 && (
                     <div className="sm:col-span-3 mt-2 grid grid-cols-3 sm:grid-cols-4 gap-4">
                         {watch('images')?.map((img, idx) => (
-                            <div key={idx} className="relative group aspect-square bg-gray-100 rounded-lg overflow-hidden border">
+                            <div key={idx} className="relative group aspect-square bg-[var(--app-bg)] rounded-lg overflow-hidden border border-[var(--border)]">
                                 <img
                                     src={img.thumbnail_url || img.url}
                                     alt={`upload-${idx}`}
@@ -700,7 +701,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                 <button
                                     type="button"
                                     onClick={() => removeImage(idx)}
-                                    className="absolute top-1 right-1 bg-white/80 p-1 rounded-full text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="absolute top-1 right-1 bg-[var(--card-bg)]/80 p-1 rounded-full text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     <Trash2 size={16} />
                                 </button>
@@ -719,7 +720,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         <div className="flex items-center gap-2 mb-2">
                             <span className="text-xs text-gray-500">AI解析用メイン画像:</span>
                             {!watch('images') || watch('images')?.length === 0 ? (
-                                <img src={watch('imageUrl')!} alt="main" className="h-10 w-10 object-cover rounded border" />
+                                <img src={watch('imageUrl')!} alt="main" className="h-10 w-10 object-cover rounded border border-[var(--border)]" />
                             ) : null}
                         </div>
 
@@ -757,7 +758,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                 {isAnalyzing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                                 AI銘柄検索
                             </button>
-                            <p className="text-[10px] text-gray-400 mt-1">※画像からワイン情報を自動推定します</p>
+                            <p className="text-[10px] text-[var(--text-muted)] mt-1">※画像からワイン情報を自動推定します</p>
                         </div>
                     </div>
                 )}
@@ -770,16 +771,16 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             <SectionCard title="ワイン情報" icon={<FileText size={18} />} tone="neutral">
                 <div className='grid grid-cols-1 gap-6'>
                     <FieldRow label="ワイン名*">
-                        <input className="w-full input" placeholder="例: Bourgogne Rouge" {...register('wineName')} />
-                        {errors.wineName && <p className="text-red-600 text-sm mt-1">必須です</p>}
+                        <input className={FORM_CONTROL_BASE} placeholder="例: Bourgogne Rouge" {...register('wineName')} />
+                        {errors.wineName && <p className="text-red-500 text-sm mt-1">必須です</p>}
                     </FieldRow>
 
                     <div className="grid sm:grid-cols-2 gap-6">
                         <FieldRow label="生産者">
-                            <input className="w-full input" placeholder="例: Domaine X" {...register('producer')} />
+                            <input className={FORM_CONTROL_BASE} placeholder="例: Domaine X" {...register('producer')} />
                         </FieldRow>
                         <FieldRow label="ヴィンテージ">
-                            <input className="w-full input" placeholder="例: 2021" {...register('vintage')} />
+                            <input className={FORM_CONTROL_BASE} placeholder="例: 2021" {...register('vintage')} />
                         </FieldRow>
                     </div>
 
@@ -800,7 +801,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                             <input
                                                 type="text"
                                                 inputMode='numeric'
-                                                className="flex-1 input text-right"
+                                                className={`${FORM_CONTROL_BASE} flex-1 text-right`}
                                                 value={formatted}
                                                 onChange={(e) => {
                                                     const raw = e.target.value.replace(/[^\d]/g, '');
@@ -809,7 +810,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                                 autoComplete="off" autoCorrect="off" autoCapitalize="none"
                                                 placeholder="4,500"
                                             />
-                                            <span className="text-gray-600">円</span>
+                                            <span className="text-[var(--text-muted)]">円</span>
                                         </div>
                                     </FieldRow>
                                 );
@@ -817,7 +818,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
                         />
                         <FieldRow label="輸入元">
-                            <input className="w-full input" placeholder="Importer" {...register('importer')} />
+                            <input className={FORM_CONTROL_BASE} placeholder="Importer" {...register('importer')} />
                         </FieldRow>
                     </div>
 
@@ -827,17 +828,17 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                 type="text"
                                 value={watch('wineType') ?? ''}
                                 readOnly
-                                className="w-full input bg-gray-50 text-gray-700 cursor-default"
+                                className={`${FORM_CONTROL_BASE} bg-[var(--app-bg)] text-[var(--text-muted)] cursor-default`}
                             />
                         </FieldRow>
                         <div />
                     </div>
 
-                    <div className="pt-2 border-t border-dashed border-gray-200">
-                        <h4 className="text-sm font-semibold text-gray-900 mb-4">生産地</h4>
+                    <div className="pt-2 border-t border-dashed border-[var(--border)]">
+                        <h4 className="text-sm font-semibold text-[var(--text)] mb-4">生産地</h4>
                         <div className="grid sm:grid-cols-2 gap-6">
                             <FieldRow label="国">
-                                <select className="w-full input" {...register('country')}>
+                                <select className={FORM_CONTROL_BASE} {...register('country')}>
                                     <option value="">未選択</option>
                                     {countries.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
@@ -861,17 +862,17 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         </div>
                     </div>
 
-                    <div className="pt-2 border-t border-dashed border-gray-200">
-                        <h4 className="text-sm font-semibold text-gray-900 mb-4">品種</h4>
+                    <div className="pt-2 border-t border-dashed border-[var(--border)]">
+                        <h4 className="text-sm font-semibold text-[var(--text)] mb-4">品種</h4>
                         <div className="grid sm:grid-cols-2 gap-6">
                             <FieldRow label="主体の品種">
-                                <select className="w-full input" {...register('mainVariety')}>
+                                <select className={FORM_CONTROL_BASE} {...register('mainVariety')}>
                                     <option value="">未選択</option>
                                     {mainVarieties.map(v => <option key={v} value={v}>{v}</option>)}
                                 </select>
                             </FieldRow>
                             <FieldRow label="その他（補助品種・ブレンド等）">
-                                <input className="w-full input" placeholder="例: プティ・ヴェルド 5% など"
+                                <input className={FORM_CONTROL_BASE} placeholder="例: プティ・ヴェルド 5% など"
                                     {...register('otherVarieties')} />
                             </FieldRow>
                         </div>
@@ -880,7 +881,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     <div className="pt-2">
                         <FieldRow label="補足情報（自由入力）">
                             <textarea
-                                className="w-full input h-28"
+                                className={`${FORM_CONTROL_BASE} h-28`}
                                 placeholder="例: 畑情報、区画、樹齢、醸造メモ、輸入元メモ、保存環境 など自由に"
                                 {...register('additionalInfo')}
                             />
@@ -901,7 +902,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 <div className="grid sm:grid-cols-2 gap-6">
                     <FieldRow label="清澄度">
                         <select
-                            className="w-full rounded-md px-3 py-2 bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                            className={FORM_CONTROL_BASE}
                             {...register('clarity')}
                         >
                             {apperance.clarity.map(v => (
@@ -910,7 +911,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         </select>
                     </FieldRow>
                     <FieldRow label="輝き">
-                        <select className="w-full input" {...register('brightness')}>
+                        <select className={FORM_CONTROL_BASE} {...register('brightness')}>
                             {apperance.brightness.map(v => (
                                 <option key={v.label} value={v.label}>{v.label}</option>
                             ))}
@@ -936,9 +937,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                         step={0.5}
                                         value={v}
                                         onChange={(e) => field.onChange(Number(e.target.value))}
-                                        className="w-full accent-gray-700"
+                                        className="w-full accent-[var(--text)]"
                                     />
-                                    <div className="flex justify-between text-xs text-gray-400 px-1 mt-1">
+                                    <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
                                         <span>淡</span><span>濃</span>
                                     </div>
                                 </FieldRow>
@@ -962,9 +963,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                         step={0.5}
                                         value={v}
                                         onChange={(e) => field.onChange(Number(e.target.value))}
-                                        className="w-full accent-gray-700"
+                                        className="w-full accent-[var(--text)]"
                                     />
-                                    <div className="flex justify-between text-xs text-gray-400 px-1 mt-1">
+                                    <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
                                         <span>淡/緑</span><span>濃/褐</span>
                                     </div>
                                 </FieldRow>
@@ -979,7 +980,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     <div className='mt-6'>
                         <FieldRow label="泡の強さ">
                             <select
-                                className="w-full rounded-md px-3 py-2 bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                                className={FORM_CONTROL_BASE}
                                 {...register('sparkleIntensity')}
                             >
                                 {['弱い', 'やや弱い', '中程度', 'やや強い', '強い'].map(v => <option key={v} value={v}>{v}</option>)}
@@ -991,7 +992,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 <div className='mt-6'>
                     <FieldRow label="その他の外観の特徴" hint="例: 泡のきめ細かさ、涙、濁り、ガス感、粘性 など">
                         <textarea
-                            className="w-full h-24 rounded-md px-3 py-2 bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)] placeholder-[var(--fg-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                            className={`${FORM_CONTROL_BASE} h-24`}
                             {...register('appearanceOther')}
                         />
                     </FieldRow>
@@ -1008,12 +1009,12 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
                 <div className="grid sm:grid-cols-2 gap-6">
                     <FieldRow label="コンディション">
-                        <select className="w-full input" {...register('noseCondition')}>
+                        <select className={FORM_CONTROL_BASE} {...register('noseCondition')}>
                             {SAT_CONSTANTS.NOSE.CONDITION.map(v => <option key={v} value={v}>{v}</option>)}
                         </select>
                     </FieldRow>
                     <FieldRow label="熟成段階">
-                        <select className="w-full input" {...register('development')}>
+                        <select className={FORM_CONTROL_BASE} {...register('development')}>
                             {SAT_CONSTANTS.NOSE.DEVELOPMENT.map(v => <option key={v} value={v}>{v}</option>)}
                         </select>
                     </FieldRow>
@@ -1038,9 +1039,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                             step={0.5}
                                             value={v}
                                             onChange={(e) => field.onChange(Number(e.target.value))}
-                                            className="w-full accent-zinc-700"
+                                            className="w-full accent-[var(--text)]"
                                         />
-                                        <div className="flex justify-between text-xs text-zinc-300 px-1 mt-1">
+                                        <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
                                             <span>弱</span><span>強</span>
                                         </div>
                                     </FieldRow>
@@ -1069,9 +1070,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                                 step={0.1}
                                                 value={v}
                                                 onChange={(e) => field.onChange(Number(e.target.value))}
-                                                className="w-full accent-zinc-700"
+                                                className="w-full accent-[var(--text)]"
                                             />
-                                            <div className="flex justify-between text-xs text-zinc-300 px-1 mt-1">
+                                            <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
                                                 <span>旧世界</span><span>新世界</span>
                                             </div>
                                         </FieldRow>
@@ -1100,9 +1101,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                                 step={0.1}
                                                 value={v}
                                                 onChange={(e) => field.onChange(Number(e.target.value))}
-                                                className="w-full accent-zinc-700"
+                                                className="w-full accent-[var(--text)]"
                                             />
-                                            <div className="flex justify-between text-xs text-zinc-300 px-1 mt-1">
+                                            <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
                                                 <span>ニュートラル</span><span>アロマティック</span>
                                             </div>
                                         </FieldRow>
@@ -1130,9 +1131,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                             step={0.5}
                                             value={v}
                                             onChange={(e) => field.onChange(Number(e.target.value))}
-                                            className="w-full accent-zinc-700"
+                                            className="w-full accent-[var(--text)]"
                                         />
-                                        <div className="flex justify-between text-xs text-zinc-300 px-1 mt-1">
+                                        <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
                                             <span>弱</span><span>強</span>
                                         </div>
                                     </FieldRow>
@@ -1142,8 +1143,8 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     </div>
                 </div>
 
-                <div className="space-y-3 mt-10 border-t border-gray-100 pt-6">
-                    <p className="text-sm font-semibold text-zinc-800">印象（アロマ）</p>
+                <div className="space-y-3 mt-10 border-t border-[var(--border)] pt-6">
+                    <p className="text-sm font-semibold text-[var(--text)]">印象（アロマ）</p>
                     <Controller
                         control={control}
                         name="aromas"
@@ -1179,7 +1180,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {/* Sweetness */}
                     <FieldRow label="甘味">
-                        <select className="w-full input" {...register('sweetness')}>
+                        <select className={FORM_CONTROL_BASE} {...register('sweetness')}>
                             {SAT_CONSTANTS.PALATE.SWEETNESS.map((label, index) => (
                                 <option key={label} value={index + 1}>{label}</option>
                             ))}
@@ -1204,9 +1205,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                         step={0.5}
                                         value={v}
                                         onChange={(e) => field.onChange(Number(e.target.value))}
-                                        className="w-full accent-gray-700"
+                                        className="w-full accent-[var(--text)]"
                                     />
-                                    <div className="flex justify-between text-xs text-gray-400 px-1 mt-1">
+                                    <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
                                         <span>低</span><span>高</span>
                                     </div>
                                 </FieldRow>
@@ -1233,9 +1234,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                             step={0.5}
                                             value={v}
                                             onChange={(e) => field.onChange(Number(e.target.value))}
-                                            className="w-full accent-gray-700"
+                                            className="w-full accent-[var(--text)]"
                                         />
-                                        <div className="flex justify-between text-xs text-gray-400 px-1 mt-1">
+                                        <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
                                             <span>低</span><span>高</span>
                                         </div>
                                     </FieldRow>
@@ -1250,7 +1251,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                             <input
                                 type="number"
                                 step="0.1"
-                                className="w-full input text-right"
+                                className={`${FORM_CONTROL_BASE} text-right`}
                                 {...register('alcoholABV', { valueAsNumber: true })}
                                 placeholder="12.5"
                             />
@@ -1276,9 +1277,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                         step={0.5}
                                         value={v}
                                         onChange={(e) => field.onChange(Number(e.target.value))}
-                                        className="w-full accent-gray-700"
+                                        className="w-full accent-[var(--text)]"
                                     />
-                                    <div className="flex justify-between text-xs text-gray-400 px-1 mt-1">
+                                    <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
                                         <span>軽</span><span>重</span>
                                     </div>
                                 </FieldRow>
@@ -1304,9 +1305,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                         step={0.5}
                                         value={v}
                                         onChange={(e) => field.onChange(Number(e.target.value))}
-                                        className="w-full accent-gray-700"
+                                        className="w-full accent-[var(--text)]"
                                     />
-                                    <div className="flex justify-between text-xs text-gray-400 px-1 mt-1">
+                                    <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
                                         <span>短</span><span>長</span>
                                     </div>
                                 </FieldRow>
@@ -1319,7 +1320,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     <FieldRow label="味わいの補足" hint="例: 温度が上がると甘味の印象が増す、時間経過でタンニンが丸くなる 等">
                         <textarea
                             id="palateNotes"
-                            className="w-full input h-24"
+                            className={`${FORM_CONTROL_BASE} h-24`}
                             {...register('palateNotes')}
                         />
                     </FieldRow>
@@ -1355,9 +1356,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                         step={0.5}
                                         value={v}
                                         onChange={(e) => field.onChange(Number(e.target.value))}
-                                        className="w-full accent-gray-700"
+                                        className="w-full accent-[var(--text)]"
                                     />
-                                    <div className="flex justify-between text-xs text-gray-400 px-1 mt-1">
+                                    <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
                                         <span>低</span><span>高</span>
                                     </div>
                                 </FieldRow>
@@ -1367,14 +1368,14 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
                     <div className="grid sm:grid-cols-2 gap-6">
                         <FieldRow label="熟成の可能性 (Readiness)">
-                            <select className="w-full input" {...register('readiness')}>
+                            <select className={FORM_CONTROL_BASE} {...register('readiness')}>
                                 {SAT_CONSTANTS.CONCLUSION.READINESS.map(v => <option key={v} value={v}>{v}</option>)}
                             </select>
                         </FieldRow>
                     </div>
 
                     <FieldRow label="寸評 (Notes)">
-                        <textarea className="w-full input h-28" {...register('notes')} placeholder="自由記述" />
+                        <textarea className={`${FORM_CONTROL_BASE} h-28`} {...register('notes')} placeholder="自由記述" />
                     </FieldRow>
 
                     <div className="pt-6 border-t border-gray-100">
@@ -1401,7 +1402,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                                 step={0.1}
                                                 value={field.value}
                                                 onChange={(e) => field.onChange(Number(e.target.value))}
-                                                className="w-full"
+                                                className="w-full accent-[var(--text)]"
                                             />
                                             <span className="w-12 text-right text-lg font-medium text-yellow-600">{round1(field.value).toFixed(1)}</span>
                                         </div>
@@ -1413,7 +1414,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 </div>
             </SectionCard>
 
-            <section className="sticky bottom-18 z-20 rounded-2xl bg-white/90 backdrop-blur-sm p-4 shadow-lg border border-gray-200 mt-8 space-y-2">
+            <section className="sticky bottom-18 z-20 rounded-2xl bg-[var(--card-bg)]/90 backdrop-blur-sm p-4 shadow-lg border border-[var(--border)] mt-8 space-y-2">
                 {Object.keys(errors).length > 0 && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 mb-2">
                         <p className="font-bold">入力内容に不備があります。</p>
@@ -1432,7 +1433,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                             type="button"
                             onClick={handleSaveDraft}
                             disabled={isSubmitting}
-                            className="w-full sm:w-auto px-6 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl shadow-sm hover:bg-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300"
+                            className="w-full sm:w-auto px-6 py-3 bg-[var(--app-bg)] text-[var(--text-muted)] font-bold rounded-xl shadow-sm hover:bg-[var(--border)] transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border)]"
                         >
                             {isSubmitting ? '保存中...' : '一時保存'}
                         </button>
@@ -1451,7 +1452,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             </section>
 
             {/* AI Search Section (Deep Dive) - Moved to bottom */}
-            <section id="ai-deep-dive" className="rounded-2xl bg-gray-50 p-4 border border-gray-100">
+            <section id="ai-deep-dive" className="rounded-2xl bg-[var(--card-bg)] p-4 border border-[var(--border)]">
                 <button
                     type="button"
                     onClick={() => setIsAiExpanded(!isAiExpanded)}
@@ -1462,14 +1463,14 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                             <Sparkles className="w-5 h-5 text-purple-600" />
                         </div>
                         <div className="text-left">
-                            <h2 className="font-bold text-gray-900">AI Deep Dive</h2>
-                            <p className="text-xs text-gray-500">Web上の専門情報を検索・参照</p>
+                            <h2 className="font-bold text-[var(--text)]">AI Deep Dive</h2>
+                            <p className="text-xs text-[var(--text-muted)]">Web上の専門情報を検索・参照</p>
                         </div>
                     </div>
                     {isAiExpanded ? (
                         <ChevronUp className="w-5 h-5 text-gray-400" />
                     ) : (
-                        <ChevronDown className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
+                        <ChevronDown className="w-5 h-5 text-[var(--text-muted)] group-hover:text-[var(--text)]" />
                     )}
                 </button>
 
@@ -1487,10 +1488,10 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                             </button>
                         </div>
 
-                        <p className="text-sm text-gray-600 bg-white p-3 rounded-lg border border-gray-100">
+                        <p className="text-sm text-[var(--text-muted)] bg-[var(--card-bg)] p-3 rounded-lg border border-[var(--border)]">
                             ワイン名・生産者・ヴィンテージを元に、Web上の専門情報を検索します。
                             <br />
-                            <span className="text-xs text-gray-400 block mt-1">※ 既に情報が入力されている場合は上書きされます。</span>
+                            <span className="text-xs text-[var(--text-muted)] block mt-1">※ 既に情報が入力されている場合は上書きされます。</span>
                         </p>
 
                         <div className="space-y-4">
@@ -1498,31 +1499,31 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                 <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
                                     <BookOpen className="w-4 h-4 text-emerald-600" /> テロワール
                                 </label>
-                                <textarea className="w-full input h-24 text-sm bg-purple-50/30" {...register('terroir_info')} placeholder="AI検索結果がここに表示されます" />
+                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('terroir_info')} placeholder="AI検索結果がここに表示されます" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
                                     <User className="w-4 h-4 text-blue-600" /> 生産者・哲学
                                 </label>
-                                <textarea className="w-full input h-24 text-sm bg-purple-50/30" {...register('producer_philosophy')} />
+                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('producer_philosophy')} />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
                                     <Settings className="w-4 h-4 text-gray-600" /> 技術詳細
                                 </label>
-                                <textarea className="w-full input h-24 text-sm bg-purple-50/30" {...register('technical_details')} />
+                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('technical_details')} />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
                                     <Calendar className="w-4 h-4 text-orange-600" /> ヴィンテージ分析
                                 </label>
-                                <textarea className="w-full input h-24 text-sm bg-purple-50/30" {...register('vintage_analysis')} />
+                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('vintage_analysis')} />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
                                     <FileText className="w-4 h-4 text-red-600" /> 参考テイスティングノート
                                 </label>
-                                <textarea className="w-full input h-24 text-sm bg-purple-50/30" {...register('search_result_tasting_note')} />
+                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('search_result_tasting_note')} />
                             </div>
                         </div>
 
@@ -1539,7 +1540,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             <div className="fixed bottom-40 right-4 z-50 flex flex-col items-end gap-2 text-right pointer-events-none">
                 {/* Tooltip Wrapper */}
                 <div className={`transition-all duration-300 transform ${showTooltip ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} pointer-events-auto`}>
-                    <div className="bg-gray-800 text-white text-xs px-3 py-2 rounded-lg shadow-lg mb-1 max-w-[150px]">
+                    <div className="bg-[var(--card-bg)] text-[var(--text)] text-xs px-3 py-2 rounded-lg shadow-lg mb-1 max-w-[150px] border border-[var(--border)]">
                         ワイン名を記入するとAI検索ができます
                     </div>
                 </div>
@@ -1560,9 +1561,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                             setIsAiExpanded(true);
                         }
                     }}
-                    className={`pointer-events-auto shadow-lg border border-gray-200 p-3 rounded-full transition-all active:scale-95 flex items-center justify-center ${hasWineName
-                        ? 'bg-white text-gray-600 hover:bg-gray-50'
-                        : 'bg-gray-100 text-gray-400'
+                    className={`pointer-events-auto shadow-lg border border-[var(--border)] p-3 rounded-full transition-all active:scale-95 flex items-center justify-center ${hasWineName
+                        ? 'bg-[var(--card-bg)] text-[var(--text-muted)] hover:bg-[var(--app-bg)]'
+                        : 'bg-[var(--app-bg)] text-[var(--text-muted)]'
                         }`}
                     aria-label="Goto AI Deep Dive"
                 >
@@ -1571,7 +1572,6 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             </div>
 
             <style jsx global>{`
-            .input { @apply rounded-xl border border-neutral-300 bg-white px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-800; }
             .btn-primary { @apply rounded-xl bg-neutral-900 px-4 py-2 text-white shadow-sm hover:opacity-90 disabled:opacity-50; }
         `}</style>
         </form >

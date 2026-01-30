@@ -1,0 +1,1 @@
+export const FORM_CONTROL_BASE = "w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-[var(--text)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] transition-colors disabled:opacity-50";

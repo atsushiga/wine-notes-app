@@ -11,6 +11,9 @@
   --card-bg: #ffffff;
   --border: #e2e8f0;
   /* slate-200 */
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
+  /* slate-300 */
 
   --text: #1f2937;
   /* gray-900 */
@@ -33,7 +36,7 @@
   /* Rounded-2xl (16px) */
 }
 
-/* === Dark Mode Support (Optional/Partial) === */
+/* === Dark Mode Support === */
 @media (prefers-color-scheme: dark) {
   :root {
     --app-bg: #0f172a;
@@ -42,14 +45,23 @@
     /* slate-800 */
     --border: #334155;
     /* slate-700 */
+    --input-bg: #0f172a;
+    /* slate-900 (slightly darker than card) */
+    --input-border: #33415580;
+    /* slate-700 with 50% opacity (subtler than card border) */
 
-    --text: #f8fafc;
-    /* slate-50 */
+    --text: #f1f5f9;
+    /* slate-100 */
     --text-muted: #94a3b8;
     /* slate-400 */
 
-    --primary: #be123c;
-    /* rose-700 */
+    --primary: #e11d48;
+    /* rose-600 (lighter for dark mode) */
+    --primary-foreground: #ffffff;
+
+    --ring: #fb7185;
+    /* rose-400 */
+
     --accent-muted: #334155;
   }
 }
