@@ -42,8 +42,22 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
     };
 
     // Mapping TastingNote (snake_case) -> WineFormValues (camelCase)
+    // Convert date to YYYY-MM-DD format if it's a timestamp
+    const formatDateForInput = (dateStr: string | undefined): string => {
+        if (!dateStr) return '';
+        // If it's already in YYYY-MM-DD format, return as is
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+        // If it's a timestamp, extract the date part
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return '';
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
     const defaultValues: Partial<WineFormValues> = {
-        date: wine.date || '',
+        date: formatDateForInput(wine.date),
         place: wine.place || '',
         price: wine.price ? String(wine.price) : '',
         imageUrl: wine.image_url || '',
@@ -61,6 +75,7 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
         otherVarieties: wine.other_varieties || '',
         vintage: wine.vintage || '',
         additionalInfo: wine.additional_info || '',
+        importer: wine.importer || '',
 
         intensity: wine.intensity,
         color: wine.color ?? undefined,
