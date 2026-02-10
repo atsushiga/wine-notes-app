@@ -137,6 +137,21 @@ export default function WineDetailView({ wine, onEdit, onDelete, isDeleting }: P
                             </div>
                             <div className="flex justify-between"><dt className="text-[var(--text-muted)]">品種</dt><dd className="font-medium text-[var(--text)] text-right">{[wine.main_variety, wine.other_varieties].filter(Boolean).join(", ") || "-"}</dd></div>
                             <div className="flex justify-between"><dt className="text-[var(--text-muted)]">価格</dt><dd className="font-medium text-[var(--text)]">{wine.price ? `¥${wine.price.toLocaleString()}` : "-"}</dd></div>
+                            {wine.reference_url && (
+                                <div className="flex justify-between">
+                                    <dt className="text-[var(--text-muted)]">参考URL</dt>
+                                    <dd className="font-medium text-[var(--text)] text-right">
+                                        <a 
+                                            href={wine.reference_url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:underline break-all"
+                                        >
+                                            {wine.reference_url}
+                                        </a>
+                                    </dd>
+                                </div>
+                            )}
                         </dl>
                     </div>
                 </div>

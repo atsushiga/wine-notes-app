@@ -96,6 +96,7 @@ export const wineFormSchema = z.object({
     region: z.string().optional().nullable(),
     mainVariety: z.string().optional().nullable(),    // 主体の品種（セレクト）
     otherVarieties: z.string().optional().nullable(), // 自由記述
+    referenceUrl: z.string().optional().nullable(),
     additionalInfo: z.string().optional().nullable(),
     vintage: z.string().optional().nullable(),
     importer: z.string().optional().nullable(),
@@ -183,6 +184,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             region: '',
             mainVariety: '',
             otherVarieties: '',
+            referenceUrl: '',
             vintage: '2022',
             additionalInfo: '',
 
@@ -337,6 +339,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             region: '',
             mainVariety: '',
             otherVarieties: '',
+            referenceUrl: '',
             vintage: '2022',
             additionalInfo: '',
             importer: '',
@@ -420,6 +423,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             region: '',
             mainVariety: '',
             otherVarieties: '',
+            referenceUrl: '',
             vintage: '2022',
             additionalInfo: '',
             intensity: 2.0,
@@ -876,6 +880,17 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                     {...register('otherVarieties')} />
                             </FieldRow>
                         </div>
+                    </div>
+
+                    <div className="pt-2">
+                        <FieldRow label="参考URL">
+                            <input
+                                className={FORM_CONTROL_BASE}
+                                type="url"
+                                placeholder="公式URL等を記載"
+                                {...register('referenceUrl')}
+                            />
+                        </FieldRow>
                     </div>
 
                     <div className="pt-2">

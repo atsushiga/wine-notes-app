@@ -73,6 +73,7 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
         region: wine.region || '',
         mainVariety: wine.main_variety || '',
         otherVarieties: wine.other_varieties || '',
+        referenceUrl: wine.reference_url || '',
         vintage: wine.vintage || '',
         additionalInfo: wine.additional_info || '',
         importer: wine.importer || '',

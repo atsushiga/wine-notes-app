@@ -64,6 +64,7 @@ export interface TastingNote {
     rating?: number;       // Kept as personal preference
     notes?: string;
     vivino_url?: string;
+    reference_url?: string;
     additional_info?: string;
 
     // AI / Grounding Info

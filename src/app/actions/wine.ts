@@ -31,6 +31,7 @@ const toSnakeCase = (str: string): string => {
         wineType: 'wine_type',
         mainVariety: 'main_variety',
         otherVarieties: 'other_varieties',
+        referenceUrl: 'reference_url',
         additionalInfo: 'additional_info',
         sparkleIntensity: 'sparkle_intensity',
     };

@@ -39,6 +39,7 @@ async function appendToSupabase(data: UnknownRecord, userId?: string, status?: s
       wineType: 'wine_type',
       mainVariety: 'main_variety',
       otherVarieties: 'other_varieties',
+      referenceUrl: 'reference_url',
       additionalInfo: 'additional_info',
       sparkleIntensity: 'sparkle_intensity',
       localityVocabId: 'locality_vocab_id',
