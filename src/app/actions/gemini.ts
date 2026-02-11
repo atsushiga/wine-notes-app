@@ -200,7 +200,7 @@ export interface GroundingData {
     search_result_tasting_note?: string;
 }
 
-export async function searchWineDetails(wineId: number, query: { name: string; winery?: string; vintage?: string }) {
+export async function searchWineDetails(wineId: number, query: { name: string; winery?: string; vintage?: string; country?: string; locality?: string; referenceUrl?: string }) {
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
     }
@@ -215,6 +215,24 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
         ],
     });
 
+    // Build reference URL instruction
+    const referenceUrlInstruction = query.referenceUrl 
+        ? `\n\n**CRITICAL - Reference URL (MUST USE):**
+    The following URL has been provided as a reference source. You MUST access and reference this URL when searching for information:
+    ${query.referenceUrl}
+    
+    When this URL is available, prioritize information from this source and incorporate it into your analysis. If the URL contains official producer information, technical sheets, or professional reviews, use that as your primary source.`
+        : '';
+
+    // Build location context
+    const locationContext = (query.country || query.locality) 
+        ? `\n\n**Location Context:**
+    - Country: ${query.country || "Not specified"}
+    - Region/Locality: ${query.locality || "Not specified"}
+    
+    Use this location information to help determine the appropriate Tier level (Tier1-Tier4) when exact wine information is not available. For example, if the locality is specified (e.g., "Margaux"), you can infer Tier1 (Appellation level) information even if specific producer details are unavailable.`
+        : '';
+
     const prompt = `
     You are assisting a wine tasting note application.
     Search the web for reliable, professional information about the following wine and summarize it in Japanese.
@@ -222,7 +240,7 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
     Wine:
     - Name: ${query.name}
     - Producer/Winery: ${query.winery || "Unknown"}
-    - Vintage: ${query.vintage || "Unknown"}
+    - Vintage: ${query.vintage || "Unknown"}${locationContext}${referenceUrlInstruction}
 
     Goal:
     Create calm, factual “reference material” to support the user’s own tasting notes
@@ -258,6 +276,12 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
     Tier 2: Sub-region (e.g. Médoc, Haut-Médoc)
     Tier 3: Regional level (e.g. Bordeaux, Left Bank)
     Tier 4: Country or grape general style (last resort)
+
+    **IMPORTANT - Using Location Information:**
+    When country and/or locality information is provided, use it to make more accurate Tier determinations:
+    - If locality is specified (e.g., "Margaux", "Napa Valley"), you can confidently use Tier1 (Appellation level) information
+    - If only country is specified, use Tier2-Tier3 (Sub-regional or Regional level) information
+    - This helps avoid falling back to Tier4 (country/grape general style) unnecessarily
 
     For EACH field, explicitly state the reference scope
     at the beginning of the text in Japanese, for example:

@@ -31,6 +31,9 @@ export default function AiWineInfo({ wine }: AiWineInfoProps) {
                 name: wine.wine_name,
                 winery: wine.producer,
                 vintage: wine.vintage,
+                country: wine.country,
+                locality: wine.locality,
+                referenceUrl: wine.reference_url,
             });
 
             await saveGeminiData(wine.id, result);
@@ -55,6 +58,8 @@ export default function AiWineInfo({ wine }: AiWineInfoProps) {
                         </h3>
                         <p className="text-sm text-[var(--text-muted)] mt-1">
                             Geminiを使用して、テロワール、生産者の哲学、技術詳細などをWebから検索・取得します。
+                            <br />
+                            <span className="text-xs text-[var(--text-muted)]">国名・地域名・参考URLが入力されている場合は、それらの情報も検索に活用されます。参考URLがある場合は必ず参照します。</span>
                         </p>
                     </div>
                     <button

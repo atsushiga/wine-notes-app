@@ -615,6 +615,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         const name = getValues('wineName');
         const producer = getValues('producer');
         const vintage = getValues('vintage');
+        const country = getValues('country');
+        const locality = getValues('locality');
+        const referenceUrl = getValues('referenceUrl');
 
         if (!name) {
             alert('ワイン名を入力してください');
@@ -627,6 +630,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 name,
                 winery: producer || undefined,
                 vintage: vintage || undefined,
+                country: country || undefined,
+                locality: locality || undefined,
+                referenceUrl: referenceUrl || undefined,
             });
 
             setIsAiExpanded(true);
@@ -1506,6 +1512,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         <p className="text-sm text-[var(--text-muted)] bg-[var(--card-bg)] p-3 rounded-lg border border-[var(--border)]">
                             ワイン名・生産者・ヴィンテージを元に、Web上の専門情報を検索します。
                             <br />
+                            <span className="text-xs text-[var(--text-muted)] block mt-1">国名・地域名・参考URLが入力されている場合は、それらの情報も検索に活用されます。参考URLがある場合は必ず参照します。</span>
                             <span className="text-xs text-[var(--text-muted)] block mt-1">※ 既に情報が入力されている場合は上書きされます。</span>
                         </p>
 
