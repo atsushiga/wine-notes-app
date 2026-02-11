@@ -121,15 +121,15 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
         return (
             <div className="max-w-4xl mx-auto p-4 md:p-8 pb-32">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold">情報の編集</h2>
+                    <h2 className="text-xl font-bold text-[var(--text)]">情報の編集</h2>
                     <button
                         onClick={() => setIsEditing(false)}
-                        className="text-sm text-gray-500 hover:text-gray-900 underline"
+                        className="text-sm text-[var(--text-muted)] hover:text-[var(--text)] underline"
                     >
                         キャンセル
                     </button>
                 </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <div className="bg-[var(--card-bg)] p-6 rounded-2xl shadow-sm border border-[var(--border)]">
                     <WineForm
                         defaultValues={defaultValues}
                         onSubmit={handleUpdate}
