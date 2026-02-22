@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
@@ -10,7 +10,7 @@ import logoImage from "@/app/icon_transparent.png";
 import { Card } from "@/components/ui/Card";
 import { FORM_CONTROL_BASE } from "@/constants/styles";
 
-export default function LoginPage() {
+function LoginPageContent() {
     const searchParams = useSearchParams();
     const [isLoading, setIsLoading] = useState(false);
     const error = searchParams.get("error");
@@ -117,5 +117,13 @@ export default function LoginPage() {
                 </Card>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={null}>
+            <LoginPageContent />
+        </Suspense>
     );
 }
