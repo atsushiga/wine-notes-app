@@ -1,21 +1,23 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/utils/supabase/middleware";
 
+const PROTECTED_PREFIX = "/app";
+const PROTECTED_SET_PASSWORD = "/set-password";
+
+function isProtectedPath(pathname: string): boolean {
+    return pathname.startsWith(PROTECTED_PREFIX) || pathname === PROTECTED_SET_PASSWORD;
+}
+
 export async function middleware(request: NextRequest) {
     const { response, user } = await updateSession(request);
-
     const { pathname } = request.nextUrl;
 
-    // If user is not signed in and explicitly trying to access a protected route
-    // redirect to /login
-    if (!user && !pathname.startsWith("/login")) {
+    if (isProtectedPath(pathname) && !user) {
         const url = request.nextUrl.clone();
         url.pathname = "/login";
         return NextResponse.redirect(url);
     }
 
-    // If user is signed in and trying to access /login
-    // redirect to /
     if (user && pathname.startsWith("/login")) {
         const url = request.nextUrl.clone();
         url.pathname = "/";

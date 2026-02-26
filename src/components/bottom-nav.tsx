@@ -7,7 +7,10 @@ import { NotebookPen, List, BarChart2, Settings } from "lucide-react";
 export default function BottomNav() {
     const pathname = usePathname();
     const shouldHideNav =
-        pathname === "/login" || pathname.startsWith("/auth/");
+        pathname === "/login" ||
+        pathname === "/signup" ||
+        pathname === "/set-password" ||
+        pathname.startsWith("/auth/");
 
     if (shouldHideNav) {
         return null;

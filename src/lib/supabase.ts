@@ -1,4 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 // サーバーサイド用のSupabaseクライアントを取得する関数
 // サーバーサイドではサービスロールキーを優先使用（RLSをバイパス）
@@ -43,6 +45,31 @@ export function getSupabaseClient(): SupabaseClient {
   const client = createClient(supabaseUrl, supabaseKey);
 
   return client;
+}
+
+export async function supabaseServer() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  }
+  const cookieStore = await cookies();
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // Ignore when called from Server Component
+        }
+      },
+    },
+  });
 }
 
 // クライアントサイド用（既存のコードとの互換性のため）

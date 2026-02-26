@@ -10,10 +10,17 @@ import logoImage from "@/app/icon_transparent.png";
 import { Card } from "@/components/ui/Card";
 import { FORM_CONTROL_BASE } from "@/constants/styles";
 
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+    invalid_callback: "確認リンクが無効か、期限切れです。もう一度招待メールを送信してください。",
+    exchange_failed: "セッションの確立に失敗しました。もう一度お試しください。",
+    no_user: "認証情報の取得に失敗しました。もう一度お試しください。",
+};
+
 function LoginPageContent() {
     const searchParams = useSearchParams();
     const [isLoading, setIsLoading] = useState(false);
-    const error = searchParams.get("error");
+    const errorCode = searchParams.get("error");
+    const error = errorCode ? (AUTH_ERROR_MESSAGES[errorCode] ?? errorCode) : null;
 
     return (
         <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-[#0b1226] via-[#0f1b3d] to-[#151a34] px-4 py-12 sm:px-6">
@@ -107,7 +114,7 @@ function LoginPageContent() {
 
                         <div className="pt-1 text-center">
                             <Link
-                                href="/tasting-notes"
+                                href="/signup"
                                 className="text-sm font-medium text-red-300/80 transition-colors hover:text-red-200"
                             >
                                 アカウントを作成する
