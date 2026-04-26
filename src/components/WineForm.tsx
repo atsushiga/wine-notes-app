@@ -40,6 +40,68 @@ function removeUndefined(obj: Record<string, any>) {
     return newObj;
 }
 
+const nullableNumber = (min: number, max: number) =>
+    z.preprocess((value) => {
+        if (value === '' || value === null || value === undefined) return null;
+        if (typeof value === 'number' && Number.isNaN(value)) return null;
+        return Number(value);
+    }, z.number().min(min).max(max).nullable().optional());
+
+interface NullableRangeFieldProps {
+    label: string;
+    value: number | null | undefined;
+    min: number;
+    max: number;
+    step: number;
+    emptyValue: number;
+    labels: [string, string];
+    formatValue: (value: number) => string;
+    onChange: (value: number | null) => void;
+}
+
+function NullableRangeField({
+    label,
+    value,
+    min,
+    max,
+    step,
+    emptyValue,
+    labels,
+    formatValue,
+    onChange,
+}: NullableRangeFieldProps) {
+    const hasValue = value !== null && value !== undefined;
+    const displayValue = hasValue ? Number(value) : emptyValue;
+
+    return (
+        <FieldRow
+            label={label}
+            valueText={hasValue ? formatValue(displayValue) : '未入力'}
+        >
+            <input
+                type="range"
+                min={min}
+                max={max}
+                step={step}
+                value={displayValue}
+                onChange={(e) => onChange(Number(e.target.value))}
+                className="w-full accent-[var(--text)]"
+            />
+            <div className="flex items-center justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
+                <span>{labels[0]}</span>
+                <button
+                    type="button"
+                    onClick={() => onChange(null)}
+                    className="rounded px-2 py-1 text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                >
+                    クリア
+                </button>
+                <span>{labels[1]}</span>
+            </div>
+        </FieldRow>
+    );
+}
+
 const apperance = {
     clarity: [
         { label: '澄んだ', score: 1 },
@@ -103,8 +165,8 @@ export const wineFormSchema = z.object({
 
     //外観
     wineType: z.enum(wineTypes),
-    color: z.coerce.number().min(0).max(10).optional().nullable(), // SAT Color 0-10
-    intensity: z.coerce.number().min(0).max(10).optional().nullable(), // SAT Intensity 0-10
+    color: nullableNumber(0, 10), // SAT Color 0-10
+    intensity: nullableNumber(0, 10), // SAT Intensity 0-10
     rimRatio: z.coerce.number().optional().nullable(), // Hidden
     clarity: z.string().optional().nullable(),
     brightness: z.string().optional().nullable(),
@@ -112,28 +174,28 @@ export const wineFormSchema = z.object({
     appearanceOther: z.string().optional().nullable(),
 
     //香り
-    noseIntensity: z.coerce.number().min(0).max(10).optional().nullable(), // SAT 0-10
+    noseIntensity: nullableNumber(0, 10), // SAT 0-10
     noseCondition: z.enum(['不快 (Unclean)', '良好 (Clean)']).optional().nullable(),
     development: z.enum(['若い', '熟成中', '熟成した', 'ピークを過ぎた/疲れている']).optional().nullable(),
 
-    oldNewWorld: z.coerce.number().min(1).max(5).optional().nullable(), // Keep 1-5 for now or update? Request only listed specific items. Keep as is.
-    fruitsMaturity: z.coerce.number().min(1).max(5).optional().nullable(),
-    aromaNeutrality: z.coerce.number().min(1).max(5).optional().nullable(),
+    oldNewWorld: nullableNumber(1, 5), // Keep 1-5 for now or update? Request only listed specific items. Keep as is.
+    fruitsMaturity: nullableNumber(1, 5),
+    aromaNeutrality: nullableNumber(1, 5),
     aromas: z.array(z.string()).optional().nullable(),
-    oakAroma: z.coerce.number().min(1).max(5).optional().nullable(),
+    oakAroma: nullableNumber(1, 5),
     aromaOther: z.string().optional().nullable(),
 
     //味わい
     sweetness: z.coerce.number().min(1).max(6).optional().nullable(), // SAT 1-6
-    acidityScore: z.coerce.number().min(0).max(10).optional().nullable(), // SAT 0-10
-    tanninScore: z.coerce.number().min(0).max(10).optional().nullable(), // SAT 0-10
-    bodyScore: z.coerce.number().min(0).max(10).optional().nullable(), // SAT 0-10
+    acidityScore: nullableNumber(0, 10), // SAT 0-10
+    tanninScore: nullableNumber(0, 10), // SAT 0-10
+    bodyScore: nullableNumber(0, 10), // SAT 0-10
     alcoholABV: z.coerce.number().min(0).max(100).optional().nullable(),
-    finishScore: z.coerce.number().min(0).max(10).optional().nullable(), // SAT 0-10
+    finishScore: nullableNumber(0, 10), // SAT 0-10
     palateNotes: z.string().optional().nullable(),
 
     //総合評価
-    qualityScore: z.coerce.number().min(0).max(10).optional().nullable(), // SAT 0-10
+    qualityScore: nullableNumber(0, 10), // SAT 0-10
     readiness: z.string().optional().nullable(),
 
     rating: z.number().min(0).max(5),
@@ -188,33 +250,33 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             vintage: '2022',
             additionalInfo: '',
 
-            intensity: 5.0, // Default Med
-            color: 5.0,
+            intensity: null,
+            color: null,
             rimRatio: 5.0,
             clarity: '澄んだ',
             brightness: '輝きのある',
             sparkleIntensity: '',
             appearanceOther: '',
 
-            noseIntensity: 5.0, // Default Med
+            noseIntensity: null,
             noseCondition: '良好 (Clean)',
             development: '若い',
-            oldNewWorld: 3.0,
-            aromaNeutrality: 3.0,
-            fruitsMaturity: 1.0,
-            oakAroma: 1,
+            oldNewWorld: null,
+            aromaNeutrality: null,
+            fruitsMaturity: null,
+            oakAroma: null,
             aromas: [],
             aromaOther: '',
 
             sweetness: 1.0, // Dry
-            acidityScore: 5.0, // Med
-            tanninScore: 5.0,
-            bodyScore: 5.0,
+            acidityScore: null,
+            tanninScore: null,
+            bodyScore: null,
             alcoholABV: 12.5,
-            finishScore: 5.0,
+            finishScore: null,
             palateNotes: '',
 
-            qualityScore: 5.0, // Good
+            qualityScore: null,
             readiness: '今飲めるが熟成可能',
             rating: 3.5,
             notes: '',
@@ -344,33 +406,33 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             additionalInfo: '',
             importer: '',
 
-            intensity: 2.0,
-            color: undefined,
+            intensity: null,
+            color: null,
             rimRatio: 5.0,
             clarity: '澄んだ',
             brightness: '輝きのある',
             sparkleIntensity: '',
             appearanceOther: '',
 
-            noseIntensity: 3.0,
+            noseIntensity: null,
             noseCondition: '良好 (Clean)',
             development: '若い',
-            oldNewWorld: 3.0,
-            aromaNeutrality: 3.0,
-            fruitsMaturity: 3.0,
-            oakAroma: 1,
+            oldNewWorld: null,
+            aromaNeutrality: null,
+            fruitsMaturity: null,
+            oakAroma: null,
             aromas: [],
             aromaOther: '',
 
             sweetness: 1.0,
-            acidityScore: 3.0,
-            tanninScore: 3.0,
-            bodyScore: 3.0,
+            acidityScore: null,
+            tanninScore: null,
+            bodyScore: null,
             alcoholABV: 12.5,
-            finishScore: 5.0, // Default Med (5/10)
+            finishScore: null,
             palateNotes: '',
 
-            qualityScore: 3.0,
+            qualityScore: null,
             readiness: '今飲めるが熟成可能',
             rating: 3.0,
             notes: '',
@@ -426,29 +488,30 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             referenceUrl: '',
             vintage: '2022',
             additionalInfo: '',
-            intensity: 2.0,
+            intensity: null,
+            color: null,
             rimRatio: 5.0,
             clarity: '澄んだ',
             brightness: '輝きのある',
             sparkleIntensity: '',
             appearanceOther: '',
-            noseIntensity: 3,
+            noseIntensity: null,
             noseCondition: '良好 (Clean)',
             development: '若い',
-            oldNewWorld: 3.0,
-            aromaNeutrality: 3.0,
-            fruitsMaturity: 1.0,
-            oakAroma: 1,
+            oldNewWorld: null,
+            aromaNeutrality: null,
+            fruitsMaturity: null,
+            oakAroma: null,
             aromas: [],
             aromaOther: '',
             sweetness: 1,
-            acidityScore: 3.0,
-            tanninScore: 3.0,
-            bodyScore: 3.0,
+            acidityScore: null,
+            tanninScore: null,
+            bodyScore: null,
             alcoholABV: 12.5,
-            finishScore: 3,
+            finishScore: null,
             palateNotes: '',
-            qualityScore: 3,
+            qualityScore: null,
             readiness: '今飲めるが熟成可能',
             rating: 3.5,
             notes: '',
@@ -944,54 +1007,36 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     <Controller
                         control={control}
                         name="intensity"
-                        render={({ field }) => {
-                            const v = Number(field.value ?? 5);
-                            return (
-                                <FieldRow
-                                    label="濃淡 (Intensity)"
-                                    valueText={`${v}: ${intensityLabel(v)}`}
-                                >
-                                    <input
-                                        type="range"
-                                        min={0}
-                                        max={10}
-                                        step={0.5}
-                                        value={v}
-                                        onChange={(e) => field.onChange(Number(e.target.value))}
-                                        className="w-full accent-[var(--text)]"
-                                    />
-                                    <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
-                                        <span>淡</span><span>濃</span>
-                                    </div>
-                                </FieldRow>
-                            );
-                        }}
+                        render={({ field }) => (
+                            <NullableRangeField
+                                label="濃淡 (Intensity)"
+                                value={field.value}
+                                min={0}
+                                max={10}
+                                step={0.5}
+                                emptyValue={5}
+                                labels={['淡', '濃']}
+                                formatValue={(v) => `${v}: ${intensityLabel(v)}`}
+                                onChange={field.onChange}
+                            />
+                        )}
                     />
                     <Controller
                         control={control}
                         name="color"
-                        render={({ field }) => {
-                            const v = Number(field.value ?? 5);
-                            return (
-                                <FieldRow
-                                    label="色調 (Color)"
-                                    valueText={`${v}: ${colorLabel(v, wineType)}`}
-                                >
-                                    <input
-                                        type="range"
-                                        min={0}
-                                        max={10}
-                                        step={0.5}
-                                        value={v}
-                                        onChange={(e) => field.onChange(Number(e.target.value))}
-                                        className="w-full accent-[var(--text)]"
-                                    />
-                                    <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
-                                        <span>淡/緑</span><span>濃/褐</span>
-                                    </div>
-                                </FieldRow>
-                            );
-                        }}
+                        render={({ field }) => (
+                            <NullableRangeField
+                                label="色調 (Color)"
+                                value={field.value}
+                                min={0}
+                                max={10}
+                                step={0.5}
+                                emptyValue={5}
+                                labels={['淡/緑', '濃/褐']}
+                                formatValue={(v) => `${v}: ${colorLabel(v, wineType)}`}
+                                onChange={field.onChange}
+                            />
+                        )}
                     />
                 </div>
 
@@ -1046,28 +1091,19 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         <Controller
                             control={control}
                             name="noseIntensity"
-                            render={({ field }) => {
-                                const v = Number(field.value ?? 5);
-                                return (
-                                    <FieldRow
-                                        label="香りの強さ"
-                                        valueText={`${v}: ${noseIntensityLabel(v)}`}
-                                    >
-                                        <input
-                                            type="range"
-                                            min={0}
-                                            max={10}
-                                            step={0.5}
-                                            value={v}
-                                            onChange={(e) => field.onChange(Number(e.target.value))}
-                                            className="w-full accent-[var(--text)]"
-                                        />
-                                        <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
-                                            <span>弱</span><span>強</span>
-                                        </div>
-                                    </FieldRow>
-                                );
-                            }}
+                            render={({ field }) => (
+                                <NullableRangeField
+                                    label="香りの強さ"
+                                    value={field.value}
+                                    min={0}
+                                    max={10}
+                                    step={0.5}
+                                    emptyValue={5}
+                                    labels={['弱', '強']}
+                                    formatValue={(v) => `${v}: ${noseIntensityLabel(v)}`}
+                                    onChange={field.onChange}
+                                />
+                            )}
                         />
                     </div>
 
@@ -1077,28 +1113,22 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                             <Controller
                                 control={control}
                                 name="oldNewWorld"
-                                render={({ field }) => {
-                                    const v = round1(Number(field.value ?? 3));
-                                    return (
-                                        <FieldRow
-                                            label="旧/新世界"
-                                            valueText={`${v.toFixed(1)}: ${v <= 3 ? '旧世界' : '新世界'}`}
-                                        >
-                                            <input
-                                                type="range"
-                                                min={1}
-                                                max={5}
-                                                step={0.1}
-                                                value={v}
-                                                onChange={(e) => field.onChange(Number(e.target.value))}
-                                                className="w-full accent-[var(--text)]"
-                                            />
-                                            <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
-                                                <span>旧世界</span><span>新世界</span>
-                                            </div>
-                                        </FieldRow>
-                                    );
-                                }}
+                                render={({ field }) => (
+                                    <NullableRangeField
+                                        label="旧/新世界"
+                                        value={field.value}
+                                        min={1}
+                                        max={5}
+                                        step={0.1}
+                                        emptyValue={3}
+                                        labels={['旧世界', '新世界']}
+                                        formatValue={(value) => {
+                                            const v = round1(value);
+                                            return `${v.toFixed(1)}: ${v <= 3 ? '旧世界' : '新世界'}`;
+                                        }}
+                                        onChange={field.onChange}
+                                    />
+                                )}
                             />
                         </div>
                     )}
@@ -1108,28 +1138,22 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                             <Controller
                                 control={control}
                                 name="aromaNeutrality"
-                                render={({ field }) => {
-                                    const v = round1(Number(field.value ?? 3));
-                                    return (
-                                        <FieldRow
-                                            label="ニュートラル / アロマティック"
-                                            valueText={`${v.toFixed(1)}: ${v <= 3 ? 'ニュートラル' : 'アロマティック'}`}
-                                        >
-                                            <input
-                                                type="range"
-                                                min={1}
-                                                max={5}
-                                                step={0.1}
-                                                value={v}
-                                                onChange={(e) => field.onChange(Number(e.target.value))}
-                                                className="w-full accent-[var(--text)]"
-                                            />
-                                            <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
-                                                <span>ニュートラル</span><span>アロマティック</span>
-                                            </div>
-                                        </FieldRow>
-                                    );
-                                }}
+                                render={({ field }) => (
+                                    <NullableRangeField
+                                        label="ニュートラル / アロマティック"
+                                        value={field.value}
+                                        min={1}
+                                        max={5}
+                                        step={0.1}
+                                        emptyValue={3}
+                                        labels={['ニュートラル', 'アロマティック']}
+                                        formatValue={(value) => {
+                                            const v = round1(value);
+                                            return `${v.toFixed(1)}: ${v <= 3 ? 'ニュートラル' : 'アロマティック'}`;
+                                        }}
+                                        onChange={field.onChange}
+                                    />
+                                )}
                             />
                         </div>
                     )}
@@ -1138,28 +1162,22 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         <Controller
                             control={control}
                             name="oakAroma"
-                            render={({ field }) => {
-                                const v = Math.round((field.value ?? 1) * 10) / 10;
-                                return (
-                                    <FieldRow
-                                        label="樽香"
-                                        valueText={`${v.toFixed(1)}: ${oakAromaLabel(v)}`}
-                                    >
-                                        <input
-                                            type="range"
-                                            min={1}
-                                            max={5}
-                                            step={0.5}
-                                            value={v}
-                                            onChange={(e) => field.onChange(Number(e.target.value))}
-                                            className="w-full accent-[var(--text)]"
-                                        />
-                                        <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
-                                            <span>弱</span><span>強</span>
-                                        </div>
-                                    </FieldRow>
-                                );
-                            }}
+                            render={({ field }) => (
+                                <NullableRangeField
+                                    label="樽香"
+                                    value={field.value}
+                                    min={1}
+                                    max={5}
+                                    step={0.5}
+                                    emptyValue={1}
+                                    labels={['弱', '強']}
+                                    formatValue={(value) => {
+                                        const v = Math.round(value * 10) / 10;
+                                        return `${v.toFixed(1)}: ${oakAromaLabel(v)}`;
+                                    }}
+                                    onChange={field.onChange}
+                                />
+                            )}
                         />
                     </div>
                 </div>
@@ -1212,28 +1230,19 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     <Controller
                         control={control}
                         name="acidityScore"
-                        render={({ field }) => {
-                            const v = Number(field.value ?? 5);
-                            return (
-                                <FieldRow
-                                    label="酸味"
-                                    valueText={`${v}: ${palateElementLabel(v, 'acidity')}`}
-                                >
-                                    <input
-                                        type="range"
-                                        min={0}
-                                        max={10}
-                                        step={0.5}
-                                        value={v}
-                                        onChange={(e) => field.onChange(Number(e.target.value))}
-                                        className="w-full accent-[var(--text)]"
-                                    />
-                                    <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
-                                        <span>低</span><span>高</span>
-                                    </div>
-                                </FieldRow>
-                            );
-                        }}
+                        render={({ field }) => (
+                            <NullableRangeField
+                                label="酸味"
+                                value={field.value}
+                                min={0}
+                                max={10}
+                                step={0.5}
+                                emptyValue={5}
+                                labels={['低', '高']}
+                                formatValue={(v) => `${v}: ${palateElementLabel(v, 'acidity')}`}
+                                onChange={field.onChange}
+                            />
+                        )}
                     />
 
                     {/* Tannin */}
@@ -1241,28 +1250,19 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         <Controller
                             control={control}
                             name="tanninScore"
-                            render={({ field }) => {
-                                const v = Number(field.value ?? 5);
-                                return (
-                                    <FieldRow
-                                        label="タンニン"
-                                        valueText={`${v}: ${palateElementLabel(v, 'tannin')}`}
-                                    >
-                                        <input
-                                            type="range"
-                                            min={0}
-                                            max={10}
-                                            step={0.5}
-                                            value={v}
-                                            onChange={(e) => field.onChange(Number(e.target.value))}
-                                            className="w-full accent-[var(--text)]"
-                                        />
-                                        <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
-                                            <span>低</span><span>高</span>
-                                        </div>
-                                    </FieldRow>
-                                );
-                            }}
+                            render={({ field }) => (
+                                <NullableRangeField
+                                    label="タンニン"
+                                    value={field.value}
+                                    min={0}
+                                    max={10}
+                                    step={0.5}
+                                    emptyValue={5}
+                                    labels={['低', '高']}
+                                    formatValue={(v) => `${v}: ${palateElementLabel(v, 'tannin')}`}
+                                    onChange={field.onChange}
+                                />
+                            )}
                         />
                     )}
 
@@ -1284,56 +1284,38 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     <Controller
                         control={control}
                         name="bodyScore"
-                        render={({ field }) => {
-                            const v = Number(field.value ?? 5);
-                            return (
-                                <FieldRow
-                                    label="ボディ"
-                                    valueText={`${v}: ${palateElementLabel(v, 'body')}`}
-                                >
-                                    <input
-                                        type="range"
-                                        min={0}
-                                        max={10}
-                                        step={0.5}
-                                        value={v}
-                                        onChange={(e) => field.onChange(Number(e.target.value))}
-                                        className="w-full accent-[var(--text)]"
-                                    />
-                                    <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
-                                        <span>軽</span><span>重</span>
-                                    </div>
-                                </FieldRow>
-                            );
-                        }}
+                        render={({ field }) => (
+                            <NullableRangeField
+                                label="ボディ"
+                                value={field.value}
+                                min={0}
+                                max={10}
+                                step={0.5}
+                                emptyValue={5}
+                                labels={['軽', '重']}
+                                formatValue={(v) => `${v}: ${palateElementLabel(v, 'body')}`}
+                                onChange={field.onChange}
+                            />
+                        )}
                     />
 
                     {/* Finish */}
                     <Controller
                         control={control}
                         name="finishScore"
-                        render={({ field }) => {
-                            const v = Number(field.value ?? 5);
-                            return (
-                                <FieldRow
-                                    label="余韻"
-                                    valueText={`${v}: ${finishLenLabel(v)}`}
-                                >
-                                    <input
-                                        type="range"
-                                        min={0}
-                                        max={10}
-                                        step={0.5}
-                                        value={v}
-                                        onChange={(e) => field.onChange(Number(e.target.value))}
-                                        className="w-full accent-[var(--text)]"
-                                    />
-                                    <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
-                                        <span>短</span><span>長</span>
-                                    </div>
-                                </FieldRow>
-                            );
-                        }}
+                        render={({ field }) => (
+                            <NullableRangeField
+                                label="余韻"
+                                value={field.value}
+                                min={0}
+                                max={10}
+                                step={0.5}
+                                emptyValue={5}
+                                labels={['短', '長']}
+                                formatValue={(v) => `${v}: ${finishLenLabel(v)}`}
+                                onChange={field.onChange}
+                            />
+                        )}
                     />
                 </div>
 
@@ -1363,28 +1345,19 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     <Controller
                         control={control}
                         name="qualityScore"
-                        render={({ field }) => {
-                            const v = Number(field.value ?? 5);
-                            return (
-                                <FieldRow
-                                    label="品質評価 (Quality)"
-                                    valueText={`${v}: ${qualityLabel(v)}`}
-                                >
-                                    <input
-                                        type="range"
-                                        min={0}
-                                        max={10}
-                                        step={0.5}
-                                        value={v}
-                                        onChange={(e) => field.onChange(Number(e.target.value))}
-                                        className="w-full accent-[var(--text)]"
-                                    />
-                                    <div className="flex justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
-                                        <span>低</span><span>高</span>
-                                    </div>
-                                </FieldRow>
-                            );
-                        }}
+                        render={({ field }) => (
+                            <NullableRangeField
+                                label="品質評価 (Quality)"
+                                value={field.value}
+                                min={0}
+                                max={10}
+                                step={0.5}
+                                emptyValue={5}
+                                labels={['低', '高']}
+                                formatValue={(v) => `${v}: ${qualityLabel(v)}`}
+                                onChange={field.onChange}
+                            />
+                        )}
                     />
 
                     <div className="grid sm:grid-cols-2 gap-6">
