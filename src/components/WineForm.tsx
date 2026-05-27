@@ -757,8 +757,35 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
     const [voiceTranscript, setVoiceTranscript] = useState('');
     const [isInterpretingTranscript, setIsInterpretingTranscript] = useState(false);
     const [transcriptPanelOpen, setTranscriptPanelOpen] = useState(false);
+    const [placeSuggestions, setPlaceSuggestions] = useState<string[]>([]);
     const voiceTranscriptRef = useRef('');
     const voiceFieldValuesRef = useRef<Partial<Record<keyof WineFormValues, string>>>({});
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadPlaceSuggestions = async () => {
+            try {
+                const response = await fetch('/api/place-suggestions', { cache: 'no-store' });
+                if (!response.ok) return;
+
+                const data = await response.json();
+                if (isMounted && Array.isArray(data.suggestions)) {
+                    setPlaceSuggestions(
+                        data.suggestions.filter((item: unknown): item is string => typeof item === 'string')
+                    );
+                }
+            } catch (error) {
+                console.error('Failed to load place suggestions:', error);
+            }
+        };
+
+        void loadPlaceSuggestions();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
 
 
@@ -926,8 +953,16 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         <input type="date" className={FORM_CONTROL_BASE} {...register('date')} />
                     </FieldRow>
                     <FieldRow label="飲んだ/購入した場所">
-                        <input className={FORM_CONTROL_BASE} placeholder="例: 自宅 / ○○レストラン / △△ワインショップ"
+                        <input
+                            className={FORM_CONTROL_BASE}
+                            placeholder="例: 自宅 / ○○レストラン / △△ワインショップ"
+                            list="place-suggestions"
                             {...register('place')} />
+                        <datalist id="place-suggestions">
+                            {placeSuggestions.map((place) => (
+                                <option key={place} value={place} />
+                            ))}
+                        </datalist>
                     </FieldRow>
                 </div>
                 <div className="mt-6">
