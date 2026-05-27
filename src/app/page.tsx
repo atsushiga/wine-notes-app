@@ -3,12 +3,12 @@ import React, { useState, useRef } from 'react';
 import WineForm, { WineFormValues, WineFormHandle } from '@/components/WineForm';
 import { ContentContainer } from '@/components/layout/ContentContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { RotateCcw } from 'lucide-react';
+import { Mic, RotateCcw } from 'lucide-react';
 
 export default function Page() {
   const [sent, setSent] = useState<null | { ok: boolean; id?: string; error?: string }>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentWineType, setCurrentWineType] = useState('赤');
+  const [simpleMode, setSimpleMode] = useState(false);
   const formRef = useRef<WineFormHandle>(null);
 
   const onSubmit = async (values: WineFormValues) => {
@@ -51,13 +51,28 @@ export default function Page() {
         subtitle="感性を言葉にして、記憶に残す"
         accentColor="var(--accent)"
         actions={
-          <button
-            onClick={handleClear}
-            className="flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
-          >
-            <RotateCcw size={16} />
-            <span>入力をクリア</span>
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => setSimpleMode((value) => !value)}
+              aria-pressed={simpleMode}
+              className={`flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${simpleMode
+                ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                : 'border-[var(--border)] bg-[var(--card-bg)] text-[var(--text-muted)] hover:text-[var(--primary)]'
+                }`}
+            >
+              <Mic size={16} />
+              <span>簡単記録</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleClear}
+              className="flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
+            >
+              <RotateCcw size={16} />
+              <span>入力をクリア</span>
+            </button>
+          </>
         }
       />
 
@@ -66,7 +81,7 @@ export default function Page() {
         onSubmit={onSubmit}
         isSubmitting={isSubmitting}
         persistKey="wine-form-new"
-        onWineTypeChange={setCurrentWineType}
+        simpleMode={simpleMode}
       />
 
       {sent && (
