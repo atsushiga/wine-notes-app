@@ -37,6 +37,6 @@ export const config = {
          * - images, icons, etc (if any in public) - avoiding standard extension patterns
          * - api/images (public image access)
          */
-        "/((?!_next/static|_next/image|favicon.ico|api/images|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+        "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons|api/images|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
     ],
 };
