@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useImperativeHandle, forwardRef } from 'react';
+import React, { useCallback, useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { searchWineDetails, analyzeWineImage } from '@/app/actions/gemini';
-import { Sparkles, Loader2, Eye, Wind, Grape, Award, Bot, ChevronDown, ChevronUp, BookOpen, User, Settings, Calendar, FileText } from 'lucide-react';
+import { searchWineDetails, analyzeWineImage, interpretTastingTranscript } from '@/app/actions/gemini';
+import { Sparkles, Loader2, Eye, Wind, Grape, Award, ChevronDown, ChevronUp, BookOpen, User, Settings, Calendar, FileText } from 'lucide-react';
 import { useState } from 'react';
 import { SectionCard } from '@/components/ui/section-card';
 import { LocalityCombobox } from '@/components/wine/form/LocalityCombobox';
@@ -28,6 +28,7 @@ import { SAT_CONSTANTS } from '@/constants/sat';
 import AromaSelector from '@/components/AromaSelector';
 import { FieldRow } from '@/components/ui/field-row';
 import { FORM_CONTROL_BASE } from '@/constants/styles';
+import { SimpleRecordingControls } from '@/components/wine/form/SimpleRecordingControls';
 
 // === 定義：画像シートを意識した選択肢 ===
 function removeUndefined(obj: Record<string, any>) {
@@ -222,13 +223,81 @@ interface WineFormProps {
     submitLabel?: string;
     persistKey?: string; // New prop for persistence key
     onWineTypeChange?: (type: string) => void;
+    simpleMode?: boolean;
 }
 
 export interface WineFormHandle {
     clear: () => void;
 }
 
-const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onSubmit, isSubmitting, submitLabel = '保存する', persistKey, onWineTypeChange }, ref) => {
+const voiceWritableFields = [
+    'clarity',
+    'brightness',
+    'sparkleIntensity',
+    'appearanceOther',
+    'intensity',
+    'color',
+    'noseIntensity',
+    'noseCondition',
+    'development',
+    'oldNewWorld',
+    'fruitsMaturity',
+    'aromaNeutrality',
+    'oakAroma',
+    'aromas',
+    'aromaOther',
+    'sweetness',
+    'acidityScore',
+    'tanninScore',
+    'bodyScore',
+    'alcoholABV',
+    'finishScore',
+    'palateNotes',
+    'qualityScore',
+    'readiness',
+    'rating',
+    'notes',
+] as const satisfies readonly (keyof WineFormValues)[];
+
+type VoiceWritableField = typeof voiceWritableFields[number];
+
+const voiceReplaceableDefaults: Partial<Record<keyof WineFormValues, unknown>> = {
+    clarity: '澄んだ',
+    brightness: '輝きのある',
+    sparkleIntensity: '',
+    intensity: null,
+    color: null,
+    noseIntensity: null,
+    noseCondition: '良好 (Clean)',
+    development: '若い',
+    oldNewWorld: null,
+    fruitsMaturity: null,
+    aromaNeutrality: null,
+    oakAroma: null,
+    aromas: [],
+    aromaOther: '',
+    sweetness: 1,
+    acidityScore: null,
+    tanninScore: null,
+    bodyScore: null,
+    alcoholABV: 12.5,
+    finishScore: null,
+    palateNotes: '',
+    qualityScore: null,
+    readiness: '今飲めるが熟成可能',
+    rating: 3.5,
+    notes: '',
+};
+
+function serializeVoiceValue(value: unknown) {
+    return JSON.stringify(value ?? null);
+}
+
+function isEmptyVoiceValue(value: unknown) {
+    return value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
+}
+
+const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onSubmit, isSubmitting, submitLabel = '保存する', persistKey, onWineTypeChange, simpleMode = false }, ref) => {
     const { register, handleSubmit, control, watch, setValue, getValues, reset, formState: { errors } } = useForm<WineFormValues>({
         defaultValues: {
             date: '',
@@ -454,6 +523,10 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
         // Also clear any "search result" state
         setIsAiExpanded(false);
+        voiceTranscriptRef.current = '';
+        setVoiceTranscript('');
+        setTranscriptPanelOpen(false);
+        voiceFieldValuesRef.current = {};
     };
 
     const handleClear = () => {
@@ -525,6 +598,10 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         } as WineFormValues);
 
         setIsAiExpanded(false);
+        voiceTranscriptRef.current = '';
+        setVoiceTranscript('');
+        setTranscriptPanelOpen(false);
+        voiceFieldValuesRef.current = {};
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -546,6 +623,13 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
     const wineType = watch('wineType');
     const wineNameValue = watch('wineName');
     const hasWineName = !!wineNameValue;
+    const hasAiFormData = !!(
+        watch('terroir_info') ||
+        watch('producer_philosophy') ||
+        watch('technical_details') ||
+        watch('vintage_analysis') ||
+        watch('search_result_tasting_note')
+    );
 
     useEffect(() => {
         document.body.setAttribute('data-winetype', wineType ?? '');
@@ -670,7 +754,38 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [isAiExpanded, setIsAiExpanded] = useState(false);
-    const [showTooltip, setShowTooltip] = useState(false);
+    const [voiceTranscript, setVoiceTranscript] = useState('');
+    const [isInterpretingTranscript, setIsInterpretingTranscript] = useState(false);
+    const [transcriptPanelOpen, setTranscriptPanelOpen] = useState(false);
+    const [placeSuggestions, setPlaceSuggestions] = useState<string[]>([]);
+    const voiceTranscriptRef = useRef('');
+    const voiceFieldValuesRef = useRef<Partial<Record<keyof WineFormValues, string>>>({});
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadPlaceSuggestions = async () => {
+            try {
+                const response = await fetch('/api/place-suggestions', { cache: 'no-store' });
+                if (!response.ok) return;
+
+                const data = await response.json();
+                if (isMounted && Array.isArray(data.suggestions)) {
+                    setPlaceSuggestions(
+                        data.suggestions.filter((item: unknown): item is string => typeof item === 'string')
+                    );
+                }
+            } catch (error) {
+                console.error('Failed to load place suggestions:', error);
+            }
+        };
+
+        void loadPlaceSuggestions();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
 
 
@@ -712,8 +827,104 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         }
     };
 
+    const getVoiceCurrentValues = useCallback(() => {
+        const values = getValues();
+        return voiceWritableFields.reduce((acc, field) => {
+            acc[field] = values[field];
+            return acc;
+        }, {} as Record<string, unknown>);
+    }, [getValues]);
+
+    const canApplyVoiceUpdate = useCallback((field: VoiceWritableField) => {
+        const currentValue = getValues(field);
+        const currentSerialized = serializeVoiceValue(currentValue);
+        const lastVoiceValue = voiceFieldValuesRef.current[field];
+
+        if (lastVoiceValue !== undefined) {
+            return currentSerialized === lastVoiceValue;
+        }
+
+        if (isEmptyVoiceValue(currentValue)) {
+            return true;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(voiceReplaceableDefaults, field)) {
+            return currentSerialized === serializeVoiceValue(voiceReplaceableDefaults[field]);
+        }
+
+        return false;
+    }, [getValues]);
+
+    const applyVoiceUpdates = useCallback((updates: Record<string, unknown>) => {
+        for (const [key, rawValue] of Object.entries(updates)) {
+            if (!voiceWritableFields.includes(key as VoiceWritableField)) continue;
+
+            const field = key as VoiceWritableField;
+            if (!canApplyVoiceUpdate(field)) continue;
+
+            let value = rawValue;
+            if (field === 'aromas' && Array.isArray(rawValue)) {
+                const currentAromas = getValues('aromas') || [];
+                value = Array.from(new Set([...currentAromas, ...rawValue.filter((item): item is string => typeof item === 'string')]));
+            }
+
+            setValue(field, value as never, { shouldDirty: true });
+            voiceFieldValuesRef.current[field] = serializeVoiceValue(value);
+        }
+    }, [canApplyVoiceUpdate, getValues, setValue]);
+
+    const interpretVoiceTranscript = useCallback(async (transcript: string, recentText: string) => {
+        if (!transcript.trim()) return;
+
+        setIsInterpretingTranscript(true);
+        try {
+            const result = await interpretTastingTranscript({
+                transcript,
+                recentText,
+                currentValues: getVoiceCurrentValues(),
+            });
+
+            applyVoiceUpdates(result.updates as Record<string, unknown>);
+        } catch (error) {
+            console.error('Transcript interpretation failed:', error);
+        } finally {
+            setIsInterpretingTranscript(false);
+        }
+    }, [applyVoiceUpdates, getVoiceCurrentValues]);
+
+    const handleTranscriptChunk = useCallback((text: string) => {
+        const cleaned = text.trim();
+        if (!cleaned) return;
+
+        const next = voiceTranscriptRef.current
+            ? `${voiceTranscriptRef.current}\n${cleaned}`
+            : cleaned;
+
+        voiceTranscriptRef.current = next;
+        setVoiceTranscript(next);
+        void interpretVoiceTranscript(next, cleaned);
+    }, [interpretVoiceTranscript]);
+
+    const handleClearVoiceTranscript = useCallback(() => {
+        voiceTranscriptRef.current = '';
+        setVoiceTranscript('');
+        voiceFieldValuesRef.current = {};
+    }, []);
+
     return (
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="w-full pb-24 space-y-8">
+        <form
+            onSubmit={handleSubmit(handleFormSubmit)}
+            className={`w-full space-y-8 ${simpleMode && transcriptPanelOpen ? 'pb-[calc(25vh+12rem)]' : 'pb-24'}`}
+        >
+            <SimpleRecordingControls
+                enabled={simpleMode}
+                transcript={voiceTranscript}
+                isInterpreting={isInterpretingTranscript}
+                panelOpen={transcriptPanelOpen}
+                onPanelOpenChange={setTranscriptPanelOpen}
+                onTranscriptChunk={handleTranscriptChunk}
+                onClearTranscript={handleClearVoiceTranscript}
+            />
 
             {/* タブ：ワインタイプ */}
             <section className="mb-4">
@@ -742,8 +953,16 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         <input type="date" className={FORM_CONTROL_BASE} {...register('date')} />
                     </FieldRow>
                     <FieldRow label="飲んだ/購入した場所">
-                        <input className={FORM_CONTROL_BASE} placeholder="例: 自宅 / ○○レストラン / △△ワインショップ"
+                        <input
+                            className={FORM_CONTROL_BASE}
+                            placeholder="例: 自宅 / ○○レストラン / △△ワインショップ"
+                            list="place-suggestions"
                             {...register('place')} />
+                        <datalist id="place-suggestions">
+                            {placeSuggestions.map((place) => (
+                                <option key={place} value={place} />
+                            ))}
+                        </datalist>
                     </FieldRow>
                 </div>
                 <div className="mt-6">
@@ -841,7 +1060,23 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
 
             {/* ワイン情報 */}
-            <SectionCard title="ワイン情報" icon={<FileText size={18} />} tone="neutral">
+            <SectionCard
+                title="ワイン情報"
+                icon={<FileText size={18} />}
+                tone="neutral"
+                right={
+                    <button
+                        type="button"
+                        onClick={handleAiSearch}
+                        disabled={isAiLoading || !hasWineName}
+                        title={hasWineName ? 'AI情報を取得' : 'ワイン名を入力してください'}
+                        className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        {isAiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        AI情報取得
+                    </button>
+                }
+            >
                 <div className='grid grid-cols-1 gap-6'>
                     <FieldRow label="ワイン名*">
                         <input className={FORM_CONTROL_BASE} placeholder="例: Bourgogne Rouge" {...register('wineName')} />
@@ -973,6 +1208,89 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     </div>
                 </div>
             </SectionCard>
+
+            {/* AI Search Section (Deep Dive) */}
+            <section id="ai-deep-dive" className="rounded-2xl bg-[var(--card-bg)] p-4 border border-[var(--border)]">
+                <button
+                    type="button"
+                    onClick={() => setIsAiExpanded(!isAiExpanded)}
+                    className="w-full flex items-center justify-between group"
+                >
+                    <div className="flex items-center gap-2">
+                        <div className="bg-purple-100 p-2 rounded-full">
+                            <Sparkles className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div className="text-left">
+                            <h2 className="font-bold text-[var(--text)]">AI情報</h2>
+                            <p className="text-xs text-[var(--text-muted)]">
+                                {isAiLoading ? 'Web上の専門情報を検索中' : hasAiFormData ? '取得済みの参考情報を確認' : 'ワイン情報パネル右上から取得'}
+                            </p>
+                        </div>
+                    </div>
+                    {isAiExpanded ? (
+                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                    ) : (
+                        <ChevronDown className="w-5 h-5 text-[var(--text-muted)] group-hover:text-[var(--text)]" />
+                    )}
+                </button>
+
+                {isAiExpanded && (
+                    <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <p className="text-sm text-[var(--text-muted)] bg-[var(--surface-2)] p-3 rounded-lg border border-[var(--border)]">
+                            ワイン名・生産者・ヴィンテージを元に、Web上の専門情報を検索します。
+                            <br />
+                            <span className="text-xs text-[var(--text-muted)] block mt-1">国名・地域名・参考URLが入力されている場合は、それらの情報も検索に活用されます。参考URLがある場合は必ず参照します。</span>
+                            <span className="text-xs text-[var(--text-muted)] block mt-1">※ 既に情報が入力されている場合は上書きされます。</span>
+                        </p>
+
+                        {isAiLoading && (
+                            <div className="flex items-center gap-2 rounded-lg border border-purple-100 bg-purple-50 px-3 py-2 text-sm text-purple-700">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                AI情報を取得しています
+                            </div>
+                        )}
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
+                                    <BookOpen className="w-4 h-4 text-emerald-600" /> テロワール
+                                </label>
+                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('terroir_info')} placeholder="AI検索結果がここに表示されます" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
+                                    <User className="w-4 h-4 text-blue-600" /> 生産者・哲学
+                                </label>
+                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('producer_philosophy')} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
+                                    <Settings className="w-4 h-4 text-gray-600" /> 技術詳細
+                                </label>
+                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('technical_details')} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-orange-600" /> ヴィンテージ分析
+                                </label>
+                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('vintage_analysis')} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
+                                    <FileText className="w-4 h-4 text-red-600" /> 参考テイスティングノート
+                                </label>
+                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('search_result_tasting_note')} />
+                            </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-[var(--border)] mt-4 text-center">
+                            <p className="text-xs text-[var(--text-muted)]">
+                                ※本情報は参考情報です。実際の評価はご自身の感覚を優先してください。
+                            </p>
+                        </div>
+                    </div>
+                )}
+            </section>
 
 
 
@@ -1408,7 +1726,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 </div>
             </SectionCard>
 
-            <section className="sticky bottom-18 z-20 rounded-2xl bg-[var(--card-bg)]/90 backdrop-blur-sm p-4 shadow-lg border border-[var(--border)] mt-8 space-y-2">
+            <section className={`sticky z-20 rounded-2xl bg-[var(--card-bg)]/90 backdrop-blur-sm p-4 shadow-lg border border-[var(--border)] mt-8 space-y-2 ${simpleMode && transcriptPanelOpen ? 'bottom-[calc(25vh+1rem)]' : 'bottom-18'}`}>
                 {Object.keys(errors).length > 0 && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 mb-2">
                         <p className="font-bold">入力内容に不備があります。</p>
@@ -1444,127 +1762,6 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     </div>
                 </div>
             </section>
-
-            {/* AI Search Section (Deep Dive) - Moved to bottom */}
-            <section id="ai-deep-dive" className="rounded-2xl bg-[var(--card-bg)] p-4 border border-[var(--border)]">
-                <button
-                    type="button"
-                    onClick={() => setIsAiExpanded(!isAiExpanded)}
-                    className="w-full flex items-center justify-between group"
-                >
-                    <div className="flex items-center gap-2">
-                        <div className="bg-purple-100 p-2 rounded-full">
-                            <Sparkles className="w-5 h-5 text-purple-600" />
-                        </div>
-                        <div className="text-left">
-                            <h2 className="font-bold text-[var(--text)]">AI Deep Dive</h2>
-                            <p className="text-xs text-[var(--text-muted)]">Web上の専門情報を検索・参照</p>
-                        </div>
-                    </div>
-                    {isAiExpanded ? (
-                        <ChevronUp className="w-5 h-5 text-gray-400" />
-                    ) : (
-                        <ChevronDown className="w-5 h-5 text-[var(--text-muted)] group-hover:text-[var(--text)]" />
-                    )}
-                </button>
-
-                {isAiExpanded && (
-                    <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <div className="flex justify-end">
-                            <button
-                                type="button"
-                                onClick={handleAiSearch}
-                                disabled={isAiLoading}
-                                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-md disabled:opacity-50 flex items-center gap-2"
-                            >
-                                {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                                {isAiLoading ? '検索中...' : '情報を取得する'}
-                            </button>
-                        </div>
-
-                        <p className="text-sm text-[var(--text-muted)] bg-[var(--card-bg)] p-3 rounded-lg border border-[var(--border)]">
-                            ワイン名・生産者・ヴィンテージを元に、Web上の専門情報を検索します。
-                            <br />
-                            <span className="text-xs text-[var(--text-muted)] block mt-1">国名・地域名・参考URLが入力されている場合は、それらの情報も検索に活用されます。参考URLがある場合は必ず参照します。</span>
-                            <span className="text-xs text-[var(--text-muted)] block mt-1">※ 既に情報が入力されている場合は上書きされます。</span>
-                        </p>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
-                                    <BookOpen className="w-4 h-4 text-emerald-600" /> テロワール
-                                </label>
-                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('terroir_info')} placeholder="AI検索結果がここに表示されます" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
-                                    <User className="w-4 h-4 text-blue-600" /> 生産者・哲学
-                                </label>
-                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('producer_philosophy')} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
-                                    <Settings className="w-4 h-4 text-gray-600" /> 技術詳細
-                                </label>
-                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('technical_details')} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
-                                    <Calendar className="w-4 h-4 text-orange-600" /> ヴィンテージ分析
-                                </label>
-                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('vintage_analysis')} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
-                                    <FileText className="w-4 h-4 text-red-600" /> 参考テイスティングノート
-                                </label>
-                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('search_result_tasting_note')} />
-                            </div>
-                        </div>
-
-                        <div className="pt-4 border-t border-gray-200 mt-4 text-center">
-                            <p className="text-xs text-gray-500">
-                                ※本情報は参考情報です。実際の評価はご自身の感覚を優先してください。
-                            </p>
-                        </div>
-                    </div>
-                )}
-            </section>
-
-            {/* Floating Navigation Icon */}
-            <div className="fixed bottom-40 right-4 z-50 flex flex-col items-end gap-2 text-right pointer-events-none">
-                {/* Tooltip Wrapper */}
-                <div className={`transition-all duration-300 transform ${showTooltip ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} pointer-events-auto`}>
-                    <div className="bg-[var(--card-bg)] text-[var(--text)] text-xs px-3 py-2 rounded-lg shadow-lg mb-1 max-w-[150px] border border-[var(--border)]">
-                        ワイン名を記入するとAI検索ができます
-                    </div>
-                </div>
-
-                <button
-                    type="button"
-                    onMouseEnter={() => !hasWineName && setShowTooltip(true)}
-                    onMouseLeave={() => setShowTooltip(false)}
-                    onClick={() => {
-                        if (!hasWineName) {
-                            setShowTooltip(true);
-                            setTimeout(() => setShowTooltip(false), 3000);
-                            return;
-                        }
-                        const el = document.getElementById('ai-deep-dive');
-                        if (el) {
-                            el.scrollIntoView({ behavior: 'smooth' });
-                            setIsAiExpanded(true);
-                        }
-                    }}
-                    className={`pointer-events-auto shadow-lg border border-[var(--border)] p-3 rounded-full transition-all active:scale-95 flex items-center justify-center ${hasWineName
-                        ? 'bg-[var(--card-bg)] text-[var(--text-muted)] hover:bg-[var(--app-bg)]'
-                        : 'bg-[var(--app-bg)] text-[var(--text-muted)]'
-                        }`}
-                    aria-label="Goto AI Deep Dive"
-                >
-                    <Bot size={24} />
-                </button>
-            </div>
 
             <style jsx global>{`
             .btn-primary { @apply rounded-xl bg-neutral-900 px-4 py-2 text-white shadow-sm hover:opacity-90 disabled:opacity-50; }

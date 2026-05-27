@@ -200,6 +200,216 @@ export interface GroundingData {
     search_result_tasting_note?: string;
 }
 
+const voiceFillableFields = [
+    'clarity',
+    'brightness',
+    'sparkleIntensity',
+    'appearanceOther',
+    'intensity',
+    'color',
+    'noseIntensity',
+    'noseCondition',
+    'development',
+    'oldNewWorld',
+    'fruitsMaturity',
+    'aromaNeutrality',
+    'oakAroma',
+    'aromas',
+    'aromaOther',
+    'sweetness',
+    'acidityScore',
+    'tanninScore',
+    'bodyScore',
+    'alcoholABV',
+    'finishScore',
+    'palateNotes',
+    'qualityScore',
+    'readiness',
+    'rating',
+    'notes',
+] as const;
+
+type VoiceFillableField = typeof voiceFillableFields[number];
+type VoiceUpdates = Partial<Record<VoiceFillableField, unknown>>;
+
+export interface TastingTranscriptInterpretation {
+    updates: VoiceUpdates;
+    summary?: string;
+}
+
+const voiceAllowedFields = new Set<string>(voiceFillableFields);
+
+const stringEnumValues: Partial<Record<VoiceFillableField, Set<string>>> = {
+    clarity: new Set(['澄んだ', '深みのある', 'やや濁った', '濁った']),
+    brightness: new Set(['輝きのある', '艶のある', 'モヤがかった']),
+    sparkleIntensity: new Set(['弱い', 'やや弱い', '中程度', 'やや強い', '強い']),
+    noseCondition: new Set(['不快 (Unclean)', '良好 (Clean)']),
+    development: new Set(['若い', '熟成中', '熟成した', 'ピークを過ぎた/疲れている']),
+    readiness: new Set(['若すぎる', '今飲めるが熟成可能', '今が飲み頃', '飲み頃を過ぎている']),
+};
+
+const numberRanges: Partial<Record<VoiceFillableField, [number, number]>> = {
+    intensity: [0, 10],
+    color: [0, 10],
+    noseIntensity: [0, 10],
+    oldNewWorld: [1, 5],
+    fruitsMaturity: [1, 5],
+    aromaNeutrality: [1, 5],
+    oakAroma: [1, 5],
+    sweetness: [1, 6],
+    acidityScore: [0, 10],
+    tanninScore: [0, 10],
+    bodyScore: [0, 10],
+    alcoholABV: [0, 100],
+    finishScore: [0, 10],
+    qualityScore: [0, 10],
+    rating: [0, 5],
+};
+
+function parseJsonObject(text: string) {
+    const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleaned);
+}
+
+function sanitizeVoiceUpdates(rawUpdates: unknown): VoiceUpdates {
+    if (!rawUpdates || typeof rawUpdates !== 'object') return {};
+
+    const updates: VoiceUpdates = {};
+
+    for (const [key, value] of Object.entries(rawUpdates as Record<string, unknown>)) {
+        if (!voiceAllowedFields.has(key) || value === null || value === undefined || value === '') continue;
+
+        const field = key as VoiceFillableField;
+        const enumValues = stringEnumValues[field];
+
+        if (enumValues) {
+            if (typeof value === 'string' && enumValues.has(value)) {
+                updates[field] = value;
+            }
+            continue;
+        }
+
+        const range = numberRanges[field];
+        if (range) {
+            const numeric = Number(value);
+            if (Number.isFinite(numeric) && numeric >= range[0] && numeric <= range[1]) {
+                updates[field] = numeric;
+            }
+            continue;
+        }
+
+        if (field === 'aromas') {
+            if (Array.isArray(value)) {
+                const aromas = value
+                    .filter((item): item is string => typeof item === 'string')
+                    .map((item) => item.trim())
+                    .filter(Boolean)
+                    .slice(0, 20);
+
+                if (aromas.length > 0) {
+                    updates.aromas = aromas;
+                }
+            }
+            continue;
+        }
+
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (trimmed) {
+                updates[field] = trimmed.slice(0, 2000);
+            }
+        }
+    }
+
+    return updates;
+}
+
+export async function interpretTastingTranscript(input: {
+    transcript: string;
+    recentText?: string;
+    currentValues?: Record<string, unknown>;
+}): Promise<TastingTranscriptInterpretation> {
+    if (!apiKey) {
+        throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
+    }
+
+    const transcript = input.transcript.trim();
+    if (!transcript) {
+        return { updates: {} };
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    const prompt = `
+    You are helping fill a Japanese wine tasting note form from live speech transcription.
+    Interpret only information that is clearly supported by the transcript.
+
+    Important:
+    - Return STRICT JSON only. No markdown.
+    - Do not output fields outside the allowed field list.
+    - Do not update basic information or wine information such as date, place, price, wineName, producer, country, locality, varieties, referenceUrl, importer, or additionalInfo.
+    - Prefer preserving currentValues unless the recent transcript clearly corrects or refines them.
+    - If the speaker is uncertain, do not output that field.
+    - Text fields must be concise Japanese.
+    - Numeric sensory fields use the app scales:
+      - intensity/color/noseIntensity/acidityScore/tanninScore/bodyScore/finishScore/qualityScore: 0-10
+      - oldNewWorld/fruitsMaturity/aromaNeutrality/oakAroma: 1-5
+      - sweetness: 1-6
+      - alcoholABV: percentage
+      - rating: 0-5
+
+    Allowed fields:
+    ${voiceFillableFields.join(', ')}
+
+    Enum values:
+    - clarity: 澄んだ | 深みのある | やや濁った | 濁った
+    - brightness: 輝きのある | 艶のある | モヤがかった
+    - sparkleIntensity: 弱い | やや弱い | 中程度 | やや強い | 強い
+    - noseCondition: 不快 (Unclean) | 良好 (Clean)
+    - development: 若い | 熟成中 | 熟成した | ピークを過ぎた/疲れている
+    - readiness: 若すぎる | 今飲めるが熟成可能 | 今が飲み頃 | 飲み頃を過ぎている
+
+    Mapping guidance:
+    - Use aromaOther for aroma descriptions if exact structured aroma names are uncertain.
+    - Use palateNotes for taste and structure comments that are not direct scores.
+    - Use notes for overall conclusion and personal comments.
+    - For qualitative intensity terms, choose reasonable scale values:
+      low/weak=2, medium(-)=4, medium=5, medium(+)=6.5, high/strong=8, pronounced=9.
+
+    Current values:
+    ${JSON.stringify(input.currentValues || {}, null, 2)}
+
+    Recent transcript chunk:
+    ${input.recentText || ''}
+
+    Full transcript:
+    ${transcript}
+
+    Output format:
+    {
+      "updates": {
+        "fieldName": "value"
+      },
+      "summary": "short Japanese summary of what was interpreted"
+    }
+    `;
+
+    try {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const parsed = parseJsonObject(response.text()) as { updates?: unknown; summary?: unknown };
+
+        return {
+            updates: sanitizeVoiceUpdates(parsed.updates),
+            summary: typeof parsed.summary === 'string' ? parsed.summary.slice(0, 500) : undefined,
+        };
+    } catch (error: any) {
+        console.error("Gemini transcript interpretation error:", error);
+        throw new Error(`Failed to interpret tasting transcript: ${error.message || String(error)}`);
+    }
+}
+
 export async function searchWineDetails(wineId: number, query: { name: string; winery?: string; vintage?: string; country?: string; locality?: string; referenceUrl?: string }) {
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
