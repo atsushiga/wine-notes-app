@@ -2,16 +2,18 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { TastingNote } from '@/types/custom';
+import { TastingNote, WineImage } from '@/types/custom';
 import WineDetailView from '@/components/WineDetailView';
 import WineForm, { WineFormValues } from '@/components/WineForm';
-import { updateWine, deleteWine } from '@/app/actions/wine';
+import { updateWine, deleteWine, updateWineImages } from '@/app/actions/wine';
+import { optimizeAndAnalyzeWineImage } from '@/app/actions/gemini';
 
 export default function WineDetailClient({ wine }: { wine: TastingNote }) {
     const router = useRouter();
     const [isEditing, setIsEditing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isOptimizingImage, setIsOptimizingImage] = useState(false);
 
     const handleUpdate = async (values: WineFormValues) => {
         setIsSubmitting(true);
@@ -38,6 +40,45 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
             console.error(e);
             alert(`削除に失敗しました: ${String(e)}`);
             setIsDeleting(false);
+        }
+    };
+
+    const handleOptimizeImage = async () => {
+        const sortedImages = [...(wine.images || [])].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+        const targetUrl = sortedImages[0]?.url || wine.image_url;
+        if (!targetUrl) return;
+
+        setIsOptimizingImage(true);
+        try {
+            const result = await optimizeAndAnalyzeWineImage(targetUrl);
+            const optimized = result.optimizedImage;
+            const sourceImage: Partial<WineImage> = sortedImages[0] ?? {
+                url: targetUrl,
+                thumbnail_url: null,
+                storage_path: null,
+                display_order: 1,
+            };
+            const optimizedImage = {
+                url: optimized.url,
+                thumbnail_url: optimized.thumbnail_url,
+                storage_path: optimized.storage_path,
+                display_order: 0,
+            };
+            const remainingImages = sortedImages.slice(1).filter((image) => image.url !== sourceImage.url);
+            const nextImages = [optimizedImage, sourceImage, ...remainingImages].map((image, index) => ({
+                url: image.url!,
+                thumbnail_url: image.thumbnail_url ?? null,
+                storage_path: image.storage_path ?? null,
+                display_order: index,
+            }));
+
+            await updateWineImages(wine.id, optimized.url, nextImages);
+            router.refresh();
+        } catch (e) {
+            console.error(e);
+            alert(`画像補正に失敗しました: ${String(e)}`);
+        } finally {
+            setIsOptimizingImage(false);
         }
     };
 
@@ -147,6 +188,8 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
             onEdit={() => setIsEditing(true)}
             onDelete={handleDelete}
             isDeleting={isDeleting}
+            onOptimizeImage={handleOptimizeImage}
+            isOptimizingImage={isOptimizingImage}
         />
     );
 }
