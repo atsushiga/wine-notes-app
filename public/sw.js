@@ -1,6 +1,7 @@
-const CACHE_VERSION = "wine-notes-v1";
+const CACHE_VERSION = "wine-notes-v2";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
+const IS_LOCALHOST = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(self.location.hostname);
 
 const PRECACHE_URLS = [
   "/offline",
@@ -11,6 +12,11 @@ const PRECACHE_URLS = [
 ];
 
 self.addEventListener("install", (event) => {
+  if (IS_LOCALHOST) {
+    event.waitUntil(self.skipWaiting());
+    return;
+  }
+
   event.waitUntil(
     caches
       .open(APP_CACHE)
@@ -20,6 +26,23 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
+  if (IS_LOCALHOST) {
+    event.waitUntil(
+      caches
+        .keys()
+        .then((cacheNames) =>
+          Promise.all(
+            cacheNames
+              .filter((cacheName) => cacheName.startsWith("wine-notes-"))
+              .map((cacheName) => caches.delete(cacheName)),
+          ),
+        )
+        .then(() => self.registration.unregister())
+        .then(() => self.clients.claim()),
+    );
+    return;
+  }
+
   event.waitUntil(
     caches
       .keys()
@@ -41,6 +64,8 @@ self.addEventListener("message", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  if (IS_LOCALHOST) return;
+
   const request = event.request;
 
   if (request.method !== "GET") return;

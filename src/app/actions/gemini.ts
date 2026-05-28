@@ -1,8 +1,11 @@
 'use server';
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI, { toFile } from "openai";
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { randomUUID } from "node:crypto";
+import sharp from "sharp";
 
 import { storage, BUCKET } from "@/lib/gcs";
 import { COUNTRY_MAP } from "@/lib/geoUtils";
@@ -20,6 +23,23 @@ export interface WineImageAnalysis {
     price: number | null;
 }
 
+export interface OptimizedWineImage {
+    url: string;
+    thumbnail_url: string;
+    storage_path: string;
+    thumbnail_storage_path: string;
+    width: number;
+    height: number;
+    perspectiveCorrected: boolean;
+    brightnessAdjusted: boolean;
+    upscaled: boolean;
+    optimizationModel: string;
+}
+
+export interface WineImageOptimizationAndAnalysis extends WineImageAnalysis {
+    optimizedImage: OptimizedWineImage;
+}
+
 interface GeoCandidate {
     id: number;
     name: string;
@@ -28,6 +48,687 @@ interface GeoCandidate {
     country: string | null;
     parent_hint: string | null;
     similarity: number;
+}
+
+interface ImagePoint {
+    x: number;
+    y: number;
+}
+
+interface LabelCorners {
+    topLeft: ImagePoint;
+    topRight: ImagePoint;
+    bottomRight: ImagePoint;
+    bottomLeft: ImagePoint;
+}
+
+interface WineLabelVisionResult {
+    labelFound?: boolean;
+    label_found?: boolean;
+    confidence?: number | string;
+    labelCorners?: LabelCorners | null;
+    label_corners?: LabelCorners | null;
+    wineName?: string;
+    producer?: string;
+    vintage?: string;
+    country?: string;
+    locality?: string;
+    price?: number | string | null;
+}
+
+interface ProcessedImageResult {
+    buffer: Buffer;
+    width: number;
+    height: number;
+    perspectiveCorrected: boolean;
+    brightnessAdjusted: boolean;
+    upscaled: boolean;
+    optimizationModel: string;
+}
+
+interface GeneratedLabelImageResult {
+    buffer: Buffer;
+    optimizationModel: string;
+}
+
+interface GeminiImagePart {
+    text?: string;
+    inlineData?: {
+        data?: string;
+        mimeType?: string;
+        mime_type?: string;
+    };
+    inline_data?: {
+        data?: string;
+        mimeType?: string;
+        mime_type?: string;
+    };
+}
+
+interface GeminiGenerateContentResponse {
+    candidates?: Array<{
+        content?: {
+            parts?: GeminiImagePart[];
+        };
+    }>;
+}
+
+const LABEL_WORKING_MAX_SIDE = 2200;
+const LABEL_MIN_SHORT_SIDE = 600;
+const LABEL_THUMB_MAX_SIDE = 400;
+const GEMINI_IMAGE_EDIT_MODEL = "gemini-3.1-flash-image-preview";
+const OPENAI_IMAGE_EDIT_MODEL = "gpt-image-2";
+const DETERMINISTIC_IMAGE_OPTIMIZATION_MODEL = "gemini-3.5-flash+sharp";
+
+const LABEL_IMAGE_EDIT_PROMPT = `You are editing a real wine bottle photo for OCR and wine identification.
+Create a clean optimized image of only the main wine label (エチケット).
+
+Strict requirements:
+- Preserve the actual printed label content exactly: letters, logo, illustration, layout, texture, and all visible marks.
+- Do not invent, redraw, translate, stylize, or change any text, logo, or illustration.
+- Crop away food, background, table, unrelated objects, and most bottle glass; it is OK if the bottle itself is cut off.
+- Keep the complete printed label, including all printed edges and border area. Do not cut off any part of the label.
+- Rotate the image so the label text is upright.
+- Correct tilt and trapezoid/perspective distortion so the label appears front-facing and rectangular as much as possible.
+- Brighten and improve contrast/sharpness only enough to make the label readable.
+- Output a documentary product/OCR image, not an artistic reinterpretation.
+- The final image short side should be at least about 600 px.`;
+
+function cleanJsonText(text: string): string {
+    const stripped = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    if (stripped.startsWith("{") && stripped.endsWith("}")) return stripped;
+
+    const match = stripped.match(/\{[\s\S]*\}/);
+    if (!match) return stripped;
+    return match[0];
+}
+
+function imageUrlToStorageKey(imageUrl: string): string {
+    const urlParts = imageUrl.split('/api/images/');
+    if (urlParts.length < 2 || !urlParts[1]) {
+        throw new Error("Invalid image URL format.");
+    }
+
+    return decodeURIComponent(urlParts[1].split(/[?#]/)[0]);
+}
+
+async function downloadImageFromGcs(imageUrl: string): Promise<Buffer> {
+    const key = imageUrlToStorageKey(imageUrl);
+    const file = storage.bucket(BUCKET).file(key);
+    const [buffer] = await file.download();
+    return buffer;
+}
+
+function distance(a: ImagePoint, b: ImagePoint): number {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function clamp(value: number, min: number, max: number): number {
+    return Math.min(Math.max(value, min), max);
+}
+
+function finiteNumber(value: unknown): number | null {
+    const numberValue = Number(value);
+    return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function polygonArea(corners: LabelCorners): number {
+    const points = [corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft];
+    let area = 0;
+
+    for (let i = 0; i < points.length; i++) {
+        const current = points[i];
+        const next = points[(i + 1) % points.length];
+        area += current.x * next.y - next.x * current.y;
+    }
+
+    return Math.abs(area) / 2;
+}
+
+function normalizePoint(value: unknown, width: number, height: number): ImagePoint | null {
+    if (!value || typeof value !== "object") return null;
+
+    const point = value as { x?: unknown; y?: unknown };
+    const x = Number(point.x);
+    const y = Number(point.y);
+
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+
+    return {
+        x: clamp(x, 0, width - 1),
+        y: clamp(y, 0, height - 1),
+    };
+}
+
+function normalizeCorners(value: unknown, width: number, height: number): LabelCorners | null {
+    if (!value || typeof value !== "object") return null;
+
+    const corners = value as {
+        topLeft?: unknown;
+        topRight?: unknown;
+        bottomRight?: unknown;
+        bottomLeft?: unknown;
+    };
+
+    const topLeft = normalizePoint(corners.topLeft, width, height);
+    const topRight = normalizePoint(corners.topRight, width, height);
+    const bottomRight = normalizePoint(corners.bottomRight, width, height);
+    const bottomLeft = normalizePoint(corners.bottomLeft, width, height);
+
+    if (!topLeft || !topRight || !bottomRight || !bottomLeft) return null;
+
+    const normalized = { topLeft, topRight, bottomRight, bottomLeft };
+    const minEdge = Math.min(
+        distance(topLeft, topRight),
+        distance(topRight, bottomRight),
+        distance(bottomRight, bottomLeft),
+        distance(bottomLeft, topLeft),
+    );
+
+    if (minEdge < 24) return null;
+    if (polygonArea(normalized) < width * height * 0.01) return null;
+
+    return normalized;
+}
+
+function expandCorners(corners: LabelCorners, width: number, height: number): LabelCorners {
+    const points = [corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft];
+    const center = points.reduce(
+        (acc, point) => ({ x: acc.x + point.x / points.length, y: acc.y + point.y / points.length }),
+        { x: 0, y: 0 },
+    );
+    const expandRatio = 1.035;
+
+    const expand = (point: ImagePoint): ImagePoint => ({
+        x: clamp(center.x + (point.x - center.x) * expandRatio, 0, width - 1),
+        y: clamp(center.y + (point.y - center.y) * expandRatio, 0, height - 1),
+    });
+
+    return {
+        topLeft: expand(corners.topLeft),
+        topRight: expand(corners.topRight),
+        bottomRight: expand(corners.bottomRight),
+        bottomLeft: expand(corners.bottomLeft),
+    };
+}
+
+function solveLinearSystem(matrix: number[][], values: number[]): number[] {
+    const n = values.length;
+    const a = matrix.map((row, index) => [...row, values[index]]);
+
+    for (let column = 0; column < n; column++) {
+        let pivotRow = column;
+        for (let row = column + 1; row < n; row++) {
+            if (Math.abs(a[row][column]) > Math.abs(a[pivotRow][column])) {
+                pivotRow = row;
+            }
+        }
+
+        if (Math.abs(a[pivotRow][column]) < 1e-12) {
+            throw new Error("Cannot solve perspective transform.");
+        }
+
+        [a[column], a[pivotRow]] = [a[pivotRow], a[column]];
+
+        const pivot = a[column][column];
+        for (let col = column; col <= n; col++) {
+            a[column][col] /= pivot;
+        }
+
+        for (let row = 0; row < n; row++) {
+            if (row === column) continue;
+            const factor = a[row][column];
+            for (let col = column; col <= n; col++) {
+                a[row][col] -= factor * a[column][col];
+            }
+        }
+    }
+
+    return a.map((row) => row[n]);
+}
+
+function buildHomography(source: ImagePoint[], destination: ImagePoint[]): number[] {
+    const matrix: number[][] = [];
+    const values: number[] = [];
+
+    for (let i = 0; i < source.length; i++) {
+        const src = source[i];
+        const dst = destination[i];
+
+        matrix.push([dst.x, dst.y, 1, 0, 0, 0, -src.x * dst.x, -src.x * dst.y]);
+        values.push(src.x);
+        matrix.push([0, 0, 0, dst.x, dst.y, 1, -src.y * dst.x, -src.y * dst.y]);
+        values.push(src.y);
+    }
+
+    return solveLinearSystem(matrix, values);
+}
+
+function sampleBilinear(
+    input: Buffer,
+    width: number,
+    height: number,
+    channels: number,
+    x: number,
+    y: number,
+    channel: number,
+): number {
+    const x0 = clamp(Math.floor(x), 0, width - 1);
+    const y0 = clamp(Math.floor(y), 0, height - 1);
+    const x1 = clamp(x0 + 1, 0, width - 1);
+    const y1 = clamp(y0 + 1, 0, height - 1);
+    const dx = x - x0;
+    const dy = y - y0;
+
+    const idx00 = (y0 * width + x0) * channels + channel;
+    const idx10 = (y0 * width + x1) * channels + channel;
+    const idx01 = (y1 * width + x0) * channels + channel;
+    const idx11 = (y1 * width + x1) * channels + channel;
+
+    const top = input[idx00] * (1 - dx) + input[idx10] * dx;
+    const bottom = input[idx01] * (1 - dx) + input[idx11] * dx;
+    return top * (1 - dy) + bottom * dy;
+}
+
+async function warpPerspective(buffer: Buffer, corners: LabelCorners): Promise<{ buffer: Buffer; width: number; height: number }> {
+    const sourcePoints = [corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft];
+    const outputWidth = Math.max(1, Math.round(Math.max(distance(corners.topLeft, corners.topRight), distance(corners.bottomLeft, corners.bottomRight))));
+    const outputHeight = Math.max(1, Math.round(Math.max(distance(corners.topLeft, corners.bottomLeft), distance(corners.topRight, corners.bottomRight))));
+    const maxSideScale = Math.min(1, LABEL_WORKING_MAX_SIDE / Math.max(outputWidth, outputHeight));
+    const width = Math.max(1, Math.round(outputWidth * maxSideScale));
+    const height = Math.max(1, Math.round(outputHeight * maxSideScale));
+    const destinationPoints = [
+        { x: 0, y: 0 },
+        { x: width - 1, y: 0 },
+        { x: width - 1, y: height - 1 },
+        { x: 0, y: height - 1 },
+    ];
+    const transform = buildHomography(sourcePoints, destinationPoints);
+    const { data, info } = await sharp(buffer)
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+    const output = Buffer.alloc(width * height * 4);
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const denominator = transform[6] * x + transform[7] * y + 1;
+            const sourceX = (transform[0] * x + transform[1] * y + transform[2]) / denominator;
+            const sourceY = (transform[3] * x + transform[4] * y + transform[5]) / denominator;
+            const outputIndex = (y * width + x) * 4;
+
+            for (let channel = 0; channel < 4; channel++) {
+                output[outputIndex + channel] = Math.round(sampleBilinear(data, info.width, info.height, info.channels, sourceX, sourceY, channel));
+            }
+        }
+    }
+
+    const jpegBuffer = await sharp(output, {
+        raw: {
+            width,
+            height,
+            channels: 4,
+        },
+    })
+        .flatten({ background: "#ffffff" })
+        .jpeg({ quality: 92, mozjpeg: true })
+        .toBuffer();
+
+    return { buffer: jpegBuffer, width, height };
+}
+
+async function resizeShortSide(buffer: Buffer, minimumShortSide: number): Promise<{ buffer: Buffer; width: number; height: number; upscaled: boolean }> {
+    const metadata = await sharp(buffer).metadata();
+    const width = metadata.width;
+    const height = metadata.height;
+
+    if (!width || !height) {
+        throw new Error("Unable to read processed image dimensions.");
+    }
+
+    const shortSide = Math.min(width, height);
+    if (shortSide >= minimumShortSide) {
+        return { buffer, width, height, upscaled: false };
+    }
+
+    const scale = minimumShortSide / shortSide;
+    const resizedWidth = Math.round(width * scale);
+    const resizedHeight = Math.round(height * scale);
+    const resizedBuffer = await sharp(buffer)
+        .resize(resizedWidth, resizedHeight, {
+            fit: "fill",
+            kernel: sharp.kernel.lanczos3,
+        })
+        .sharpen({ sigma: 0.45 })
+        .jpeg({ quality: 92, mozjpeg: true })
+        .toBuffer();
+
+    return {
+        buffer: resizedBuffer,
+        width: resizedWidth,
+        height: resizedHeight,
+        upscaled: true,
+    };
+}
+
+async function brightenIfDark(buffer: Buffer): Promise<{ buffer: Buffer; brightnessAdjusted: boolean }> {
+    const stats = await sharp(buffer).stats();
+    const red = stats.channels[0]?.mean ?? 255;
+    const green = stats.channels[1]?.mean ?? red;
+    const blue = stats.channels[2]?.mean ?? red;
+    const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+
+    let brightness = 1;
+    if (luminance < 70) {
+        brightness = 1.55;
+    } else if (luminance < 95) {
+        brightness = 1.35;
+    } else if (luminance < 120) {
+        brightness = 1.18;
+    }
+
+    if (brightness === 1) {
+        return { buffer, brightnessAdjusted: false };
+    }
+
+    const brightenedBuffer = await sharp(buffer)
+        .modulate({ brightness })
+        .gamma(1.04)
+        .jpeg({ quality: 92, mozjpeg: true })
+        .toBuffer();
+
+    return { buffer: brightenedBuffer, brightnessAdjusted: true };
+}
+
+async function optimizeLabelImage(buffer: Buffer, corners: LabelCorners | null): Promise<ProcessedImageResult> {
+    let workingBuffer = await sharp(buffer)
+        .rotate()
+        .resize({
+            width: LABEL_WORKING_MAX_SIDE,
+            height: LABEL_WORKING_MAX_SIDE,
+            fit: "inside",
+            withoutEnlargement: true,
+        })
+        .jpeg({ quality: 92, mozjpeg: true })
+        .toBuffer();
+    let perspectiveCorrected = false;
+
+    if (corners) {
+        const warped = await warpPerspective(workingBuffer, corners);
+        workingBuffer = warped.buffer;
+        perspectiveCorrected = true;
+    }
+
+    const brightened = await brightenIfDark(workingBuffer);
+    workingBuffer = brightened.buffer;
+
+    const resized = await resizeShortSide(workingBuffer, LABEL_MIN_SHORT_SIDE);
+    workingBuffer = resized.buffer;
+
+    return {
+        buffer: workingBuffer,
+        width: resized.width,
+        height: resized.height,
+        perspectiveCorrected,
+        brightnessAdjusted: brightened.brightnessAdjusted,
+        upscaled: resized.upscaled,
+        optimizationModel: DETERMINISTIC_IMAGE_OPTIMIZATION_MODEL,
+    };
+}
+
+async function normalizeImageForVision(buffer: Buffer): Promise<{ buffer: Buffer; width: number; height: number }> {
+    const normalizedBuffer = await sharp(buffer)
+        .rotate()
+        .resize({
+            width: LABEL_WORKING_MAX_SIDE,
+            height: LABEL_WORKING_MAX_SIDE,
+            fit: "inside",
+            withoutEnlargement: true,
+        })
+        .jpeg({ quality: 90, mozjpeg: true })
+        .toBuffer();
+    const metadata = await sharp(normalizedBuffer).metadata();
+
+    if (!metadata.width || !metadata.height) {
+        throw new Error("Unable to read image dimensions.");
+    }
+
+    return { buffer: normalizedBuffer, width: metadata.width, height: metadata.height };
+}
+
+async function normalizeImageForImageEdit(buffer: Buffer): Promise<Buffer> {
+    return sharp(buffer)
+        .rotate()
+        .resize({
+            width: LABEL_WORKING_MAX_SIDE,
+            height: LABEL_WORKING_MAX_SIDE,
+            fit: "inside",
+            withoutEnlargement: true,
+        })
+        .png({ compressionLevel: 9 })
+        .toBuffer();
+}
+
+function extractGeminiImageData(response: GeminiGenerateContentResponse): string {
+    const parts = response.candidates?.flatMap((candidate) => candidate.content?.parts ?? []) ?? [];
+    const imagePart = parts.find((part) => part.inlineData?.data || part.inline_data?.data);
+    const imageData = imagePart?.inlineData?.data ?? imagePart?.inline_data?.data;
+
+    if (!imageData) {
+        const text = parts.map((part) => part.text).filter(Boolean).join("\n").slice(0, 1000);
+        throw new Error(`Gemini image edit returned no image data.${text ? ` Response text: ${text}` : ""}`);
+    }
+
+    return imageData;
+}
+
+async function generateLabelImageWithGemini(buffer: Buffer): Promise<GeneratedLabelImageResult> {
+    if (!apiKey) {
+        throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
+    }
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_EDIT_MODEL}:generateContent`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+            contents: [
+                {
+                    parts: [
+                        { text: LABEL_IMAGE_EDIT_PROMPT },
+                        {
+                            inline_data: {
+                                mime_type: "image/png",
+                                data: buffer.toString("base64"),
+                            },
+                        },
+                    ],
+                },
+            ],
+            generationConfig: {
+                responseModalities: ["IMAGE"],
+            },
+        }),
+    });
+    const text = await response.text();
+
+    if (!response.ok) {
+        throw new Error(`Gemini image edit failed: ${response.status} ${text.slice(0, 1000)}`);
+    }
+
+    const json = JSON.parse(text) as GeminiGenerateContentResponse;
+    return {
+        buffer: Buffer.from(extractGeminiImageData(json), "base64"),
+        optimizationModel: GEMINI_IMAGE_EDIT_MODEL,
+    };
+}
+
+async function generateLabelImageWithOpenAI(buffer: Buffer): Promise<GeneratedLabelImageResult> {
+    const openAiApiKey = process.env.OPENAI_API_KEY;
+    if (!openAiApiKey) {
+        throw new Error("OPENAI_API_KEY is not set");
+    }
+
+    const client = new OpenAI({ apiKey: openAiApiKey });
+    const image = await toFile(buffer, "wine-label-input.png", { type: "image/png" });
+    const response = await client.images.edit({
+        model: OPENAI_IMAGE_EDIT_MODEL,
+        image,
+        prompt: LABEL_IMAGE_EDIT_PROMPT,
+        size: "1024x1536",
+        quality: "high",
+        output_format: "png",
+    });
+    const imageData = response.data?.[0]?.b64_json;
+
+    if (!imageData) {
+        throw new Error("OpenAI image edit returned no image data.");
+    }
+
+    return {
+        buffer: Buffer.from(imageData, "base64"),
+        optimizationModel: OPENAI_IMAGE_EDIT_MODEL,
+    };
+}
+
+async function finalizeGeneratedLabelImage(generated: GeneratedLabelImageResult): Promise<ProcessedImageResult> {
+    let workingBuffer = await sharp(generated.buffer)
+        .rotate()
+        .resize({
+            width: LABEL_WORKING_MAX_SIDE,
+            height: LABEL_WORKING_MAX_SIDE,
+            fit: "inside",
+            withoutEnlargement: true,
+        })
+        .jpeg({ quality: 92, mozjpeg: true })
+        .toBuffer();
+
+    const brightened = await brightenIfDark(workingBuffer);
+    workingBuffer = brightened.buffer;
+
+    const resized = await resizeShortSide(workingBuffer, LABEL_MIN_SHORT_SIDE);
+
+    return {
+        buffer: resized.buffer,
+        width: resized.width,
+        height: resized.height,
+        perspectiveCorrected: true,
+        brightnessAdjusted: brightened.brightnessAdjusted,
+        upscaled: resized.upscaled,
+        optimizationModel: generated.optimizationModel,
+    };
+}
+
+async function optimizeLabelImageWithGenerativeModel(buffer: Buffer): Promise<ProcessedImageResult> {
+    try {
+        return await finalizeGeneratedLabelImage(await generateLabelImageWithGemini(buffer));
+    } catch (geminiError) {
+        console.warn("Gemini image edit failed; falling back to OpenAI image edit.", geminiError);
+    }
+
+    try {
+        return await finalizeGeneratedLabelImage(await generateLabelImageWithOpenAI(buffer));
+    } catch (openAiError) {
+        console.warn("OpenAI image edit fallback failed; falling back to deterministic image processing.", openAiError);
+        throw openAiError;
+    }
+}
+
+async function analyzeWineLabelWithGeometry(buffer: Buffer, width: number, height: number): Promise<WineLabelVisionResult> {
+    if (!apiKey) {
+        throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+    const prompt = `
+    You are analyzing a wine label photo for a tasting-note application.
+    The image has already been EXIF-rotated and resized to ${width}px wide by ${height}px high.
+
+    Tasks:
+    1. Identify the main front wine label (エチケット) that contains the producer, wine name, or appellation.
+       - Exclude bottle glass, capsule, hand, table, background, and unrelated price tags.
+       - Preserve the complete printed label, including borders and all edge text.
+       - If there are multiple labels, choose only the main body/front label, not the neck label.
+       - If the label is not rectangular, return a conservative quadrilateral around the whole printed label.
+    2. Return the four visible outer corners of that label in pixel coordinates for this ${width}x${height} image.
+       - Coordinate origin is top-left.
+       - x must be between 0 and ${width - 1}; y must be between 0 and ${height - 1}.
+       - Use this exact order: topLeft, topRight, bottomRight, bottomLeft.
+       - Be conservative: it is better to include a little bottle/background than to cut off the label.
+    3. Extract wine information from the label.
+       - wineName format must be "Original Name (Japanese Katakana)".
+       - producer format must be "Original Producer (Japanese Katakana)".
+       - locality format must be "Original Region/Subregion/Village (Japanese Katakana)".
+       - Preserve the original-language label text before the parentheses.
+       - Do not return Japanese-only text unless no original-language text is readable.
+       - If Japanese is not printed on the label, transliterate or translate it yourself inside parentheses.
+
+    Return STRICTLY valid JSON with this exact shape and no markdown:
+    {
+      "labelFound": true,
+      "confidence": 0.0,
+      "labelCorners": {
+        "topLeft": { "x": 0, "y": 0 },
+        "topRight": { "x": 0, "y": 0 },
+        "bottomRight": { "x": 0, "y": 0 },
+        "bottomLeft": { "x": 0, "y": 0 }
+      },
+      "wineName": "Bourgogne Hautes-Côtes de Nuits Blanc (ブルゴーニュ オート・コート・ド・ニュイ ブラン)",
+      "producer": "Les Frères Mignon (レ・フレール・ミニョン)",
+      "vintage": "2020 or NV",
+      "country": "フランス|イタリア|スペイン|ドイツ|オーストリア|スイス|アメリカ|カナダ|チリ|アルゼンチン|オーストラリア|ニュージーランド|日本|南アフリカ|ポルトガル|ギリシャ|ジョージア|その他",
+      "locality": "Cumières/Premier Cru (キュミエール/プルミエ・クリュ)",
+      "price": 5000
+    }
+
+    If the main label cannot be identified, set labelFound to false, confidence below 0.4,
+    and use the full image bounds for labelCorners.
+    If a field cannot be read, return an empty string for text fields or null for price.
+    `;
+
+    const result = await model.generateContent([
+        prompt,
+        {
+            inlineData: {
+                data: buffer.toString("base64"),
+                mimeType: "image/jpeg",
+            },
+        },
+    ]);
+    const response = await result.response;
+    const text = response.text();
+    return JSON.parse(cleanJsonText(text)) as WineLabelVisionResult;
+}
+
+async function uploadJpegBuffer(buffer: Buffer, prefix: string): Promise<{ key: string; url: string }> {
+    const now = new Date();
+    const key = `uploads/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${Date.now()}_${randomUUID()}_${prefix}.jpg`;
+    const file = storage.bucket(BUCKET).file(key);
+
+    await file.save(buffer, {
+        resumable: false,
+        metadata: {
+            contentType: "image/jpeg",
+            cacheControl: "public, max-age=31536000, immutable",
+        },
+    });
+
+    return { key, url: `/api/images/${key}` };
+}
+
+async function generateServerThumbnail(buffer: Buffer): Promise<Buffer> {
+    return sharp(buffer)
+        .resize({
+            width: LABEL_THUMB_MAX_SIDE,
+            height: LABEL_THUMB_MAX_SIDE,
+            fit: "inside",
+            withoutEnlargement: true,
+        })
+        .jpeg({ quality: 82, mozjpeg: true })
+        .toBuffer();
 }
 
 async function resolveLocality(countryJa: string, localityText: string): Promise<{ name: string; id: number } | null> {
@@ -58,7 +759,7 @@ async function resolveLocality(countryJa: string, localityText: string): Promise
 
         // 2. Gemini Re-ranking
         const genAI = new GoogleGenerativeAI(apiKey!);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
         const candidateListJson = JSON.stringify(candidates.map((c: any) => ({
             id: c.id,
@@ -133,7 +834,7 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
     const [buffer] = await file.download();
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
     const prompt = `
     Analyze this wine label image and extract the following information.
@@ -189,6 +890,70 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
     }
 
     return analysis;
+}
+
+export async function optimizeAndAnalyzeWineImage(imageUrl: string): Promise<WineImageOptimizationAndAnalysis> {
+    const originalBuffer = await downloadImageFromGcs(imageUrl);
+    const [normalized, imageEditInput] = await Promise.all([
+        normalizeImageForVision(originalBuffer),
+        normalizeImageForImageEdit(originalBuffer),
+    ]);
+    const [visionResult, generativeOptimized] = await Promise.all([
+        analyzeWineLabelWithGeometry(normalized.buffer, normalized.width, normalized.height),
+        optimizeLabelImageWithGenerativeModel(imageEditInput).catch(() => null),
+    ]);
+    const rawCorners = normalizeCorners(visionResult.labelCorners ?? visionResult.label_corners, normalized.width, normalized.height);
+    const labelFound = visionResult.labelFound ?? visionResult.label_found;
+    const confidence = finiteNumber(visionResult.confidence) ?? 0;
+    const corners = rawCorners && labelFound !== false && confidence >= 0.4
+        ? expandCorners(rawCorners, normalized.width, normalized.height)
+        : null;
+    const optimized = generativeOptimized ?? await optimizeLabelImage(normalized.buffer, corners);
+    const thumbnailBuffer = await generateServerThumbnail(optimized.buffer);
+    const [uploadedImage, uploadedThumbnail] = await Promise.all([
+        uploadJpegBuffer(optimized.buffer, "label_optimized"),
+        uploadJpegBuffer(thumbnailBuffer, "label_thumb"),
+    ]);
+
+    const analysis: WineImageAnalysis = {
+        wineName: visionResult.wineName ?? "",
+        producer: visionResult.producer ?? "",
+        vintage: visionResult.vintage ?? "",
+        country: visionResult.country ?? "",
+        locality: visionResult.locality ?? "",
+        price: finiteNumber(visionResult.price),
+    };
+
+    try {
+        if (analysis.locality && analysis.country) {
+            const result = await resolveLocality(analysis.country, analysis.locality);
+            if (result) {
+                console.log(`Locality resolved: "${analysis.locality}" -> "${result.name}" (ID: ${result.id})`);
+                analysis.locality = result.name;
+                analysis.locality_vocab_id = result.id;
+            } else {
+                console.log(`Locality resolution skipped or failed for "${analysis.locality}"`);
+            }
+        }
+    } catch (err) {
+        console.error("Locality resolution error (non-blocking):", err);
+    }
+
+    return {
+        ...analysis,
+        optimizedImage: {
+            url: uploadedImage.url,
+            thumbnail_url: uploadedThumbnail.url,
+            storage_path: uploadedImage.key,
+            thumbnail_storage_path: uploadedThumbnail.key,
+            width: optimized.width,
+            height: optimized.height,
+            perspectiveCorrected: optimized.perspectiveCorrected,
+            brightnessAdjusted: optimized.brightnessAdjusted,
+            upscaled: optimized.upscaled,
+            optimizationModel: optimized.optimizationModel,
+        },
+    };
 }
 
 
@@ -417,7 +1182,7 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         tools: [
             {
                 googleSearch: {},

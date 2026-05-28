@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useImperativeHandle, forwardRef, useRef 
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { searchWineDetails, analyzeWineImage, interpretTastingTranscript } from '@/app/actions/gemini';
+import { searchWineDetails, optimizeAndAnalyzeWineImage, interpretTastingTranscript } from '@/app/actions/gemini';
 import { Sparkles, Loader2, Eye, Wind, Grape, Award, ChevronDown, ChevronUp, BookOpen, User, Settings, Calendar, FileText } from 'lucide-react';
 import { useState } from 'react';
 import { SectionCard } from '@/components/ui/section-card';
@@ -22,7 +22,6 @@ import {
     fruitStateLabel,
 } from '@/lib/wineHelpers';
 import { generateThumbnail } from '@/lib/imageUtils';
-import { WineImage } from '@/types/custom';
 import { Trash2 } from 'lucide-react';
 import { SAT_CONSTANTS } from '@/constants/sat';
 import AromaSelector from '@/components/AromaSelector';
@@ -215,6 +214,7 @@ export const wineFormSchema = z.object({
 });
 
 export type WineFormValues = z.infer<typeof wineFormSchema>;
+type WineImageValue = NonNullable<WineFormValues['images']>[number];
 
 interface WineFormProps {
     defaultValues?: Partial<WineFormValues>;
@@ -673,7 +673,28 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
     // const filteredAromaGroups = ... (Removed legacy filtering logic)
 
-    const uploadFile = async (file: File | Blob, filename: string): Promise<string> => {
+    const isLocalhostUpload = () => {
+        const { hostname } = window.location;
+        return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
+    };
+
+    const uploadFileViaApi = async (file: File | Blob, filename: string): Promise<string> => {
+        const formData = new FormData();
+        formData.append('file', file, filename);
+        formData.append('filename', filename);
+
+        const res = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+        });
+
+        const { getUrl, error } = await res.json();
+        if (!res.ok || error) throw new Error(error || 'Upload failed');
+
+        return getUrl;
+    };
+
+    const uploadFileViaSignedUrl = async (file: File | Blob, filename: string): Promise<string> => {
         const payload = {
             filename: filename,
             contentType: file.type || 'application/octet-stream',
@@ -695,12 +716,20 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         return getUrl;
     };
 
+    const uploadFile = async (file: File | Blob, filename: string): Promise<string> => {
+        if (isLocalhostUpload()) {
+            return uploadFileViaApi(file, filename);
+        }
+
+        return uploadFileViaSignedUrl(file, filename);
+    };
+
     const handleFilesSelect = async (files: FileList | null) => {
         if (!files || files.length === 0) return;
 
-        const newImages: { url: string; thumbnail_url?: string; display_order: number }[] = [];
+        const newImages: WineImageValue[] = [];
         const currentImages = getValues('images') || [];
-        let orderOffset = currentImages.length;
+        const orderOffset = currentImages.length;
 
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
@@ -787,6 +816,65 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         };
     }, []);
 
+
+    const handleImageOptimizeAndAnalyze = async () => {
+        const currentImages = getValues('images') || [];
+        const targetUrl = currentImages[0]?.url || getValues('imageUrl');
+        if (!targetUrl) return;
+
+        try {
+            setIsAnalyzing(true);
+            const result = await optimizeAndAnalyzeWineImage(targetUrl);
+
+            if (result.optimizedImage) {
+                const optimized = result.optimizedImage;
+                const sourceImage: WineImageValue = currentImages[0] ?? {
+                    url: targetUrl,
+                    thumbnail_url: null,
+                    storage_path: null,
+                    display_order: 1,
+                };
+                const optimizedImage: WineImageValue = {
+                    ...sourceImage,
+                    url: optimized.url,
+                    thumbnail_url: optimized.thumbnail_url,
+                    storage_path: optimized.storage_path,
+                    display_order: 0,
+                };
+
+                if (currentImages.length > 0) {
+                    const remainingImages = currentImages.slice(1).filter((image) => image.url !== sourceImage.url);
+                    const nextImages = [optimizedImage, sourceImage, ...remainingImages].map((image, index) => ({
+                        ...image,
+                        display_order: index,
+                    }));
+                    setValue('images', nextImages, { shouldDirty: true });
+                } else {
+                    setValue('images', [
+                        optimizedImage,
+                        { ...sourceImage, display_order: 1 },
+                    ], { shouldDirty: true });
+                }
+
+                setValue('imageUrl', optimized.url, { shouldDirty: true });
+            }
+
+            if (result.wineName) setValue('wineName', result.wineName, { shouldDirty: true });
+            if (result.producer) setValue('producer', result.producer, { shouldDirty: true });
+            if (result.vintage) setValue('vintage', result.vintage, { shouldDirty: true });
+            if (result.country) setValue('country', result.country, { shouldDirty: true });
+            if (result.locality) {
+                setValue('locality', result.locality, { shouldDirty: true });
+                setValue('locality_vocab_id', result.locality_vocab_id ?? null, { shouldDirty: true });
+            }
+            if (result.price !== null && result.price !== undefined) setValue('price', String(result.price), { shouldDirty: true });
+        } catch (e) {
+            console.error(e);
+            alert('画像補正と銘柄検索に失敗しました');
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
 
 
     const handleAiSearch = async () => {
@@ -1007,7 +1095,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     Let's allow selecting one image for AI search from the uploaded list
                 */}
 
-                {watch('imageUrl') && (
+                {(watch('imageUrl') || watch('images')?.[0]?.url) && (
                     <div className="sm:col-span-3 mt-2">
                         <div className="flex items-center gap-2 mb-2">
                             <span className="text-xs text-gray-500">AI解析用メイン画像:</span>
@@ -1019,38 +1107,14 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         <div className="mt-2">
                             <button
                                 type="button"
-                                onClick={async () => {
-                                    const url = getValues('imageUrl');
-                                    if (!url) return;
-
-                                    try {
-                                        setIsAnalyzing(true);
-                                        const result = await analyzeWineImage(url);
-                                        if (result) {
-                                            if (result.wineName) setValue('wineName', result.wineName, { shouldDirty: true });
-                                            if (result.producer) setValue('producer', result.producer, { shouldDirty: true });
-                                            if (result.vintage) setValue('vintage', result.vintage, { shouldDirty: true });
-                                            if (result.country) setValue('country', result.country, { shouldDirty: true });
-                                            if (result.locality) {
-                                                setValue('locality', result.locality, { shouldDirty: true });
-                                                setValue('locality_vocab_id', result.locality_vocab_id ?? null, { shouldDirty: true });
-                                            }
-                                            if (result.price) setValue('price', String(result.price), { shouldDirty: true });
-                                        }
-                                    } catch (e) {
-                                        console.error(e);
-                                        alert('画像解析に失敗しました');
-                                    } finally {
-                                        setIsAnalyzing(false);
-                                    }
-                                }}
+                                onClick={handleImageOptimizeAndAnalyze}
                                 disabled={isAnalyzing}
                                 className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold rounded-md shadow-sm hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 flex items-center gap-2"
                             >
                                 {isAnalyzing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                AI銘柄検索
+                                AI画像補正&銘柄検索
                             </button>
-                            <p className="text-[10px] text-[var(--text-muted)] mt-1">※画像からワイン情報を自動推定します</p>
+                            <p className="text-[10px] text-[var(--text-muted)] mt-1">※一枚目を補正し、元画像は二枚目に残します</p>
                         </div>
                     </div>
                 )}

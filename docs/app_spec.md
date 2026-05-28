@@ -111,7 +111,7 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
         - 選択後に自由編集された場合は、IDは破棄(NULL)されテキストのみ保存
 - セッションストレージを使用したドラフト保存機能（タブ切り替え時の入力保持・タブ別独立管理）
 - **AIラベル解析**:
-    - Gemini 2.0 Flash を利用したラベル画像からの情報抽出
+    - Gemini 3.5 Flash を利用したラベル画像からの情報抽出
     - 抽出項目: ワイン名, 生産者, ヴィンテージ, 国, 地域(Locality), 価格推定
     - **Locality自動解決 (Smart Resolve)**:
         - 抽出されたテキストと `geo_vocab` を照合
@@ -121,7 +121,7 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 ### ワイン一覧・詳細表示
 - グリッド形式での一覧表示
 - **AIによる深掘り検索 (Gemini Grounding)**:
-    - Gemini 2.0 Flash + Google Search Groundingを利用
+    - Gemini 3.5 Flash + Google Search Groundingを利用
     - テロワール、生産者哲学、技術詳細、ヴィンテージ、プロの評価を**日本語で**取得・保存・表示
     - **UI/UX**:
         - テイスティングフォームの最下部に配置（評価フローを阻害しないための配慮）
@@ -159,4 +159,3 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 - **アクセス**: `/api/images/[...path]` エンドポイントを経由して認証付きで配信（ただし一覧での表示用にはMiddlewareで除外）
 - **複数画像**: `wine_images` テーブルによる 1:N 管理
 - **サムネイル**: アップロード時にクライアント(Canvas)でプレビュー用生成、サーバーサイド(Sharp)で保存用生成・回転補正
-

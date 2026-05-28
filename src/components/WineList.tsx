@@ -14,14 +14,17 @@ interface WineListProps {
     notes: TastingNote[];
 }
 
+type SortKey = 'date' | 'price' | 'rating' | 'wine_name';
+type SortOrder = 'asc' | 'desc';
+
 export default function WineList({ notes }: WineListProps) {
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [isDeleting, setIsDeleting] = useState(false);
 
     // Sort State
-    const [sortKey, setSortKey] = useState<'created_at' | 'price' | 'rating' | 'wine_name'>('created_at');
-    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+    const [sortKey, setSortKey] = useState<SortKey>('date');
+    const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
     // Filter State
     const [filterStatus, setFilterStatus] = useState<'all' | 'draft'>('all');
@@ -92,8 +95,10 @@ export default function WineList({ notes }: WineListProps) {
     const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const value = e.target.value;
         const [key, order] = value.split('-');
-        setSortKey(key as any);
-        setSortOrder(order as any);
+        if (isSortKey(key) && isSortOrder(order)) {
+            setSortKey(key);
+            setSortOrder(order);
+        }
     };
 
     return (
@@ -117,10 +122,10 @@ export default function WineList({ notes }: WineListProps) {
                         <select
                             className={`${FORM_CONTROL_BASE} w-auto`}
                             onChange={handleSortChange}
-                            defaultValue="created_at-desc"
+                            defaultValue="date-desc"
                         >
-                            <option value="created_at-desc">日付 (新しい順)</option>
-                            <option value="created_at-asc">日付 (古い順)</option>
+                            <option value="date-desc">日付 (新しい順)</option>
+                            <option value="date-asc">日付 (古い順)</option>
                             <option value="rating-desc">評価 (高い順)</option>
                             <option value="rating-asc">評価 (低い順)</option>
                             <option value="price-desc">価格 (高い順)</option>
@@ -191,7 +196,17 @@ export default function WineList({ notes }: WineListProps) {
     );
 }
 
+function isSortKey(value: string): value is SortKey {
+    return value === 'date' || value === 'price' || value === 'rating' || value === 'wine_name';
+}
+
+function isSortOrder(value: string): value is SortOrder {
+    return value === 'asc' || value === 'desc';
+}
+
 function WineCardContent({ note }: { note: TastingNote }) {
+    const displayDate = formatDate(note.date);
+
     return (
         <Card className="overflow-hidden flex flex-col h-full transition-transform duration-200 hover:-translate-y-1 hover:shadow-md">
             <div className="relative aspect-[3/3.2] w-full bg-[var(--surface-2)]">
@@ -252,12 +267,25 @@ function WineCardContent({ note }: { note: TastingNote }) {
 
                 <div className="mt-auto pt-2 border-t border-[var(--border)] flex justify-between items-center text-[10px] text-[var(--text-muted)]">
                     <span suppressHydrationWarning>
-                        {new Date(note.created_at).toLocaleDateString("ja-JP")}
+                        {displayDate || "-"}
                     </span>
                 </div>
             </div>
         </Card>
     );
+}
+
+function formatDate(date?: string) {
+    if (!date) return "";
+
+    const dateOnly = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dateOnly) {
+        return `${Number(dateOnly[1])}/${Number(dateOnly[2])}/${Number(dateOnly[3])}`;
+    }
+
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return parsed.toLocaleDateString("ja-JP");
 }
 
 function getCountryFlag(countryName: string): string {
