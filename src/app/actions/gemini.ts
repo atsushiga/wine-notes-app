@@ -58,7 +58,7 @@ async function resolveLocality(countryJa: string, localityText: string): Promise
 
         // 2. Gemini Re-ranking
         const genAI = new GoogleGenerativeAI(apiKey!);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
         const candidateListJson = JSON.stringify(candidates.map((c: any) => ({
             id: c.id,
@@ -133,7 +133,7 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
     const [buffer] = await file.download();
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
     const prompt = `
     Analyze this wine label image and extract the following information.
@@ -417,7 +417,7 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         tools: [
             {
                 googleSearch: {},
