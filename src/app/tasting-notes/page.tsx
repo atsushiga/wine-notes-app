@@ -1,7 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
 import { TastingNote } from "@/types/custom";
-import Image from "next/image";
-import Link from "next/link";
 import WineList from "@/components/WineList";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +18,7 @@ export default async function TastingNotesPage() {
     let query = supabase
         .from("tasting_notes")
         .select("*, images:wine_images(*)")
-        .order("created_at", { ascending: false });
+        .order("date", { ascending: false });
 
     // Filter by user_id if authenticated
     if (user) {
