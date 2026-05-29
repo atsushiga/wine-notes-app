@@ -190,7 +190,7 @@ export const wineFormSchema = z.object({
     acidityScore: nullableNumber(0, 10), // SAT 0-10
     tanninScore: nullableNumber(0, 10), // SAT 0-10
     bodyScore: nullableNumber(0, 10), // SAT 0-10
-    alcoholABV: z.coerce.number().min(0).max(100).optional().nullable(),
+    alcoholABV: nullableNumber(0, 100),
     finishScore: nullableNumber(0, 10), // SAT 0-10
     palateNotes: z.string().optional().nullable(),
 
@@ -280,7 +280,7 @@ const voiceReplaceableDefaults: Partial<Record<keyof WineFormValues, unknown>> =
     acidityScore: null,
     tanninScore: null,
     bodyScore: null,
-    alcoholABV: 12.5,
+    alcoholABV: null,
     finishScore: null,
     palateNotes: '',
     qualityScore: null,
@@ -341,7 +341,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             acidityScore: null,
             tanninScore: null,
             bodyScore: null,
-            alcoholABV: 12.5,
+            alcoholABV: null,
             finishScore: null,
             palateNotes: '',
 
@@ -497,7 +497,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             acidityScore: null,
             tanninScore: null,
             bodyScore: null,
-            alcoholABV: 12.5,
+            alcoholABV: null,
             finishScore: null,
             palateNotes: '',
 
@@ -581,7 +581,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             acidityScore: null,
             tanninScore: null,
             bodyScore: null,
-            alcoholABV: 12.5,
+            alcoholABV: null,
             finishScore: null,
             palateNotes: '',
             qualityScore: null,
@@ -1656,7 +1656,6 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                 step="0.1"
                                 className={`${FORM_CONTROL_BASE} text-right`}
                                 {...register('alcoholABV', { valueAsNumber: true })}
-                                placeholder="12.5"
                             />
                             <span className="text-sm">%</span>
                         </div>
