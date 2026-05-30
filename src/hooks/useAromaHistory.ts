@@ -4,31 +4,52 @@ const RECENT_KEY = 'winenotes_aroma_recent_v1';
 const FREQ_KEY = 'winenotes_aroma_freq_v1';
 const MAX_ITEMS = 12;
 
+function readStoredRecents(): string[] {
+    if (typeof window === 'undefined') return [];
+
+    try {
+        const storedRecent = localStorage.getItem(RECENT_KEY);
+        if (!storedRecent) return [];
+        const parsed: unknown = JSON.parse(storedRecent);
+        return Array.isArray(parsed)
+            ? parsed.filter((item): item is string => typeof item === 'string').slice(0, MAX_ITEMS)
+            : [];
+    } catch (e) {
+        console.error('Failed to load recent aromas', e);
+        return [];
+    }
+}
+
+function readStoredFrequents(): string[] {
+    if (typeof window === 'undefined') return [];
+
+    try {
+        const storedFreq = localStorage.getItem(FREQ_KEY);
+        if (!storedFreq) return [];
+        const parsed: unknown = JSON.parse(storedFreq);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
+        const freqMap = parsed as Record<string, number>;
+        return Object.entries(freqMap)
+            .sort(([, a], [, b]) => b - a)
+            .map(([term]) => term)
+            .slice(0, MAX_ITEMS);
+    } catch (e) {
+        console.error('Failed to load frequent aromas', e);
+        return [];
+    }
+}
+
 export function useAromaHistory() {
     const [recents, setRecents] = useState<string[]>([]);
     const [frequents, setFrequents] = useState<string[]>([]);
 
-    // Load initial state
     useEffect(() => {
-        try {
-            const storedRecent = localStorage.getItem(RECENT_KEY);
-            if (storedRecent) {
-                setRecents(JSON.parse(storedRecent));
-            }
+        const timeoutId = window.setTimeout(() => {
+            setRecents(readStoredRecents());
+            setFrequents(readStoredFrequents());
+        }, 0);
 
-            const storedFreq = localStorage.getItem(FREQ_KEY);
-            if (storedFreq) {
-                const freqMap: Record<string, number> = JSON.parse(storedFreq);
-                // Convert map to sorted list
-                const sorted = Object.entries(freqMap)
-                    .sort(([, a], [, b]) => b - a)
-                    .map(([term]) => term)
-                    .slice(0, MAX_ITEMS);
-                setFrequents(sorted);
-            }
-        } catch (e) {
-            console.error('Failed to load aroma history', e);
-        }
+        return () => window.clearTimeout(timeoutId);
     }, []);
 
     const addHistory = useCallback((term: string) => {

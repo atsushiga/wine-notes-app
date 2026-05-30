@@ -1,6 +1,6 @@
 'use server';
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type Tool } from "@google/generative-ai";
 import OpenAI, { toFile } from "openai";
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -48,6 +48,12 @@ interface GeoCandidate {
     country: string | null;
     parent_hint: string | null;
     similarity: number;
+}
+
+interface GeminiSelectionResponse {
+    selected_id?: number | null;
+    confidence?: number;
+    reason?: string;
 }
 
 interface ImagePoint {
@@ -746,13 +752,14 @@ async function resolveLocality(countryJa: string, localityText: string): Promise
 
     try {
         // 1. Candidate Retrieval
-        const { data: candidates, error } = await supabase.rpc('search_geo_vocab', {
+        const { data: candidateData, error } = await supabase.rpc('search_geo_vocab', {
             search_term: qNorm,
             target_country: targetCountry,
             max_results: 20
         });
+        const candidates = (candidateData ?? []) as GeoCandidate[];
 
-        if (error || !candidates || candidates.length === 0) {
+        if (error || candidates.length === 0) {
             console.warn("Locality resolution: No candidates or error", error);
             return null;
         }
@@ -761,7 +768,7 @@ async function resolveLocality(countryJa: string, localityText: string): Promise
         const genAI = new GoogleGenerativeAI(apiKey!);
         const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
-        const candidateListJson = JSON.stringify(candidates.map((c: any) => ({
+        const candidateListJson = JSON.stringify(candidates.map((c) => ({
             id: c.id,
             primary_label: c.name_ja || c.name,
             name: c.name,
@@ -796,10 +803,10 @@ async function resolveLocality(countryJa: string, localityText: string): Promise
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text().replace(/```json/g, "").replace(/```/g, "").trim();
-        const json = JSON.parse(text);
+        const json = JSON.parse(text) as GeminiSelectionResponse;
 
         if (json.selected_id) {
-            const selected = candidates.find((c: any) => c.id === json.selected_id);
+            const selected = candidates.find((c) => c.id === json.selected_id);
             if (selected) {
                 // Return canonical label: prefer name_ja
                 return {
@@ -1036,6 +1043,10 @@ function parseJsonObject(text: string) {
     return JSON.parse(cleaned);
 }
 
+function getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
 function sanitizeVoiceUpdates(rawUpdates: unknown): VoiceUpdates {
     if (!rawUpdates || typeof rawUpdates !== 'object') return {};
 
@@ -1169,9 +1180,9 @@ export async function interpretTastingTranscript(input: {
             updates: sanitizeVoiceUpdates(parsed.updates),
             summary: typeof parsed.summary === 'string' ? parsed.summary.slice(0, 500) : undefined,
         };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Gemini transcript interpretation error:", error);
-        throw new Error(`Failed to interpret tasting transcript: ${error.message || String(error)}`);
+        throw new Error(`Failed to interpret tasting transcript: ${getErrorMessage(error)}`);
     }
 }
 
@@ -1186,7 +1197,7 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
         tools: [
             {
                 googleSearch: {},
-            } as any,
+            } as unknown as Tool,
         ],
     });
 
@@ -1360,9 +1371,9 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
 
         const data = JSON.parse(cleanedText) as GroundingData;
         return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Gemini Search Error Full:", error);
-        throw new Error(`Failed to fetch wine details: ${error.message || String(error)}`);
+        throw new Error(`Failed to fetch wine details: ${getErrorMessage(error)}`);
     }
 }
 

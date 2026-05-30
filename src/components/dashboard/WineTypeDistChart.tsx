@@ -61,7 +61,7 @@ const WineTypeDistChart: React.FC<Props> = ({ data }) => {
                                 fill={COLORS[type] || DEFAULT_COLOR}
                                 radius={0}
                                 animationDuration={1500}
-                                label={{ position: 'center', fill: '#fff', fontSize: 10, formatter: (value: any) => value > 0 ? value : '' }}
+                                label={{ position: 'center', fill: '#fff', fontSize: 10, formatter: (value: unknown) => typeof value === 'number' && value > 0 ? value : '' }}
                             />
                         ))}
                     </BarChart>

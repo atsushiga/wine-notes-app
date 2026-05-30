@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, type Resolver } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { searchWineDetails, optimizeAndAnalyzeWineImage, interpretTastingTranscript } from '@/app/actions/gemini';
@@ -30,8 +30,8 @@ import { FORM_CONTROL_BASE } from '@/constants/styles';
 import { SimpleRecordingControls } from '@/components/wine/form/SimpleRecordingControls';
 
 // === 定義：画像シートを意識した選択肢 ===
-function removeUndefined(obj: Record<string, any>) {
-    const newObj: Record<string, any> = {};
+function removeUndefined<T extends object>(obj: T): Partial<T> {
+    const newObj: Partial<T> = {};
     for (const key in obj) {
         if (obj[key] !== undefined) {
             newObj[key] = obj[key];
@@ -360,7 +360,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             status: 'published',
             ...(defaultValues ? removeUndefined(defaultValues) : {})
         },
-        resolver: zodResolver(wineFormSchema) as any
+        resolver: zodResolver(wineFormSchema) as Resolver<WineFormValues>
     });
 
     // --- Persistence Logic ---
@@ -515,10 +515,6 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             status: 'published',
         };
 
-        // @ts-ignore - reset expects partial or values depending on version, strict type match might fail on undefineds but we can cast or just use what we have.
-        // Actually hook form reset can take values.
-
-        // We need to bring in the `reset` function from `useForm`.
         reset(freshDefaults);
 
         // Also clear any "search result" state
@@ -1832,5 +1828,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         </form >
     );
 });
+
+WineForm.displayName = 'WineForm';
 
 export default WineForm;

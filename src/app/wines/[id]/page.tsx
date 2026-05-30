@@ -28,21 +28,26 @@ export default async function WineDetailPage({ params }: Props) {
         notFound();
     }
 
+    let wine = data as TastingNote;
+
     // Manual fetch for locality_vocab since FK relation might be missing or unnamed
-    if (data.locality_vocab_id) {
+    if (wine.locality_vocab_id) {
         const { data: vocab } = await supabase
             .from('geo_vocab')
             .select('name, name_ja')
-            .eq('id', data.locality_vocab_id)
+            .eq('id', wine.locality_vocab_id)
             .single();
 
         if (vocab) {
-            // Attach to data object to match TastingNote type
-            (data as any).locality_vocab = vocab;
+            wine = {
+                ...wine,
+                locality_vocab: {
+                    name: vocab.name,
+                    name_ja: vocab.name_ja ?? undefined,
+                },
+            };
         }
     }
-
-    const wine = data as TastingNote;
 
     return <WineDetailClient wine={wine} />;
 }

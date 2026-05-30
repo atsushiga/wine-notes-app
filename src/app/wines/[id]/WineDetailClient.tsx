@@ -4,9 +4,20 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { TastingNote, WineImage } from '@/types/custom';
 import WineDetailView from '@/components/WineDetailView';
-import WineForm, { WineFormValues } from '@/components/WineForm';
+import WineForm, { WineFormValues, wineTypes } from '@/components/WineForm';
 import { updateWine, deleteWine, updateWineImages } from '@/app/actions/wine';
 import { optimizeAndAnalyzeWineImage } from '@/app/actions/gemini';
+
+type WineType = WineFormValues['wineType'];
+type NoseCondition = NonNullable<WineFormValues['noseCondition']>;
+type Development = NonNullable<WineFormValues['development']>;
+
+const noseConditionOptions = ['不快 (Unclean)', '良好 (Clean)'] as const satisfies readonly NoseCondition[];
+const developmentOptions = ['若い', '熟成中', '熟成した', 'ピークを過ぎた/疲れている'] as const satisfies readonly Development[];
+
+function oneOf<T extends string>(value: unknown, options: readonly T[], fallback: T): T {
+    return typeof value === 'string' && options.includes(value as T) ? value as T : fallback;
+}
 
 export default function WineDetailClient({ wine }: { wine: TastingNote }) {
     const router = useRouter();
@@ -105,7 +116,7 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
         images: wine.images || [],
 
         // Cast strict enums if data exists, otherwise default or let form handle validation
-        wineType: (wine.wine_type as any) || '赤',
+        wineType: oneOf<WineType>(wine.wine_type, wineTypes, '赤'),
 
         wineName: wine.wine_name || '',
         producer: wine.producer || '',
@@ -128,8 +139,8 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
         appearanceOther: wine.appearance_other || '',
 
         noseIntensity: wine.nose_intensity,
-        noseCondition: (wine.nose_condition as any) || '良好 (Clean)',
-        development: (wine.development as any) || '若い',
+        noseCondition: oneOf<NoseCondition>(wine.nose_condition, noseConditionOptions, '良好 (Clean)'),
+        development: oneOf<Development>(wine.development, developmentOptions, '若い'),
         oldNewWorld: wine.old_new_world,
         aromaNeutrality: wine.aroma_neutrality,
         fruitsMaturity: wine.fruits_maturity,
