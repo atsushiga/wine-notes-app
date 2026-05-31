@@ -60,4 +60,6 @@ update_schema.sql
 supabase/*
 !supabase/migrations/
 !supabase/migrations/*.sql
+!supabase/email-templates/
+!supabase/email-templates/*.html
 scripts/*
