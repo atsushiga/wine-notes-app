@@ -1,6 +1,6 @@
 'use server';
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type Tool } from "@google/generative-ai";
 import OpenAI, { toFile } from "openai";
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -48,6 +48,12 @@ interface GeoCandidate {
     country: string | null;
     parent_hint: string | null;
     similarity: number;
+}
+
+interface GeminiSelectionResponse {
+    selected_id?: number | null;
+    confidence?: number;
+    reason?: string;
 }
 
 interface ImagePoint {
@@ -130,6 +136,7 @@ Strict requirements:
 - Keep the complete printed label, including all printed edges and border area. Do not cut off any part of the label.
 - Rotate the image so the label text is upright.
 - Correct tilt and trapezoid/perspective distortion so the label appears front-facing and rectangular as much as possible.
+- Fill any removed, empty, extended, or transparent background area with solid matte black (#000000). Do not use white, gray, gradients, or decorative backgrounds.
 - Brighten and improve contrast/sharpness only enough to make the label readable.
 - Output a documentary product/OCR image, not an artistic reinterpretation.
 - The final image short side should be at least about 600 px.`;
@@ -168,8 +175,26 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function finiteNumber(value: unknown): number | null {
+    if (value === null || value === undefined) return null;
+    if (typeof value === "string" && value.trim() === "") return null;
+
     const numberValue = Number(value);
     return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function parsePositiveJpyPrice(value: unknown): number | null {
+    if (value === null || value === undefined) return null;
+
+    const normalizedValue = typeof value === "string"
+        ? value.trim().replace(/[,\s円¥￥]/g, "")
+        : value;
+
+    if (normalizedValue === "") return null;
+
+    const numberValue = Number(normalizedValue);
+    if (!Number.isFinite(numberValue) || numberValue <= 0) return null;
+
+    return Math.round(numberValue);
 }
 
 function polygonArea(corners: LabelCorners): number {
@@ -370,7 +395,7 @@ async function warpPerspective(buffer: Buffer, corners: LabelCorners): Promise<{
             channels: 4,
         },
     })
-        .flatten({ background: "#ffffff" })
+        .flatten({ background: "#000000" })
         .jpeg({ quality: 92, mozjpeg: true })
         .toBuffer();
 
@@ -687,6 +712,7 @@ async function analyzeWineLabelWithGeometry(buffer: Buffer, width: number, heigh
     If the main label cannot be identified, set labelFound to false, confidence below 0.4,
     and use the full image bounds for labelCorners.
     If a field cannot be read, return an empty string for text fields or null for price.
+    If you cannot estimate a positive price, return null. Never return 0.
     `;
 
     const result = await model.generateContent([
@@ -746,13 +772,14 @@ async function resolveLocality(countryJa: string, localityText: string): Promise
 
     try {
         // 1. Candidate Retrieval
-        const { data: candidates, error } = await supabase.rpc('search_geo_vocab', {
+        const { data: candidateData, error } = await supabase.rpc('search_geo_vocab', {
             search_term: qNorm,
             target_country: targetCountry,
             max_results: 20
         });
+        const candidates = (candidateData ?? []) as GeoCandidate[];
 
-        if (error || !candidates || candidates.length === 0) {
+        if (error || candidates.length === 0) {
             console.warn("Locality resolution: No candidates or error", error);
             return null;
         }
@@ -761,7 +788,7 @@ async function resolveLocality(countryJa: string, localityText: string): Promise
         const genAI = new GoogleGenerativeAI(apiKey!);
         const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
-        const candidateListJson = JSON.stringify(candidates.map((c: any) => ({
+        const candidateListJson = JSON.stringify(candidates.map((c) => ({
             id: c.id,
             primary_label: c.name_ja || c.name,
             name: c.name,
@@ -796,10 +823,10 @@ async function resolveLocality(countryJa: string, localityText: string): Promise
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text().replace(/```json/g, "").replace(/```/g, "").trim();
-        const json = JSON.parse(text);
+        const json = JSON.parse(text) as GeminiSelectionResponse;
 
         if (json.selected_id) {
-            const selected = candidates.find((c: any) => c.id === json.selected_id);
+            const selected = candidates.find((c) => c.id === json.selected_id);
             if (selected) {
                 // Return canonical label: prefer name_ja
                 return {
@@ -845,7 +872,7 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
     3. vintage: The vintage year (4 digits, e.g., "2020"). If non-vintage or not found, use "NV".
     4. country: The country of origin. Must be one of: 'フランス', 'イタリア', 'スペイン', 'ドイツ', 'オーストリア', 'スイス', 'アメリカ', 'カナダ', 'チリ', 'アルゼンチン', 'オーストラリア', 'ニュージーランド', '日本', '南アフリカ', 'ポルトガル', 'ギリシャ', 'ジョージア', 'その他'.
     5. locality: The region, district, village, or vineyard. Format: "Region/Subregion/Village" in Original language or English. **CRITICAL**: You MUST include the Japanese Katakana translation in parentheses. Example: "Bourgogne/Côtes de Nuits/Vosne Romanee(ヴォーヌ・ロマネ)".
-    6. price: Estimate the market price in Japanese Yen (JPY) as a single integer number (e.g. 5000). Do not include "円" or commas. If unknown or rare, make a reasonable estimate based on the appellation and producer.
+    6. price: Estimate the market price in Japanese Yen (JPY) as a single integer number (e.g. 5000). Do not include "円" or commas. If unknown or rare, make a reasonable estimate based on the appellation and producer. If you cannot estimate a positive price, return null. Never return 0.
 
     JSON Keys:
     - wineName
@@ -870,7 +897,11 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
     const text = response.text();
     const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
-    const analysis = JSON.parse(cleanedText) as WineImageAnalysis;
+    const parsedAnalysis = JSON.parse(cleanedText) as WineImageAnalysis;
+    const analysis: WineImageAnalysis = {
+        ...parsedAnalysis,
+        price: parsePositiveJpyPrice(parsedAnalysis.price),
+    };
 
     // --- Locality Resolution Step ---
     try {
@@ -921,7 +952,7 @@ export async function optimizeAndAnalyzeWineImage(imageUrl: string): Promise<Win
         vintage: visionResult.vintage ?? "",
         country: visionResult.country ?? "",
         locality: visionResult.locality ?? "",
-        price: finiteNumber(visionResult.price),
+        price: parsePositiveJpyPrice(visionResult.price),
     };
 
     try {
@@ -1034,6 +1065,10 @@ const numberRanges: Partial<Record<VoiceFillableField, [number, number]>> = {
 function parseJsonObject(text: string) {
     const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(cleaned);
+}
+
+function getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
 }
 
 function sanitizeVoiceUpdates(rawUpdates: unknown): VoiceUpdates {
@@ -1169,9 +1204,9 @@ export async function interpretTastingTranscript(input: {
             updates: sanitizeVoiceUpdates(parsed.updates),
             summary: typeof parsed.summary === 'string' ? parsed.summary.slice(0, 500) : undefined,
         };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Gemini transcript interpretation error:", error);
-        throw new Error(`Failed to interpret tasting transcript: ${error.message || String(error)}`);
+        throw new Error(`Failed to interpret tasting transcript: ${getErrorMessage(error)}`);
     }
 }
 
@@ -1186,7 +1221,7 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
         tools: [
             {
                 googleSearch: {},
-            } as any,
+            } as unknown as Tool,
         ],
     });
 
@@ -1360,9 +1395,9 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
 
         const data = JSON.parse(cleanedText) as GroundingData;
         return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Gemini Search Error Full:", error);
-        throw new Error(`Failed to fetch wine details: ${error.message || String(error)}`);
+        throw new Error(`Failed to fetch wine details: ${getErrorMessage(error)}`);
     }
 }
 

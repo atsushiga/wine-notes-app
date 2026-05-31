@@ -70,7 +70,7 @@ export async function updateWine(id: number, data: WineFormValues) {
     const newStatus = data.status || 'published';
 
     const supabaseData: Record<string, unknown> = {};
-    const imagesData = (data.images as any[]) || [];
+    const imagesData = data.images ?? [];
 
     for (const [key, value] of Object.entries(data)) {
         if (key === 'images') continue; // Don't add 'images' to tasting_notes update

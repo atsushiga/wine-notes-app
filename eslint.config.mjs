@@ -5,11 +5,18 @@ import nextTypescript from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextCoreWebVitals,
   ...nextTypescript,
+  {
+    files: ["*.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
   globalIgnores([
     "node_modules/**",
     ".next/**",
     "out/**",
     "build/**",
+    "scripts/**",
     "next-env.d.ts",
   ]),
 ]);

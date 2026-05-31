@@ -227,9 +227,11 @@ export function SimpleRecordingControls({
                 >
                     {isRecording ? <Square size={22} fill="currentColor" /> : <Mic size={24} />}
                 </button>
-                <div className="rounded-full border border-[var(--border)] bg-[var(--card-bg)] px-3 py-1 text-xs text-[var(--text-muted)] shadow-sm">
-                    {isRecording ? '録音中' : isTranscribing ? '文字起こし中' : '音声入力'}
-                </div>
+                {(isRecording || isTranscribing) && (
+                    <div className="rounded-full border border-[var(--border)] bg-[var(--card-bg)] px-3 py-1 text-xs text-[var(--text-muted)] shadow-sm">
+                        {isRecording ? '録音中' : '文字起こし中'}
+                    </div>
+                )}
             </div>
 
             <div

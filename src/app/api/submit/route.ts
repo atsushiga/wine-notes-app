@@ -6,6 +6,19 @@ import { createClient } from '@/utils/supabase/server';
 
 type UnknownRecord = Record<string, unknown>;
 
+interface WineImageInput {
+  url: string;
+  thumbnail_url?: string | null;
+  storage_path?: string | null;
+  display_order?: number | null;
+}
+
+function isWineImageInput(value: unknown): value is WineImageInput {
+  if (!value || typeof value !== 'object') return false;
+  const image = value as Record<string, unknown>;
+  return typeof image.url === 'string';
+}
+
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic';
 
@@ -54,7 +67,9 @@ async function appendToSupabase(data: UnknownRecord, userId?: string, status?: s
   };
 
   const supabaseData: Record<string, unknown> = {};
-  const imagesData = (data.images as any[]) || []; // Extract images array
+  const imagesData = Array.isArray(data.images)
+    ? data.images.filter(isWineImageInput)
+    : [];
 
   // データを変換（空文字列やundefinedはnullに変換）
   for (const [key, value] of Object.entries(data)) {
