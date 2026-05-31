@@ -34,6 +34,14 @@ NOTION_DB_ID=your_notion_database_id
 3. 「Settings」→「API」に移動
 4. 「Project URL」と「anon public」キーをコピー
 
+### 認証メールの送信設定
+
+アカウント作成時の確認メールは Supabase Auth から送信します。本番運用では Supabase 標準 SMTP ではなく Resend の Custom SMTP を使ってください。
+
+- 設定手順: `docs/auth-resend.md`
+- Supabase に貼り付ける Confirm signup テンプレート: `supabase/email-templates/confirm-signup.html`
+- Supabase に貼り付ける Magic Link テンプレート: `supabase/email-templates/magic-link.html`
+
 ### Supabase DB 変更の作り方
 
 このリポジトリの Supabase migration は、remote DB の現在状態を基準にした baseline から管理しています。
