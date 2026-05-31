@@ -63,21 +63,15 @@ export const calculatePriceDistribution = (notes: TastingNote[], binSize: number
 export const calculateTrend = (notes: TastingNote[]) => {
     const trends: Record<string, number> = {};
 
-    // Initialize with the earliest month found? Or last 12 months?
-    // Let's do last 12 months for better trend view, or all time.
-    // User asked for "Drinking Trends" (month by month).
-    // Let's take all data but ensure we fill gaps with 0 if we want a continuous line.
-
-    // 1. Group by Month (YYYY-MM)
     notes.forEach(note => {
-        if (!note.created_at) return;
-        const month = dayjs(note.created_at).format('YYYY-MM');
+        if (!note.date) return;
+        const drinkingDate = dayjs(note.date);
+        if (!drinkingDate.isValid()) return;
+
+        const month = drinkingDate.format('YYYY-MM');
         trends[month] = (trends[month] || 0) + 1;
     });
 
-    // 2. Sort and return
-    // If we want to fill gaps, we'd need to find min and max date and loop.
-    // For now, let's just return actual data points sorted.
     return Object.entries(trends).map(([month, count]) => ({
         month,
         count

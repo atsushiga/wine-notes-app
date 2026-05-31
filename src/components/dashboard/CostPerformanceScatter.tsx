@@ -32,7 +32,15 @@ const CostPerformanceScatter: React.FC<Props> = ({ notes }) => {
                         <XAxis type="number" dataKey="x" name="価格" unit="円" tick={{ fontSize: 10, fill: 'var(--chart-text)' }}>
                             <Label value="価格 (円)" offset={0} position="bottom" style={{ fontSize: '10px', fill: 'var(--chart-text)' }} />
                         </XAxis>
-                        <YAxis type="number" dataKey="y" name="評価" domain={['dataMin - 0.1', 5]} tick={{ fontSize: 10, fill: 'var(--chart-text)' }}>
+                        <YAxis
+                            type="number"
+                            dataKey="y"
+                            name="評価"
+                            domain={[1, 5]}
+                            ticks={[1, 2, 3, 4, 5]}
+                            allowDecimals={false}
+                            tick={{ fontSize: 10, fill: 'var(--chart-text)' }}
+                        >
                             <Label value="評価 (星)" angle={-90} position="left" style={{ fontSize: '10px', fill: 'var(--chart-text)' }} />
                         </YAxis>
                         <Tooltip
