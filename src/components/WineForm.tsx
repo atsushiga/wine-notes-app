@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
+import React, { useCallback, useEffect, useImperativeHandle, forwardRef, useLayoutEffect, useRef } from 'react';
 import { useForm, Controller, type Resolver } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,7 +21,7 @@ import {
     worldLabel,
     fruitStateLabel,
 } from '@/lib/wineHelpers';
-import { generateThumbnail } from '@/lib/imageUtils';
+import { extractExifCaptureDate, generateThumbnail } from '@/lib/imageUtils';
 import { Trash2 } from 'lucide-react';
 import { SAT_CONSTANTS } from '@/constants/sat';
 import AromaSelector from '@/components/AromaSelector';
@@ -99,6 +99,40 @@ function NullableRangeField({
                 <span>{labels[1]}</span>
             </div>
         </FieldRow>
+    );
+}
+
+type AutoGrowingTextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
+    value: string;
+};
+
+function AutoGrowingTextarea({ className = '', value, onInput, ...props }: AutoGrowingTextareaProps) {
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    const resize = useCallback(() => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        textarea.style.height = 'auto';
+        textarea.style.height = `${Math.max(textarea.scrollHeight, 192)}px`;
+    }, []);
+
+    useLayoutEffect(() => {
+        resize();
+    }, [resize, value]);
+
+    return (
+        <textarea
+            {...props}
+            ref={textareaRef}
+            value={value}
+            rows={6}
+            className={`${className} min-h-48 resize-none overflow-hidden`}
+            onInput={(event) => {
+                onInput?.(event);
+                resize();
+            }}
+        />
     );
 }
 
@@ -260,6 +294,7 @@ const voiceWritableFields = [
 ] as const satisfies readonly (keyof WineFormValues)[];
 
 type VoiceWritableField = typeof voiceWritableFields[number];
+type DateValueOrigin = 'empty' | 'auto' | 'user' | 'savedOrDefault' | 'exif';
 
 const voiceReplaceableDefaults: Partial<Record<keyof WineFormValues, unknown>> = {
     clarity: '澄んだ',
@@ -298,6 +333,7 @@ function isEmptyVoiceValue(value: unknown) {
 }
 
 const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onSubmit, isSubmitting, submitLabel = '保存する', persistKey, onWineTypeChange, simpleMode = false }, ref) => {
+    const dateValueOriginRef = useRef<DateValueOrigin>(defaultValues?.date ? 'savedOrDefault' : 'empty');
     const { register, handleSubmit, control, watch, setValue, getValues, reset, formState: { errors } } = useForm<WineFormValues>({
         defaultValues: {
             date: '',
@@ -372,6 +408,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
+                const hasSavedDate = typeof parsed.date === 'string' && parsed.date.trim() !== '';
 
                 // Re-calculate date if not saved or safeguard it
                 if (!parsed.date && !getValues('date')) {
@@ -389,6 +426,12 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         setValue(k, parsed[k]);
                     }
                 });
+
+                if (hasSavedDate) {
+                    dateValueOriginRef.current = 'savedOrDefault';
+                } else if (parsed.date && dateValueOriginRef.current === 'empty') {
+                    dateValueOriginRef.current = 'auto';
+                }
 
             } catch (e) {
                 console.error("Failed to parse saved draft", e);
@@ -516,6 +559,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         };
 
         reset(freshDefaults);
+        dateValueOriginRef.current = 'auto';
 
         // Also clear any "search result" state
         setIsAiExpanded(false);
@@ -592,6 +636,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             search_result_tasting_note: '',
             status: 'published',
         } as WineFormValues);
+        dateValueOriginRef.current = 'auto';
 
         setIsAiExpanded(false);
         voiceTranscriptRef.current = '';
@@ -664,6 +709,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             const mm = String(d.getMonth() + 1).padStart(2, '0');
             const dd = String(d.getDate()).padStart(2, '0');
             setValue('date', `${yyyy}-${mm}-${dd}`, { shouldDirty: false });
+            dateValueOriginRef.current = 'auto';
         }
     }, [getValues, setValue]);
 
@@ -720,8 +766,23 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         return uploadFileViaSignedUrl(file, filename);
     };
 
+    const applyExifCaptureDateFromFirstPhoto = async (file: File) => {
+        if (dateValueOriginRef.current !== 'empty' && dateValueOriginRef.current !== 'auto') return;
+
+        const captureDate = await extractExifCaptureDate(file);
+        if (!captureDate) return;
+
+        const currentDate = getValues('date');
+        if (currentDate && dateValueOriginRef.current !== 'auto') return;
+
+        setValue('date', captureDate, { shouldDirty: true });
+        dateValueOriginRef.current = 'exif';
+    };
+
     const handleFilesSelect = async (files: FileList | null, options?: { autoAi?: boolean }) => {
         if (!files || files.length === 0) return;
+
+        await applyExifCaptureDateFromFirstPhoto(files[0]);
 
         const newImages: WineImageValue[] = [];
         const currentImages = getValues('images') || [];
@@ -866,7 +927,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 setValue('locality', result.locality, { shouldDirty: true });
                 setValue('locality_vocab_id', result.locality_vocab_id ?? null, { shouldDirty: true });
             }
-            if (result.price !== null && result.price !== undefined) setValue('price', String(result.price), { shouldDirty: true });
+            if (result.price !== null && result.price !== undefined && result.price > 0) {
+                setValue('price', String(result.price), { shouldDirty: true });
+            }
             return true;
         } catch (e) {
             console.error(e);
@@ -878,7 +941,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
     };
 
 
-    const handleAiSearch = async (options?: { silentIfMissingName?: boolean }): Promise<boolean> => {
+    const handleAiSearch = async (options?: { silentIfMissingName?: boolean; revealOnSuccess?: boolean }): Promise<boolean> => {
         const name = getValues('wineName');
         const producer = getValues('producer');
         const vintage = getValues('vintage');
@@ -910,6 +973,11 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             setValue('technical_details', result.technical_details, { shouldDirty: true });
             setValue('vintage_analysis', result.vintage_analysis, { shouldDirty: true });
             setValue('search_result_tasting_note', result.search_result_tasting_note, { shouldDirty: true });
+            if (options?.revealOnSuccess) {
+                window.setTimeout(() => {
+                    document.getElementById('ai-deep-dive')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 0);
+            }
             return true;
         } catch (e) {
             console.error(e);
@@ -924,7 +992,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         const analyzed = await handleImageOptimizeAndAnalyze(targetImageUrl);
         if (!analyzed) return;
 
-        await handleAiSearch({ silentIfMissingName: true });
+        await handleAiSearch({ silentIfMissingName: true, revealOnSuccess: true });
     };
 
     const handleAiJump = () => {
@@ -1188,6 +1256,8 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         </FieldRow>
     );
 
+    const aiInfoTextareaClass = `${FORM_CONTROL_BASE} text-sm`;
+
     const aiInfoSection = (
         <section id="ai-deep-dive" className="rounded-2xl bg-[var(--card-bg)] p-4 border border-[var(--border)]">
             <button
@@ -1234,31 +1304,92 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                             <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
                                 <BookOpen className="w-4 h-4 text-emerald-600" /> テロワール
                             </label>
-                            <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('terroir_info')} placeholder="AI検索結果がここに表示されます" />
+                            <Controller
+                                control={control}
+                                name="terroir_info"
+                                render={({ field }) => (
+                                    <AutoGrowingTextarea
+                                        className={aiInfoTextareaClass}
+                                        value={field.value ?? ''}
+                                        onChange={field.onChange}
+                                        onBlur={field.onBlur}
+                                        name={field.name}
+                                        placeholder="AI検索結果がここに表示されます"
+                                    />
+                                )}
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
                                 <User className="w-4 h-4 text-blue-600" /> 生産者・哲学
                             </label>
-                            <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('producer_philosophy')} />
+                            <Controller
+                                control={control}
+                                name="producer_philosophy"
+                                render={({ field }) => (
+                                    <AutoGrowingTextarea
+                                        className={aiInfoTextareaClass}
+                                        value={field.value ?? ''}
+                                        onChange={field.onChange}
+                                        onBlur={field.onBlur}
+                                        name={field.name}
+                                    />
+                                )}
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
                                 <Settings className="w-4 h-4 text-gray-600" /> 技術詳細
                             </label>
-                            <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('technical_details')} />
+                            <Controller
+                                control={control}
+                                name="technical_details"
+                                render={({ field }) => (
+                                    <AutoGrowingTextarea
+                                        className={aiInfoTextareaClass}
+                                        value={field.value ?? ''}
+                                        onChange={field.onChange}
+                                        onBlur={field.onBlur}
+                                        name={field.name}
+                                    />
+                                )}
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
                                 <Calendar className="w-4 h-4 text-orange-600" /> ヴィンテージ分析
                             </label>
-                            <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('vintage_analysis')} />
+                            <Controller
+                                control={control}
+                                name="vintage_analysis"
+                                render={({ field }) => (
+                                    <AutoGrowingTextarea
+                                        className={aiInfoTextareaClass}
+                                        value={field.value ?? ''}
+                                        onChange={field.onChange}
+                                        onBlur={field.onBlur}
+                                        name={field.name}
+                                    />
+                                )}
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
                                 <FileText className="w-4 h-4 text-red-600" /> 参考テイスティングノート
                             </label>
-                            <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('search_result_tasting_note')} />
+                            <Controller
+                                control={control}
+                                name="search_result_tasting_note"
+                                render={({ field }) => (
+                                    <AutoGrowingTextarea
+                                        className={aiInfoTextareaClass}
+                                        value={field.value ?? ''}
+                                        onChange={field.onChange}
+                                        onBlur={field.onBlur}
+                                        name={field.name}
+                                    />
+                                )}
+                            />
                         </div>
                     </div>
 
@@ -1329,7 +1460,15 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             <SectionCard title="基本情報" icon={<Calendar size={18} />} tone="neutral">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <FieldRow label="日付">
-                        <input type="date" className={FORM_CONTROL_BASE} {...register('date')} />
+                        <input
+                            type="date"
+                            className={FORM_CONTROL_BASE}
+                            {...register('date', {
+                                onChange: () => {
+                                    dateValueOriginRef.current = 'user';
+                                },
+                            })}
+                        />
                     </FieldRow>
                     <FieldRow label="飲んだ/購入した場所">
                         <input
@@ -1361,7 +1500,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 right={
                     <button
                         type="button"
-                        onClick={() => void handleAiSearch()}
+                        onClick={() => void handleAiSearch({ revealOnSuccess: simpleMode })}
                         disabled={isAiLoading || !hasWineName}
                         title={hasWineName ? 'AI情報を取得' : 'ワイン名を入力してください'}
                         className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"

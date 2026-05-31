@@ -136,6 +136,7 @@ Strict requirements:
 - Keep the complete printed label, including all printed edges and border area. Do not cut off any part of the label.
 - Rotate the image so the label text is upright.
 - Correct tilt and trapezoid/perspective distortion so the label appears front-facing and rectangular as much as possible.
+- Fill any removed, empty, extended, or transparent background area with solid matte black (#000000). Do not use white, gray, gradients, or decorative backgrounds.
 - Brighten and improve contrast/sharpness only enough to make the label readable.
 - Output a documentary product/OCR image, not an artistic reinterpretation.
 - The final image short side should be at least about 600 px.`;
@@ -174,8 +175,26 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function finiteNumber(value: unknown): number | null {
+    if (value === null || value === undefined) return null;
+    if (typeof value === "string" && value.trim() === "") return null;
+
     const numberValue = Number(value);
     return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function parsePositiveJpyPrice(value: unknown): number | null {
+    if (value === null || value === undefined) return null;
+
+    const normalizedValue = typeof value === "string"
+        ? value.trim().replace(/[,\s円¥￥]/g, "")
+        : value;
+
+    if (normalizedValue === "") return null;
+
+    const numberValue = Number(normalizedValue);
+    if (!Number.isFinite(numberValue) || numberValue <= 0) return null;
+
+    return Math.round(numberValue);
 }
 
 function polygonArea(corners: LabelCorners): number {
@@ -376,7 +395,7 @@ async function warpPerspective(buffer: Buffer, corners: LabelCorners): Promise<{
             channels: 4,
         },
     })
-        .flatten({ background: "#ffffff" })
+        .flatten({ background: "#000000" })
         .jpeg({ quality: 92, mozjpeg: true })
         .toBuffer();
 
@@ -693,6 +712,7 @@ async function analyzeWineLabelWithGeometry(buffer: Buffer, width: number, heigh
     If the main label cannot be identified, set labelFound to false, confidence below 0.4,
     and use the full image bounds for labelCorners.
     If a field cannot be read, return an empty string for text fields or null for price.
+    If you cannot estimate a positive price, return null. Never return 0.
     `;
 
     const result = await model.generateContent([
@@ -852,7 +872,7 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
     3. vintage: The vintage year (4 digits, e.g., "2020"). If non-vintage or not found, use "NV".
     4. country: The country of origin. Must be one of: 'フランス', 'イタリア', 'スペイン', 'ドイツ', 'オーストリア', 'スイス', 'アメリカ', 'カナダ', 'チリ', 'アルゼンチン', 'オーストラリア', 'ニュージーランド', '日本', '南アフリカ', 'ポルトガル', 'ギリシャ', 'ジョージア', 'その他'.
     5. locality: The region, district, village, or vineyard. Format: "Region/Subregion/Village" in Original language or English. **CRITICAL**: You MUST include the Japanese Katakana translation in parentheses. Example: "Bourgogne/Côtes de Nuits/Vosne Romanee(ヴォーヌ・ロマネ)".
-    6. price: Estimate the market price in Japanese Yen (JPY) as a single integer number (e.g. 5000). Do not include "円" or commas. If unknown or rare, make a reasonable estimate based on the appellation and producer.
+    6. price: Estimate the market price in Japanese Yen (JPY) as a single integer number (e.g. 5000). Do not include "円" or commas. If unknown or rare, make a reasonable estimate based on the appellation and producer. If you cannot estimate a positive price, return null. Never return 0.
 
     JSON Keys:
     - wineName
@@ -877,7 +897,11 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
     const text = response.text();
     const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
-    const analysis = JSON.parse(cleanedText) as WineImageAnalysis;
+    const parsedAnalysis = JSON.parse(cleanedText) as WineImageAnalysis;
+    const analysis: WineImageAnalysis = {
+        ...parsedAnalysis,
+        price: parsePositiveJpyPrice(parsedAnalysis.price),
+    };
 
     // --- Locality Resolution Step ---
     try {
@@ -928,7 +952,7 @@ export async function optimizeAndAnalyzeWineImage(imageUrl: string): Promise<Win
         vintage: visionResult.vintage ?? "",
         country: visionResult.country ?? "",
         locality: visionResult.locality ?? "",
-        price: finiteNumber(visionResult.price),
+        price: parsePositiveJpyPrice(visionResult.price),
     };
 
     try {
