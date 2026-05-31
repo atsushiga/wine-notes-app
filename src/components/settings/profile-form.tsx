@@ -1,25 +1,28 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { updateProfile } from "@/app/auth/actions";
 import { User } from "@supabase/supabase-js";
-import { Eye, EyeOff, Save, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Save, Loader2, Mic, SlidersHorizontal } from "lucide-react";
 
 const profileSchema = z.object({
     email: z.string().email("有効なメールアドレスを入力してください"),
     password: z.string().min(6, "パスワードは6文字以上である必要があります").optional().or(z.literal("")),
+    defaultInputMode: z.enum(["simple", "detailed"]),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
+type InputMode = ProfileFormValues["defaultInputMode"];
 
 interface ProfileFormProps {
     user: User;
+    defaultInputMode: InputMode;
 }
 
-export default function ProfileForm({ user }: ProfileFormProps) {
+export default function ProfileForm({ user, defaultInputMode }: ProfileFormProps) {
     const [isPending, startTransition] = useTransition();
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [showPassword, setShowPassword] = useState(false);
@@ -29,19 +32,25 @@ export default function ProfileForm({ user }: ProfileFormProps) {
         handleSubmit,
         formState: { errors },
         reset,
+        setValue,
+        control,
     } = useForm<ProfileFormValues>({
         resolver: zodResolver(profileSchema),
         defaultValues: {
             email: user.email || "",
             password: "",
+            defaultInputMode,
         },
     });
+
+    const selectedInputMode = useWatch({ control, name: "defaultInputMode" });
 
     const onSubmit = (data: ProfileFormValues) => {
         setMessage(null);
         startTransition(async () => {
             const formData = new FormData();
             formData.append("email", data.email);
+            formData.append("defaultInputMode", data.defaultInputMode);
             if (data.password) {
                 formData.append("password", data.password);
             }
@@ -53,11 +62,18 @@ export default function ProfileForm({ user }: ProfileFormProps) {
             } else if (result?.message) {
                 setMessage({ type: "success", text: result.message });
                 if (data.password) {
-                    reset({ password: "" });
+                    reset({ email: data.email, password: "", defaultInputMode: data.defaultInputMode });
                 }
             }
         });
     };
+
+    const modeButtonClass = (active: boolean) => (
+        `inline-flex flex-1 items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 ${active
+            ? "bg-gray-900 text-white shadow-sm"
+            : "text-gray-500 hover:bg-white hover:text-gray-900"
+        }`
+    );
 
     return (
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
@@ -101,6 +117,31 @@ export default function ProfileForm({ user }: ProfileFormProps) {
                         </button>
                     </div>
                     {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">デフォルト入力モード</label>
+                    <div className="inline-flex w-full rounded-full border border-gray-200 bg-gray-100 p-1 shadow-sm">
+                        <button
+                            type="button"
+                            onClick={() => setValue("defaultInputMode", "simple", { shouldDirty: true })}
+                            aria-pressed={selectedInputMode === "simple"}
+                            className={modeButtonClass(selectedInputMode === "simple")}
+                        >
+                            <Mic size={16} />
+                            <span>簡単記録</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setValue("defaultInputMode", "detailed", { shouldDirty: true })}
+                            aria-pressed={selectedInputMode === "detailed"}
+                            className={modeButtonClass(selectedInputMode === "detailed")}
+                        >
+                            <SlidersHorizontal size={16} />
+                            <span>こだわり入力</span>
+                        </button>
+                    </div>
+                    <input type="hidden" {...register("defaultInputMode")} />
                 </div>
 
                 <button
