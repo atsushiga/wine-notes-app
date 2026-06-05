@@ -10,6 +10,8 @@ import sharp from "sharp";
 import { storage, BUCKET } from "@/lib/gcs";
 import { COUNTRY_MAP } from "@/lib/geoUtils";
 import { getSupabaseClient } from "@/lib/supabase";
+import { SAT_AROMA_DEFINITIONS } from "@/constants/sat_aromas";
+import { countries, mainVarieties, wineTypes } from "@/constants/wine";
 
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
@@ -988,12 +990,51 @@ export async function optimizeAndAnalyzeWineImage(imageUrl: string): Promise<Win
 }
 
 
+const searchFormFillableFields = [
+    'producer',
+    'country',
+    'locality',
+    'region',
+    'mainVariety',
+    'otherVarieties',
+    'additionalInfo',
+    'vintage',
+    'importer',
+    'wineType',
+    'clarity',
+    'brightness',
+    'sparkleIntensity',
+    'appearanceOther',
+    'intensity',
+    'color',
+    'noseIntensity',
+    'noseCondition',
+    'development',
+    'oldNewWorld',
+    'fruitsMaturity',
+    'aromaNeutrality',
+    'oakAroma',
+    'aromas',
+    'aromaOther',
+    'sweetness',
+    'acidityScore',
+    'tanninScore',
+    'bodyScore',
+    'alcoholABV',
+    'finishScore',
+    'palateNotes',
+] as const;
+
+type SearchFormFillableField = typeof searchFormFillableFields[number];
+export type WineSearchFormUpdates = Partial<Record<SearchFormFillableField, unknown>>;
+
 export interface GroundingData {
     terroir_info?: string;
     producer_philosophy?: string;
     technical_details?: string;
     vintage_analysis?: string;
     search_result_tasting_note?: string;
+    form_updates?: WineSearchFormUpdates;
 }
 
 const voiceFillableFields = [
@@ -1062,6 +1103,52 @@ const numberRanges: Partial<Record<VoiceFillableField, [number, number]>> = {
     rating: [0, 5],
 };
 
+const searchFormAllowedFields = new Set<string>(searchFormFillableFields);
+const searchFormAromaTerms = new Set(
+    SAT_AROMA_DEFINITIONS.flatMap((layer) => layer.categories.flatMap((category) => category.terms))
+);
+const searchFormAromaTermList = Array.from(searchFormAromaTerms).join(', ');
+
+const searchFormStringEnumValues: Partial<Record<SearchFormFillableField, Set<string>>> = {
+    wineType: new Set<string>([...wineTypes]),
+    country: new Set<string>([...countries]),
+    mainVariety: new Set<string>([...mainVarieties]),
+    clarity: new Set(['澄んだ', '深みのある', 'やや濁った', '濁った']),
+    brightness: new Set(['輝きのある', '艶のある', 'モヤがかった']),
+    sparkleIntensity: new Set(['弱い', 'やや弱い', '中程度', 'やや強い', '強い']),
+    noseCondition: new Set(['不快 (Unclean)', '良好 (Clean)']),
+    development: new Set(['若い', '熟成中', '熟成した', 'ピークを過ぎた/疲れている']),
+};
+
+const searchFormNumberRanges: Partial<Record<SearchFormFillableField, [number, number]>> = {
+    intensity: [0, 10],
+    color: [0, 10],
+    noseIntensity: [0, 10],
+    oldNewWorld: [1, 5],
+    fruitsMaturity: [1, 5],
+    aromaNeutrality: [1, 5],
+    oakAroma: [1, 5],
+    sweetness: [1, 6],
+    acidityScore: [0, 10],
+    tanninScore: [0, 10],
+    bodyScore: [0, 10],
+    alcoholABV: [0, 100],
+    finishScore: [0, 10],
+};
+
+const searchFormTextFields = new Set<SearchFormFillableField>([
+    'producer',
+    'locality',
+    'region',
+    'otherVarieties',
+    'additionalInfo',
+    'vintage',
+    'importer',
+    'appearanceOther',
+    'aromaOther',
+    'palateNotes',
+]);
+
 function parseJsonObject(text: string) {
     const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(cleaned);
@@ -1069,6 +1156,65 @@ function parseJsonObject(text: string) {
 
 function getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
+}
+
+function sanitizeSearchFormUpdates(rawUpdates: unknown): WineSearchFormUpdates {
+    if (!rawUpdates || typeof rawUpdates !== 'object') return {};
+
+    const updates: WineSearchFormUpdates = {};
+
+    for (const [key, value] of Object.entries(rawUpdates as Record<string, unknown>)) {
+        if (!searchFormAllowedFields.has(key) || value === null || value === undefined || value === '') continue;
+
+        const field = key as SearchFormFillableField;
+        const enumValues = searchFormStringEnumValues[field];
+
+        if (enumValues) {
+            if (typeof value === 'string' && enumValues.has(value)) {
+                updates[field] = value;
+            }
+            continue;
+        }
+
+        const range = searchFormNumberRanges[field];
+        if (range) {
+            const numeric = Number(value);
+            if (Number.isFinite(numeric) && numeric >= range[0] && numeric <= range[1]) {
+                updates[field] = numeric;
+            }
+            continue;
+        }
+
+        if (field === 'aromas') {
+            if (Array.isArray(value)) {
+                const aromas = Array.from(new Set(
+                    value
+                        .filter((item): item is string => typeof item === 'string')
+                        .map((item) => item.trim())
+                        .filter((item) => item && searchFormAromaTerms.has(item))
+                )).slice(0, 20);
+
+                if (aromas.length > 0) {
+                    updates.aromas = aromas;
+                }
+            }
+            continue;
+        }
+
+        if (searchFormTextFields.has(field)) {
+            const text = typeof value === 'string'
+                ? value
+                : field === 'vintage' && (typeof value === 'number' || typeof value === 'bigint')
+                    ? String(value)
+                    : '';
+            const trimmed = text.trim();
+            if (trimmed) {
+                updates[field] = trimmed.slice(0, 2000);
+            }
+        }
+    }
+
+    return updates;
 }
 
 function sanitizeVoiceUpdates(rawUpdates: unknown): VoiceUpdates {
@@ -1353,6 +1499,55 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
     If reports vary, mention the range briefly.
 
     --------------------------------------------------
+    Structured form auto-fill (IMPORTANT):
+
+    In addition to the five reference text fields, return a form_updates object.
+    This object is used to pre-fill the normal tasting note form in simple recording mode.
+
+    Only include fields that are supported by the source material or by clearly labeled
+    regional/style tendencies at the selected Tier. If the information is uncertain,
+    omit the field. Do not output null, unknown, or empty values.
+
+    Conservative rules:
+    - Do not update date, place, price, referenceUrl, wineName, rating, notes,
+      qualityScore, or readiness.
+    - For producer, vintage, importer, grape variety, and exact locality, use Tier0
+      or direct input/source information only. Do not infer these identity fields from
+      broad regional style.
+    - For appearance/aroma/palate numeric scores, use them only when the source gives
+      enough evidence to map to the app scale. If the evidence is broader or qualitative,
+      prefer the text fields appearanceOther, aromaOther, and palateNotes.
+    - Use aromaOther for aroma descriptions that do not exactly match a structured aroma term.
+    - Use palateNotes for taste/structure descriptions that are not safe to convert to scores.
+
+    Allowed form_updates fields:
+    ${searchFormFillableFields.join(', ')}
+
+    Enum values:
+    - wineType: ${wineTypes.join(' | ')}
+    - country: ${countries.join(' | ')}
+    - mainVariety: ${mainVarieties.join(' | ')}
+      If the main grape is not in this list, use 赤その他 or 白その他 only when the color/style is clear,
+      and put the exact grape/blend in otherVarieties.
+    - clarity: 澄んだ | 深みのある | やや濁った | 濁った
+    - brightness: 輝きのある | 艶のある | モヤがかった
+    - sparkleIntensity: 弱い | やや弱い | 中程度 | やや強い | 強い
+    - noseCondition: 不快 (Unclean) | 良好 (Clean)
+    - development: 若い | 熟成中 | 熟成した | ピークを過ぎた/疲れている
+
+    Numeric scales:
+    - intensity/color/noseIntensity/acidityScore/tanninScore/bodyScore/finishScore: 0-10
+    - oldNewWorld/fruitsMaturity/aromaNeutrality/oakAroma: 1-5
+    - sweetness: 1-6 (1=辛口, 2=オフドライ, 3=中辛口, 4=中甘口, 5=甘口, 6=極甘口)
+    - alcoholABV: alcohol percentage only
+
+    Qualitative mapping for 0-10 sensory scores:
+    low/weak=2, medium(-)=4, medium=5, medium(+)=6.5, high/strong=8, pronounced=9.
+
+    Structured aroma terms:
+    ${searchFormAromaTermList}
+
+    --------------------------------------------------
     Output format:
 
     Return STRICTLY a valid JSON object (no markdown, no code blocks)
@@ -1363,8 +1558,10 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
     3. technical_details
     4. vintage_analysis
     5. search_result_tasting_note
+    6. form_updates
 
-    Each field must be a single Japanese text string.
+    The five reference fields must each be a single Japanese text string.
+    form_updates must be a JSON object and may be empty: {}.
     Do not use markdown or code blocks. Use plain text in a structured way.
 
     --------------------------------------------------
@@ -1391,10 +1588,13 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
         const text = response.text();
 
         // Clean up markdown code blocks if present
-        const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+        const cleanedText = cleanJsonText(text);
 
         const data = JSON.parse(cleanedText) as GroundingData;
-        return data;
+        return {
+            ...data,
+            form_updates: sanitizeSearchFormUpdates(data.form_updates),
+        };
     } catch (error: unknown) {
         console.error("Gemini Search Error Full:", error);
         throw new Error(`Failed to fetch wine details: ${getErrorMessage(error)}`);

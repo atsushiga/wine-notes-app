@@ -28,6 +28,9 @@ import AromaSelector from '@/components/AromaSelector';
 import { FieldRow } from '@/components/ui/field-row';
 import { FORM_CONTROL_BASE } from '@/constants/styles';
 import { SimpleRecordingControls } from '@/components/wine/form/SimpleRecordingControls';
+import { countries, mainVarieties, wineTypes } from '@/constants/wine';
+
+export { countries, mainVarieties, wineTypes } from '@/constants/wine';
 
 // === 定義：画像シートを意識した選択肢 ===
 function removeUndefined<T extends object>(obj: T): Partial<T> {
@@ -149,24 +152,6 @@ const apperance = {
         { label: 'モヤがかった', score: -1 },
     ],
 };
-
-// ワインの種類
-export const wineTypes = ['赤', '白', 'ロゼ', 'オレンジ', '発泡白', '発泡ロゼ'] as const;
-
-export const countries = [
-    'フランス', 'イタリア', 'スペイン', 'ドイツ', 'オーストリア', 'スイス',
-    'アメリカ', 'カナダ', 'チリ', 'アルゼンチン', 'オーストラリア', 'ニュージーランド',
-    '日本', '南アフリカ', 'ポルトガル', 'ギリシャ', 'ジョージア', 'その他'
-] as const;
-
-export const mainVarieties = [
-    // 赤寄り
-    'ピノ・ノワール', 'カベルネ・ソーヴィニヨン', 'メルロ', 'シラー/シラーズ',
-    'サンジョヴェーゼ', 'ネッビオーロ', 'グルナッシュ', 'ジンファンデル', '赤その他',
-    // 白寄り
-    'シャルドネ', 'ソーヴィニヨン・ブラン', 'リースリング', 'シュナン・ブラン',
-    'ピノ・グリ', 'ヴィオニエ', 'ゲヴュルツトラミネール', 'アルバリーニョ', '白その他'
-] as const;
 
 // 代表的アロマ (Legacy - moved to SAT_AROMA_DEFINITIONS in AromaSelector)
 
@@ -322,6 +307,57 @@ const voiceReplaceableDefaults: Partial<Record<keyof WineFormValues, unknown>> =
     readiness: '今飲めるが熟成可能',
     rating: 3.5,
     notes: '',
+};
+
+const aiSearchWritableFields = [
+    'producer',
+    'country',
+    'locality',
+    'region',
+    'mainVariety',
+    'otherVarieties',
+    'additionalInfo',
+    'vintage',
+    'importer',
+    'wineType',
+    'clarity',
+    'brightness',
+    'sparkleIntensity',
+    'appearanceOther',
+    'intensity',
+    'color',
+    'noseIntensity',
+    'noseCondition',
+    'development',
+    'oldNewWorld',
+    'fruitsMaturity',
+    'aromaNeutrality',
+    'oakAroma',
+    'aromas',
+    'aromaOther',
+    'sweetness',
+    'acidityScore',
+    'tanninScore',
+    'bodyScore',
+    'alcoholABV',
+    'finishScore',
+    'palateNotes',
+] as const satisfies readonly (keyof WineFormValues)[];
+
+type AiSearchWritableField = typeof aiSearchWritableFields[number];
+
+const aiSearchReplaceableDefaults: Partial<Record<keyof WineFormValues, unknown>> = {
+    ...voiceReplaceableDefaults,
+    producer: '',
+    country: '',
+    locality: '',
+    region: '',
+    mainVariety: '',
+    otherVarieties: '',
+    additionalInfo: '',
+    vintage: '2022',
+    importer: '',
+    wineType: '赤',
 };
 
 function serializeVoiceValue(value: unknown) {
@@ -567,6 +603,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         setVoiceTranscript('');
         setTranscriptPanelOpen(false);
         voiceFieldValuesRef.current = {};
+        aiSearchFieldValuesRef.current = {};
     };
 
     const handleClear = () => {
@@ -643,6 +680,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         setVoiceTranscript('');
         setTranscriptPanelOpen(false);
         voiceFieldValuesRef.current = {};
+        aiSearchFieldValuesRef.current = {};
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -851,6 +889,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
     const [placeSuggestions, setPlaceSuggestions] = useState<string[]>([]);
     const voiceTranscriptRef = useRef('');
     const voiceFieldValuesRef = useRef<Partial<Record<keyof WineFormValues, string>>>({});
+    const aiSearchFieldValuesRef = useRef<Partial<Record<keyof WineFormValues, string>>>({});
 
     useEffect(() => {
         let isMounted = true;
@@ -940,6 +979,47 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         }
     };
 
+    const canApplyAiSearchUpdate = useCallback((field: AiSearchWritableField) => {
+        const currentValue = getValues(field);
+        const currentSerialized = serializeVoiceValue(currentValue);
+        const lastAiSearchValue = aiSearchFieldValuesRef.current[field];
+
+        if (lastAiSearchValue !== undefined) {
+            return currentSerialized === lastAiSearchValue;
+        }
+
+        if (isEmptyVoiceValue(currentValue)) {
+            return true;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(aiSearchReplaceableDefaults, field)) {
+            return currentSerialized === serializeVoiceValue(aiSearchReplaceableDefaults[field]);
+        }
+
+        return false;
+    }, [getValues]);
+
+    const applyAiSearchUpdates = useCallback((updates: Record<string, unknown>) => {
+        for (const [key, rawValue] of Object.entries(updates)) {
+            if (!aiSearchWritableFields.includes(key as AiSearchWritableField)) continue;
+
+            const field = key as AiSearchWritableField;
+            if (!canApplyAiSearchUpdate(field)) continue;
+
+            let value = rawValue;
+            if (field === 'aromas' && Array.isArray(rawValue)) {
+                value = Array.from(new Set(rawValue.filter((item): item is string => typeof item === 'string' && item.trim() !== '')));
+            }
+
+            if (field === 'wineType' && (typeof value !== 'string' || !wineTypes.includes(value as (typeof wineTypes)[number]))) continue;
+            if (field === 'country' && (typeof value !== 'string' || !countries.includes(value as (typeof countries)[number]))) continue;
+            if (field === 'mainVariety' && (typeof value !== 'string' || !mainVarieties.includes(value as (typeof mainVarieties)[number]))) continue;
+
+            setValue(field, value as never, { shouldDirty: true });
+            aiSearchFieldValuesRef.current[field] = serializeVoiceValue(value);
+        }
+    }, [canApplyAiSearchUpdate, setValue]);
+
 
     const handleAiSearch = async (options?: { silentIfMissingName?: boolean; revealOnSuccess?: boolean }): Promise<boolean> => {
         const name = getValues('wineName');
@@ -973,6 +1053,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             setValue('technical_details', result.technical_details, { shouldDirty: true });
             setValue('vintage_analysis', result.vintage_analysis, { shouldDirty: true });
             setValue('search_result_tasting_note', result.search_result_tasting_note, { shouldDirty: true });
+            if (simpleMode && result.form_updates) {
+                applyAiSearchUpdates(result.form_updates as Record<string, unknown>);
+            }
             if (options?.revealOnSuccess) {
                 window.setTimeout(() => {
                     document.getElementById('ai-deep-dive')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
