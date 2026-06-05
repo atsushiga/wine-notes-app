@@ -3,9 +3,14 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   onboarding_state text default 'pending',
   default_input_mode text not null default 'simple' check (default_input_mode in ('simple', 'detailed')),
+  simple_auto_image_optimize boolean not null default true,
+  simple_auto_wine_name_search boolean not null default true,
+  simple_auto_ai_info boolean not null default true,
   display_name text,
   created_at timestamptz default now(),
-  updated_at timestamptz default now()
+  updated_at timestamptz default now(),
+  constraint profiles_simple_ai_info_requires_wine_name_search
+    check (simple_auto_wine_name_search or not simple_auto_ai_info)
 );
 
 -- RLS: select/update own profile only

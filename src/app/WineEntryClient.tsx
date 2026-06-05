@@ -2,6 +2,7 @@
 
 import React, { useRef, useState } from 'react';
 import WineForm, { WineFormHandle, WineFormValues } from '@/components/WineForm';
+import { defaultSimpleAiAutomationSettings, type SimpleAiAutomationSettings } from '@/lib/simpleAiAutomation';
 import { ContentContainer } from '@/components/layout/ContentContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Mic, RotateCcw, SlidersHorizontal } from 'lucide-react';
@@ -10,9 +11,10 @@ export type InputMode = 'simple' | 'detailed';
 
 interface WineEntryClientProps {
   defaultInputMode: InputMode;
+  simpleAiAutomation: SimpleAiAutomationSettings;
 }
 
-export default function WineEntryClient({ defaultInputMode }: WineEntryClientProps) {
+export default function WineEntryClient({ defaultInputMode, simpleAiAutomation }: WineEntryClientProps) {
   const [sent, setSent] = useState<null | { ok: boolean; id?: string; error?: string }>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [simpleMode, setSimpleMode] = useState(defaultInputMode !== 'detailed');
@@ -104,6 +106,7 @@ export default function WineEntryClient({ defaultInputMode }: WineEntryClientPro
         isSubmitting={isSubmitting}
         persistKey="wine-form-new"
         simpleMode={simpleMode}
+        simpleAiAutomation={simpleAiAutomation ?? defaultSimpleAiAutomationSettings}
       />
 
       {sent && (

@@ -925,7 +925,7 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
     return analysis;
 }
 
-export async function optimizeAndAnalyzeWineImage(imageUrl: string): Promise<WineImageOptimizationAndAnalysis> {
+export async function optimizeWineImage(imageUrl: string): Promise<{ optimizedImage: OptimizedWineImage }> {
     const originalBuffer = await downloadImageFromGcs(imageUrl);
     const [normalized, imageEditInput] = await Promise.all([
         normalizeImageForVision(originalBuffer),
@@ -948,32 +948,7 @@ export async function optimizeAndAnalyzeWineImage(imageUrl: string): Promise<Win
         uploadJpegBuffer(thumbnailBuffer, "label_thumb"),
     ]);
 
-    const analysis: WineImageAnalysis = {
-        wineName: visionResult.wineName ?? "",
-        producer: visionResult.producer ?? "",
-        vintage: visionResult.vintage ?? "",
-        country: visionResult.country ?? "",
-        locality: visionResult.locality ?? "",
-        price: parsePositiveJpyPrice(visionResult.price),
-    };
-
-    try {
-        if (analysis.locality && analysis.country) {
-            const result = await resolveLocality(analysis.country, analysis.locality);
-            if (result) {
-                console.log(`Locality resolved: "${analysis.locality}" -> "${result.name}" (ID: ${result.id})`);
-                analysis.locality = result.name;
-                analysis.locality_vocab_id = result.id;
-            } else {
-                console.log(`Locality resolution skipped or failed for "${analysis.locality}"`);
-            }
-        }
-    } catch (err) {
-        console.error("Locality resolution error (non-blocking):", err);
-    }
-
     return {
-        ...analysis,
         optimizedImage: {
             url: uploadedImage.url,
             thumbnail_url: uploadedThumbnail.url,
@@ -986,6 +961,16 @@ export async function optimizeAndAnalyzeWineImage(imageUrl: string): Promise<Win
             upscaled: optimized.upscaled,
             optimizationModel: optimized.optimizationModel,
         },
+    };
+}
+
+export async function optimizeAndAnalyzeWineImage(imageUrl: string): Promise<WineImageOptimizationAndAnalysis> {
+    const optimizedResult = await optimizeWineImage(imageUrl);
+    const analysis = await analyzeWineImage(optimizedResult.optimizedImage.url);
+
+    return {
+        ...analysis,
+        optimizedImage: optimizedResult.optimizedImage,
     };
 }
 
@@ -1285,7 +1270,7 @@ export async function interpretTastingTranscript(input: {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `
     You are helping fill a Japanese wine tasting note form from live speech transcription.

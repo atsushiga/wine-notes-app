@@ -4,8 +4,8 @@ import React, { useCallback, useEffect, useImperativeHandle, forwardRef, useLayo
 import { useForm, Controller, type Resolver } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { searchWineDetails, optimizeAndAnalyzeWineImage, interpretTastingTranscript } from '@/app/actions/gemini';
-import { Sparkles, Loader2, Eye, Wind, Grape, Award, ChevronDown, ChevronUp, BookOpen, User, Settings, Calendar, FileText, Bot, ImageIcon } from 'lucide-react';
+import { searchWineDetails, optimizeWineImage, analyzeWineImage, interpretTastingTranscript, type WineImageAnalysis } from '@/app/actions/gemini';
+import { Sparkles, Loader2, Eye, Wind, Grape, Award, ChevronDown, ChevronUp, BookOpen, User, Settings, Calendar, FileText, Bot, ImageIcon, UploadCloud, CheckCircle2, Circle, Search } from 'lucide-react';
 import { useState } from 'react';
 import { SectionCard } from '@/components/ui/section-card';
 import { LocalityCombobox } from '@/components/wine/form/LocalityCombobox';
@@ -29,6 +29,7 @@ import { FieldRow } from '@/components/ui/field-row';
 import { FORM_CONTROL_BASE } from '@/constants/styles';
 import { SimpleRecordingControls } from '@/components/wine/form/SimpleRecordingControls';
 import { countries, mainVarieties, wineTypes } from '@/constants/wine';
+import { defaultSimpleAiAutomationSettings, type SimpleAiAutomationSettings } from '@/lib/simpleAiAutomation';
 
 export { countries, mainVarieties, wineTypes } from '@/constants/wine';
 
@@ -243,6 +244,7 @@ interface WineFormProps {
     persistKey?: string; // New prop for persistence key
     onWineTypeChange?: (type: string) => void;
     simpleMode?: boolean;
+    simpleAiAutomation?: SimpleAiAutomationSettings;
 }
 
 export interface WineFormHandle {
@@ -280,6 +282,14 @@ const voiceWritableFields = [
 
 type VoiceWritableField = typeof voiceWritableFields[number];
 type DateValueOrigin = 'empty' | 'auto' | 'user' | 'savedOrDefault' | 'exif';
+type ImageAiProgressPhase = 'idle' | 'uploading' | 'imageOptimizing' | 'imageAnalyzing' | 'wineInfoAnalyzing' | 'complete' | 'error';
+
+const imageAiProgressSteps = [
+    { phase: 'uploading', label: '画像アップロード', activeText: '画像アップ中' },
+    { phase: 'imageOptimizing', label: 'AI画像補正', activeText: 'AI画像補正中' },
+    { phase: 'imageAnalyzing', label: 'AI銘柄検索', activeText: 'AI銘柄検索中' },
+    { phase: 'wineInfoAnalyzing', label: 'AIワイン情報分析', activeText: 'AIワイン情報分析中' },
+] as const satisfies readonly { phase: ImageAiProgressPhase; label: string; activeText: string }[];
 
 const voiceReplaceableDefaults: Partial<Record<keyof WineFormValues, unknown>> = {
     clarity: '澄んだ',
@@ -368,7 +378,7 @@ function isEmptyVoiceValue(value: unknown) {
     return value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
 }
 
-const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onSubmit, isSubmitting, submitLabel = '保存する', persistKey, onWineTypeChange, simpleMode = false }, ref) => {
+const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onSubmit, isSubmitting, submitLabel = '保存する', persistKey, onWineTypeChange, simpleMode = false, simpleAiAutomation = defaultSimpleAiAutomationSettings }, ref) => {
     const dateValueOriginRef = useRef<DateValueOrigin>(defaultValues?.date ? 'savedOrDefault' : 'empty');
     const { register, handleSubmit, control, watch, setValue, getValues, reset, formState: { errors } } = useForm<WineFormValues>({
         defaultValues: {
@@ -599,6 +609,8 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
         // Also clear any "search result" state
         setIsAiExpanded(false);
+        setImageAiProgressPhase('idle');
+        setIsImageDragActive(false);
         voiceTranscriptRef.current = '';
         setVoiceTranscript('');
         setTranscriptPanelOpen(false);
@@ -676,6 +688,8 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         dateValueOriginRef.current = 'auto';
 
         setIsAiExpanded(false);
+        setImageAiProgressPhase('idle');
+        setIsImageDragActive(false);
         voiceTranscriptRef.current = '';
         setVoiceTranscript('');
         setTranscriptPanelOpen(false);
@@ -702,6 +716,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
     const wineType = watch('wineType');
     const wineNameValue = watch('wineName');
     const hasWineName = !!wineNameValue;
+    const hasSearchableImage = !!(watch('images')?.[0]?.url || watch('imageUrl'));
     const hasAiFormData = !!(
         watch('terroir_info') ||
         watch('producer_philosophy') ||
@@ -709,7 +724,6 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         watch('vintage_analysis') ||
         watch('search_result_tasting_note')
     );
-
     useEffect(() => {
         document.body.setAttribute('data-winetype', wineType ?? '');
         if (onWineTypeChange && wineType) {
@@ -819,6 +833,11 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
     const handleFilesSelect = async (files: FileList | null, options?: { autoAi?: boolean }) => {
         if (!files || files.length === 0) return;
+        const shouldRunSimpleAiFlow = !!options?.autoAi && simpleAutoAiEnabled;
+
+        if (shouldRunSimpleAiFlow) {
+            setImageAiProgressPhase('uploading');
+        }
 
         await applyExifCaptureDateFromFirstPhoto(files[0]);
 
@@ -861,9 +880,11 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             const nextImages = [...currentImages, ...newImages];
             setValue('images', nextImages, { shouldDirty: true });
 
-            if (options?.autoAi) {
+            if (shouldRunSimpleAiFlow) {
                 await runSimpleImageAiFlow(newImages[0].url);
             }
+        } else if (shouldRunSimpleAiFlow) {
+            setImageAiProgressPhase('error');
         }
     };
 
@@ -882,7 +903,10 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [isWineNameSearching, setIsWineNameSearching] = useState(false);
     const [isAiExpanded, setIsAiExpanded] = useState(false);
+    const [imageAiProgressPhase, setImageAiProgressPhase] = useState<ImageAiProgressPhase>('idle');
+    const [isImageDragActive, setIsImageDragActive] = useState(false);
     const [voiceTranscript, setVoiceTranscript] = useState('');
     const [isInterpretingTranscript, setIsInterpretingTranscript] = useState(false);
     const [transcriptPanelOpen, setTranscriptPanelOpen] = useState(false);
@@ -890,6 +914,30 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
     const voiceTranscriptRef = useRef('');
     const voiceFieldValuesRef = useRef<Partial<Record<keyof WineFormValues, string>>>({});
     const aiSearchFieldValuesRef = useRef<Partial<Record<keyof WineFormValues, string>>>({});
+    const effectiveSimpleAiAutomation: SimpleAiAutomationSettings = {
+        imageOptimize: simpleAiAutomation.imageOptimize,
+        wineNameSearch: simpleAiAutomation.wineNameSearch,
+        aiInfo: simpleAiAutomation.wineNameSearch && simpleAiAutomation.aiInfo,
+    };
+    const simpleAutoAiEnabled = effectiveSimpleAiAutomation.imageOptimize || effectiveSimpleAiAutomation.wineNameSearch || effectiveSimpleAiAutomation.aiInfo;
+    const uploadAiNotice = simpleMode
+        ? (simpleAutoAiEnabled ? 'アップロード後、AI分析が自動で始まります' : 'アップロード後のAI自動実行は設定でオフです')
+        : '複数枚まとめてアップロードできます';
+    const visibleImageAiProgressSteps = imageAiProgressSteps.filter((step) => (
+        step.phase === 'uploading' ||
+        (step.phase === 'imageOptimizing' && effectiveSimpleAiAutomation.imageOptimize) ||
+        (step.phase === 'imageAnalyzing' && effectiveSimpleAiAutomation.wineNameSearch) ||
+        (step.phase === 'wineInfoAnalyzing' && effectiveSimpleAiAutomation.aiInfo)
+    ));
+    const imageAiProgressActiveIndex = visibleImageAiProgressSteps.findIndex((step) => step.phase === imageAiProgressPhase);
+    const imageAiProgressStatusText =
+        imageAiProgressPhase === 'complete'
+            ? '自動入力が完了しました'
+            : imageAiProgressPhase === 'error'
+                ? '自動入力を完了できませんでした'
+                : visibleImageAiProgressSteps[imageAiProgressActiveIndex]?.activeText ?? '自動入力を準備中';
+    const showImageAiProgress = simpleMode && imageAiProgressPhase !== 'idle' && visibleImageAiProgressSteps.length > 0;
+    const aiActionButtonClass = "inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-blue-500/20 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50";
 
     useEffect(() => {
         let isMounted = true;
@@ -918,14 +966,32 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
     }, []);
 
 
-    const handleImageOptimizeAndAnalyze = async (targetImageUrl?: string): Promise<boolean> => {
+    const applyWineImageAnalysis = (result: WineImageAnalysis) => {
+        if (result.wineName) setValue('wineName', result.wineName, { shouldDirty: true });
+        if (result.producer) setValue('producer', result.producer, { shouldDirty: true });
+        if (result.vintage) setValue('vintage', result.vintage, { shouldDirty: true });
+        if (result.country) setValue('country', result.country, { shouldDirty: true });
+        if (result.locality) {
+            setValue('locality', result.locality, { shouldDirty: true });
+            setValue('locality_vocab_id', result.locality_vocab_id ?? null, { shouldDirty: true });
+        }
+        if (result.price !== null && result.price !== undefined && result.price > 0) {
+            setValue('price', String(result.price), { shouldDirty: true });
+        }
+    };
+
+    const handleImageOptimize = async (targetImageUrl?: string, options?: { showProgress?: boolean }): Promise<string | null> => {
         const currentImages = getValues('images') || [];
         const targetUrl = targetImageUrl || currentImages[0]?.url || getValues('imageUrl');
-        if (!targetUrl) return false;
+        if (!targetUrl) return null;
 
         try {
             setIsAnalyzing(true);
-            const result = await optimizeAndAnalyzeWineImage(targetUrl);
+            if (options?.showProgress) {
+                setImageAiProgressPhase('imageOptimizing');
+            }
+
+            const result = await optimizeWineImage(targetUrl);
 
             if (result.optimizedImage) {
                 const optimized = result.optimizedImage;
@@ -956,26 +1022,47 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 setValue('images', nextImages, { shouldDirty: true });
 
                 setValue('imageUrl', optimized.url, { shouldDirty: true });
+                return optimized.url;
             }
 
-            if (result.wineName) setValue('wineName', result.wineName, { shouldDirty: true });
-            if (result.producer) setValue('producer', result.producer, { shouldDirty: true });
-            if (result.vintage) setValue('vintage', result.vintage, { shouldDirty: true });
-            if (result.country) setValue('country', result.country, { shouldDirty: true });
-            if (result.locality) {
-                setValue('locality', result.locality, { shouldDirty: true });
-                setValue('locality_vocab_id', result.locality_vocab_id ?? null, { shouldDirty: true });
+            return targetUrl;
+        } catch (e) {
+            console.error(e);
+            if (options?.showProgress) {
+                setImageAiProgressPhase('error');
             }
-            if (result.price !== null && result.price !== undefined && result.price > 0) {
-                setValue('price', String(result.price), { shouldDirty: true });
+            alert('画像補正に失敗しました');
+            return null;
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    const handleWineNameSearch = async (targetImageUrl?: string, options?: { showProgress?: boolean }): Promise<boolean> => {
+        const currentImages = getValues('images') || [];
+        const targetUrl = targetImageUrl || currentImages[0]?.url || getValues('imageUrl');
+        if (!targetUrl) {
+            alert('銘柄検索に使う画像をアップロードしてください');
+            return false;
+        }
+
+        try {
+            setIsWineNameSearching(true);
+            if (options?.showProgress) {
+                setImageAiProgressPhase('imageAnalyzing');
             }
+            const result = await analyzeWineImage(targetUrl);
+            applyWineImageAnalysis(result);
             return true;
         } catch (e) {
             console.error(e);
-            alert('画像補正と銘柄検索に失敗しました');
+            if (options?.showProgress) {
+                setImageAiProgressPhase('error');
+            }
+            alert('AI銘柄検索に失敗しました');
             return false;
         } finally {
-            setIsAnalyzing(false);
+            setIsWineNameSearching(false);
         }
     };
 
@@ -1072,10 +1159,36 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
     };
 
     const runSimpleImageAiFlow = async (targetImageUrl?: string) => {
-        const analyzed = await handleImageOptimizeAndAnalyze(targetImageUrl);
-        if (!analyzed) return;
+        let aiTargetImageUrl = targetImageUrl;
 
-        await handleAiSearch({ silentIfMissingName: true, revealOnSuccess: true });
+        if (effectiveSimpleAiAutomation.imageOptimize) {
+            const optimizedUrl = await handleImageOptimize(aiTargetImageUrl, { showProgress: true });
+            if (!optimizedUrl) return;
+            aiTargetImageUrl = optimizedUrl;
+        }
+
+        if (effectiveSimpleAiAutomation.wineNameSearch) {
+            const searched = await handleWineNameSearch(aiTargetImageUrl, { showProgress: true });
+            if (!searched) return;
+        }
+
+        if (effectiveSimpleAiAutomation.aiInfo) {
+            if (!getValues('wineName')) {
+                setImageAiProgressPhase('complete');
+                return;
+            }
+
+            setImageAiProgressPhase('wineInfoAnalyzing');
+            const searched = await handleAiSearch({ silentIfMissingName: true, revealOnSuccess: true });
+            setImageAiProgressPhase(searched ? 'complete' : 'error');
+            return;
+        }
+
+        setImageAiProgressPhase('complete');
+    };
+
+    const handleManualImageOptimize = async () => {
+        await handleImageOptimize();
     };
 
     const handleAiJump = () => {
@@ -1169,20 +1282,108 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         voiceFieldValuesRef.current = {};
     }, []);
 
+    const handleImageDragEvent = (event: React.DragEvent<HTMLLabelElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
+    const handleImageDrop = (event: React.DragEvent<HTMLLabelElement>) => {
+        handleImageDragEvent(event);
+        setIsImageDragActive(false);
+        void handleFilesSelect(event.dataTransfer.files, { autoAi: simpleMode });
+    };
+
     const imageUploadFields = (
         <>
-            <label className="block text-sm font-medium text-[var(--text)] mb-2">写真（複数選択可）</label>
-            <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="block w-full text-sm text-[var(--text-muted)] rounded-full border border-[var(--border)] p-2 bg-[var(--input-bg)]"
-                onChange={(e) => {
-                    void handleFilesSelect(e.target.files, { autoAi: simpleMode });
-                    // Clear input so same files can be selected again if needed?
-                    // e.target.value = ''; // Be careful with this in react
+            <label
+                className={`flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border bg-[var(--input-bg)] px-4 py-3 text-left transition-colors sm:min-h-40 sm:flex-col sm:justify-center sm:border-2 sm:border-dashed sm:px-6 sm:py-8 sm:text-center ${isImageDragActive
+                    ? 'border-[var(--primary)] bg-[var(--surface-2)]'
+                    : 'border-[var(--input-border)] hover:border-[var(--primary)] hover:bg-[var(--surface-2)]'
+                }`}
+                onDragEnter={(event) => {
+                    handleImageDragEvent(event);
+                    setIsImageDragActive(true);
                 }}
-            />
+                onDragOver={(event) => {
+                    handleImageDragEvent(event);
+                    event.dataTransfer.dropEffect = 'copy';
+                    setIsImageDragActive(true);
+                }}
+                onDragLeave={(event) => {
+                    handleImageDragEvent(event);
+                    setIsImageDragActive(false);
+                }}
+                onDrop={handleImageDrop}
+            >
+                <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="sr-only"
+                    onChange={(e) => {
+                        void handleFilesSelect(e.target.files, { autoAi: simpleMode });
+                        e.target.value = '';
+                    }}
+                />
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] sm:h-14 sm:w-14">
+                    {isAnalyzing || imageAiProgressPhase === 'uploading' ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                        <UploadCloud className="h-5 w-5 sm:h-6 sm:w-6" />
+                    )}
+                </span>
+                <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-[var(--text)]">写真を選択</span>
+                    <span className="mt-0.5 block text-xs leading-5 text-[var(--text-muted)] sm:hidden">{uploadAiNotice}</span>
+                    <span className="mt-1 hidden text-sm leading-6 text-[var(--text-muted)] sm:block">
+                        クリック、または画像をここへドラッグ&ドロップ
+                    </span>
+                    <span className="mt-1 hidden text-xs text-[var(--text-muted)] sm:block">
+                        {uploadAiNotice}
+                    </span>
+                </span>
+            </label>
+
+            {showImageAiProgress && (
+                <div className={`mt-4 rounded-xl border p-3 ${imageAiProgressPhase === 'error'
+                    ? 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--text)]'
+                    : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--text)]'
+                }`}>
+                    <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold">{imageAiProgressStatusText}</p>
+                        {(isAnalyzing || isAiLoading || imageAiProgressPhase === 'uploading') && (
+                            <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[var(--text-muted)]" />
+                        )}
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                        {visibleImageAiProgressSteps.map((step, index) => {
+                            const isComplete = imageAiProgressPhase === 'complete' || (imageAiProgressActiveIndex > index && imageAiProgressPhase !== 'error');
+                            const isActive = imageAiProgressActiveIndex === index && imageAiProgressPhase !== 'complete' && imageAiProgressPhase !== 'error';
+
+                            return (
+                                <div
+                                    key={step.phase}
+                                    className={`flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-xs ${isComplete
+                                        ? 'border-[var(--border)] bg-[var(--card-bg)] text-[var(--text-muted)]'
+                                        : isActive
+                                            ? 'border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--text)]'
+                                            : 'border-[var(--border)] bg-[var(--card-bg)] text-[var(--text-muted)]'
+                                    }`}
+                                >
+                                    {isComplete ? (
+                                        <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                    ) : isActive ? (
+                                        <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                                    ) : (
+                                        <Circle className="h-4 w-4 shrink-0" />
+                                    )}
+                                    <span className="truncate">{step.label}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {(watch('images')?.length ?? 0) > 0 && (
                 <div className="sm:col-span-3 mt-4 grid grid-cols-3 sm:grid-cols-4 gap-4">
@@ -1218,12 +1419,12 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     <div className="mt-2">
                         <button
                             type="button"
-                            onClick={() => void handleImageOptimizeAndAnalyze()}
+                            onClick={() => void handleManualImageOptimize()}
                             disabled={isAnalyzing}
-                            className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold rounded-md shadow-sm hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                            className={aiActionButtonClass}
                         >
-                            {isAnalyzing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                            AI画像補正&銘柄検索
+                            {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                            AI画像補正
                         </button>
                         {simpleMode && (isAnalyzing || isAiLoading) ? (
                             <p className="text-[10px] text-[var(--text-muted)] mt-1">写真から自動入力しています</p>
@@ -1339,32 +1540,57 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         </FieldRow>
     );
 
+    const personalNotesField = (
+        <FieldRow label="寸評 (Notes)">
+            <textarea className={`${FORM_CONTROL_BASE} h-28`} {...register('notes')} placeholder="自由記述" />
+        </FieldRow>
+    );
+
     const aiInfoTextareaClass = `${FORM_CONTROL_BASE} text-sm`;
 
     const aiInfoSection = (
         <section id="ai-deep-dive" className="rounded-2xl bg-[var(--card-bg)] p-4 border border-[var(--border)]">
-            <button
-                type="button"
-                onClick={() => setIsAiExpanded(!isAiExpanded)}
-                className="w-full flex items-center justify-between group"
-            >
-                <div className="flex items-center gap-2">
-                    <div className="bg-purple-100 p-2 rounded-full">
-                        <Sparkles className="w-5 h-5 text-purple-600" />
+            <div className="flex items-start justify-between gap-3">
+                <button
+                    type="button"
+                    onClick={() => setIsAiExpanded(!isAiExpanded)}
+                    className="group flex min-w-0 flex-1 items-center gap-2 text-left"
+                >
+                    <div className="bg-[var(--surface-2)] p-2 rounded-full border border-[var(--border)]">
+                        <Sparkles className="w-5 h-5 text-[var(--text-muted)]" />
                     </div>
-                    <div className="text-left">
+                    <div className="min-w-0">
                         <h2 className="font-bold text-[var(--text)]">AI情報</h2>
                         <p className="text-xs text-[var(--text-muted)]">
-                            {isAiLoading ? 'Web上の専門情報を検索中' : hasAiFormData ? '取得済みの参考情報を確認' : 'ワイン情報パネル右上から取得'}
+                            {isAiLoading ? 'Web上の専門情報を検索中' : hasAiFormData ? '取得済みの参考情報を確認' : 'AI情報パネル右上から取得'}
                         </p>
                     </div>
+                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => void handleAiSearch({ revealOnSuccess: simpleMode })}
+                        disabled={isAiLoading || !hasWineName}
+                        title={hasWineName ? 'AI情報を取得' : 'ワイン名を入力してください'}
+                        className={aiActionButtonClass}
+                    >
+                        {isAiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        <span>AI情報取得</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setIsAiExpanded(!isAiExpanded)}
+                        aria-label={isAiExpanded ? 'AI情報を閉じる' : 'AI情報を開く'}
+                        className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                    >
+                        {isAiExpanded ? (
+                            <ChevronUp className="w-5 h-5" />
+                        ) : (
+                            <ChevronDown className="w-5 h-5" />
+                        )}
+                    </button>
                 </div>
-                {isAiExpanded ? (
-                    <ChevronUp className="w-5 h-5 text-gray-400" />
-                ) : (
-                    <ChevronDown className="w-5 h-5 text-[var(--text-muted)] group-hover:text-[var(--text)]" />
-                )}
-            </button>
+            </div>
 
             {isAiExpanded && (
                 <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -1583,13 +1809,13 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 right={
                     <button
                         type="button"
-                        onClick={() => void handleAiSearch({ revealOnSuccess: simpleMode })}
-                        disabled={isAiLoading || !hasWineName}
-                        title={hasWineName ? 'AI情報を取得' : 'ワイン名を入力してください'}
-                        className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={() => void handleWineNameSearch()}
+                        disabled={isWineNameSearching || !hasSearchableImage}
+                        title={hasSearchableImage ? '画像から銘柄を検索' : '画像をアップロードしてください'}
+                        className={aiActionButtonClass}
                     >
-                        {isAiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                        AI情報取得
+                        {isWineNameSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        AI銘柄検索
                     </button>
                 }
             >
@@ -1664,7 +1890,10 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
             {simpleMode && (
                 <SectionCard title="個人的な好み" icon={<Award size={18} />} tone="focus">
-                    {personalRatingField}
+                    <div className="space-y-6">
+                        {personalRatingField}
+                        {personalNotesField}
+                    </div>
                 </SectionCard>
             )}
 
@@ -2069,9 +2298,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         </FieldRow>
                     </div>
 
-                    <FieldRow label="寸評 (Notes)">
-                        <textarea className={`${FORM_CONTROL_BASE} h-28`} {...register('notes')} placeholder="自由記述" />
-                    </FieldRow>
+                    {!simpleMode && personalNotesField}
 
                     {!simpleMode && (
                         <div className="pt-6 border-t border-gray-100">
