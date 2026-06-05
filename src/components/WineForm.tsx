@@ -1489,7 +1489,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
     return (
         <form
             onSubmit={handleSubmit(handleFormSubmit)}
-            className={`w-full space-y-8 ${simpleMode && transcriptPanelOpen ? 'pb-[calc(25vh+12rem)]' : 'pb-24'}`}
+            className={`w-full space-y-8 ${simpleMode && transcriptPanelOpen ? 'pb-[calc(25vh+10rem+env(safe-area-inset-bottom))]' : 'pb-[calc(8rem+env(safe-area-inset-bottom))]'}`}
         >
             <SimpleRecordingControls
                 enabled={simpleMode}
@@ -1507,7 +1507,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     onClick={handleAiJump}
                     title="AI情報へ移動"
                     aria-label="AI情報へ移動"
-                    className="fixed right-4 bottom-32 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
+                    className="fixed right-4 bottom-32 z-40 hidden h-12 w-12 items-center justify-center rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg transition-transform hover:scale-105 active:scale-95 sm:flex"
                 >
                     {isAiLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Bot className="h-6 w-6" />}
                 </button>
@@ -2083,7 +2083,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
             {!simpleMode && aiInfoSection}
 
-            <section className={`sticky z-20 rounded-2xl bg-[var(--card-bg)]/90 backdrop-blur-sm p-4 shadow-lg border border-[var(--border)] mt-8 space-y-2 ${simpleMode && transcriptPanelOpen ? 'bottom-[calc(25vh+1rem)]' : 'bottom-18'}`}>
+            <section className={`z-20 mt-8 space-y-2 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]/95 p-2 shadow-lg backdrop-blur-sm sm:sticky sm:rounded-2xl sm:p-4 ${simpleMode && transcriptPanelOpen ? 'sm:bottom-[calc(25vh+5.5rem+env(safe-area-inset-bottom))]' : 'sm:bottom-[calc(4rem+1rem+env(safe-area-inset-bottom))]'}`}>
                 {Object.keys(errors).length > 0 && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 mb-2">
                         <p className="font-bold">入力内容に不備があります。</p>
@@ -2096,23 +2096,23 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         </ul>
                     </div>
                 )}
-                <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-                    <div className="w-full sm:w-auto">
+                <div className="flex flex-row items-center justify-between gap-2 sm:gap-3">
+                    <div className="w-[38%] sm:w-auto">
                         <button
                             type="button"
                             onClick={handleSaveDraft}
                             disabled={isSubmitting}
-                            className="w-full sm:w-auto px-6 py-3 bg-[var(--app-bg)] text-[var(--text-muted)] font-bold rounded-xl shadow-sm hover:bg-[var(--border)] transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border)]"
+                            className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--app-bg)] px-3 text-sm font-bold text-[var(--text-muted)] shadow-sm transition-all hover:bg-[var(--border)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-auto sm:w-auto sm:rounded-xl sm:px-6 sm:py-3 sm:text-base"
                         >
                             {isSubmitting ? '保存中...' : '一時保存'}
                         </button>
                     </div>
-                    <div className="w-full sm:w-2/3">
+                    <div className="flex-1 sm:w-2/3 sm:flex-none">
                         <button
                             type="submit"
                             onClick={handlePublish}
                             disabled={isSubmitting}
-                            className="w-full px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 border border-blue-500/20"
+                            className="h-11 w-full rounded-lg border border-blue-500/20 bg-gradient-to-r from-blue-600 to-indigo-600 px-5 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 sm:h-auto sm:rounded-xl sm:px-8 sm:py-3 sm:text-base sm:hover:scale-[1.02]"
                         >
                             {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : submitLabel}
                         </button>

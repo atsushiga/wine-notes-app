@@ -52,7 +52,7 @@ export default function WineEntryClient({ defaultInputMode }: WineEntryClientPro
   };
 
   const modeButtonClass = (active: boolean) => (
-    `inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${active
+    `inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] sm:flex-none ${active
       ? 'bg-[var(--text)] text-[var(--card-bg)] shadow-sm'
       : 'text-[var(--text-muted)] hover:bg-[var(--card-bg)] hover:text-[var(--text)]'
     }`
@@ -66,7 +66,7 @@ export default function WineEntryClient({ defaultInputMode }: WineEntryClientPro
         accentColor="var(--accent)"
         actions={
           <>
-            <div className="inline-flex rounded-full border border-[var(--border)] bg-[var(--surface-2)] p-1 shadow-sm">
+            <div className="inline-flex w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] p-1 shadow-sm sm:w-auto">
               <button
                 type="button"
                 onClick={() => setSimpleMode(true)}
@@ -89,7 +89,7 @@ export default function WineEntryClient({ defaultInputMode }: WineEntryClientPro
             <button
               type="button"
               onClick={handleClear}
-              className="flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
+              className="ml-auto inline-flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-1.5 text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
             >
               <RotateCcw size={16} />
               <span>入力をクリア</span>
