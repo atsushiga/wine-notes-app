@@ -831,22 +831,23 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         dateValueOriginRef.current = 'exif';
     };
 
-    const handleFilesSelect = async (files: FileList | null, options?: { autoAi?: boolean }) => {
-        if (!files || files.length === 0) return;
+    const handleFilesSelect = async (files: FileList | File[] | null, options?: { autoAi?: boolean }) => {
+        const selectedFiles = Array.from(files ?? []);
+        if (selectedFiles.length === 0) return;
         const shouldRunSimpleAiFlow = !!options?.autoAi && simpleAutoAiEnabled;
 
         if (shouldRunSimpleAiFlow) {
             setImageAiProgressPhase('uploading');
         }
 
-        await applyExifCaptureDateFromFirstPhoto(files[0]);
+        await applyExifCaptureDateFromFirstPhoto(selectedFiles[0]);
 
         const newImages: WineImageValue[] = [];
         const currentImages = getValues('images') || [];
         const orderOffset = currentImages.length;
 
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
+        for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
             try {
                 // 1. Generate Thumbnail
                 const thumbnailBlob = await generateThumbnail(file, 400); // slightly larger max just in case
@@ -1321,7 +1322,8 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     multiple
                     className="sr-only"
                     onChange={(e) => {
-                        void handleFilesSelect(e.target.files, { autoAi: simpleMode });
+                        const selectedFiles = Array.from(e.currentTarget.files ?? []);
+                        void handleFilesSelect(selectedFiles, { autoAi: simpleMode });
                         e.target.value = '';
                     }}
                 />
