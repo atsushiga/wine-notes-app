@@ -2,6 +2,7 @@
 
 import React, { useRef, useState } from 'react';
 import WineForm, { WineFormHandle, WineFormValues } from '@/components/WineForm';
+import { defaultSimpleAiAutomationSettings, type SimpleAiAutomationSettings } from '@/lib/simpleAiAutomation';
 import { ContentContainer } from '@/components/layout/ContentContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Mic, RotateCcw, SlidersHorizontal } from 'lucide-react';
@@ -10,9 +11,10 @@ export type InputMode = 'simple' | 'detailed';
 
 interface WineEntryClientProps {
   defaultInputMode: InputMode;
+  simpleAiAutomation: SimpleAiAutomationSettings;
 }
 
-export default function WineEntryClient({ defaultInputMode }: WineEntryClientProps) {
+export default function WineEntryClient({ defaultInputMode, simpleAiAutomation }: WineEntryClientProps) {
   const [sent, setSent] = useState<null | { ok: boolean; id?: string; error?: string }>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [simpleMode, setSimpleMode] = useState(defaultInputMode !== 'detailed');
@@ -52,7 +54,7 @@ export default function WineEntryClient({ defaultInputMode }: WineEntryClientPro
   };
 
   const modeButtonClass = (active: boolean) => (
-    `inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${active
+    `inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] sm:flex-none ${active
       ? 'bg-[var(--text)] text-[var(--card-bg)] shadow-sm'
       : 'text-[var(--text-muted)] hover:bg-[var(--card-bg)] hover:text-[var(--text)]'
     }`
@@ -66,7 +68,7 @@ export default function WineEntryClient({ defaultInputMode }: WineEntryClientPro
         accentColor="var(--accent)"
         actions={
           <>
-            <div className="inline-flex rounded-full border border-[var(--border)] bg-[var(--surface-2)] p-1 shadow-sm">
+            <div className="inline-flex w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] p-1 shadow-sm sm:w-auto">
               <button
                 type="button"
                 onClick={() => setSimpleMode(true)}
@@ -89,7 +91,7 @@ export default function WineEntryClient({ defaultInputMode }: WineEntryClientPro
             <button
               type="button"
               onClick={handleClear}
-              className="flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
+              className="ml-auto inline-flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-1.5 text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
             >
               <RotateCcw size={16} />
               <span>入力をクリア</span>
@@ -104,6 +106,7 @@ export default function WineEntryClient({ defaultInputMode }: WineEntryClientPro
         isSubmitting={isSubmitting}
         persistKey="wine-form-new"
         simpleMode={simpleMode}
+        simpleAiAutomation={simpleAiAutomation ?? defaultSimpleAiAutomationSettings}
       />
 
       {sent && (

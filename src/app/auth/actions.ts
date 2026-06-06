@@ -11,8 +11,17 @@ export async function signOut() {
     redirect("/login");
 }
 
-function isMissingDefaultInputModeColumn(error: { code?: string; message?: string }) {
-    return error.code === "PGRST204" || !!error.message?.includes("default_input_mode");
+function isMissingProfilePreferenceColumn(error: { code?: string; message?: string }) {
+    return error.code === "PGRST204" ||
+        !!error.message?.includes("default_input_mode") ||
+        !!error.message?.includes("simple_auto_image_optimize") ||
+        !!error.message?.includes("simple_auto_wine_name_search") ||
+        !!error.message?.includes("simple_auto_ai_info");
+}
+
+function formBoolean(value: FormDataEntryValue | null, fallback = true) {
+    if (value === null) return fallback;
+    return value === "true";
 }
 
 export async function updateProfile(formData: FormData) {
@@ -30,6 +39,9 @@ export async function updateProfile(formData: FormData) {
     const password = ((formData.get("password") as string) || "").trim();
     const defaultInputModeValue = formData.get("defaultInputMode");
     const defaultInputMode = defaultInputModeValue === "detailed" ? "detailed" : "simple";
+    const simpleAutoImageOptimize = formBoolean(formData.get("simpleAutoImageOptimize"));
+    const simpleAutoWineNameSearch = formBoolean(formData.get("simpleAutoWineNameSearch"));
+    const simpleAutoAiInfo = simpleAutoWineNameSearch && formBoolean(formData.get("simpleAutoAiInfo"));
 
     const updates: { email?: string; password?: string } = {};
 
@@ -49,12 +61,15 @@ export async function updateProfile(formData: FormData) {
         .upsert({
             id: user.id,
             default_input_mode: defaultInputMode,
+            simple_auto_image_optimize: simpleAutoImageOptimize,
+            simple_auto_wine_name_search: simpleAutoWineNameSearch,
+            simple_auto_ai_info: simpleAutoAiInfo,
             updated_at: new Date().toISOString(),
         }, { onConflict: "id" });
 
     if (profileError) {
-        if (isMissingDefaultInputModeColumn(profileError)) {
-            return { error: "profiles.default_input_mode がDBに未反映です。Supabaseのマイグレーションを適用してからもう一度保存してください。" };
+        if (isMissingProfilePreferenceColumn(profileError)) {
+            return { error: "profiles の設定カラムがDBに未反映です。Supabaseのマイグレーションを適用してからもう一度保存してください。" };
         }
 
         return { error: profileError.message };

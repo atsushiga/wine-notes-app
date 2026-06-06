@@ -209,7 +209,7 @@ export function SimpleRecordingControls({
 
     return (
         <>
-            <div className="fixed right-4 top-[calc(env(safe-area-inset-top)+5rem)] z-50 flex flex-col items-end gap-2">
+            <div className="fixed right-4 top-[calc(env(safe-area-inset-top)+5rem)] z-50 hidden flex-col items-end gap-2 sm:flex">
                 {error && (
                     <div className="max-w-[220px] rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 shadow-lg">
                         {error}
@@ -235,7 +235,7 @@ export function SimpleRecordingControls({
             </div>
 
             <div
-                className={`fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-[var(--card-bg)] shadow-2xl transition-transform duration-300 ${panelOpen ? 'translate-y-0' : 'translate-y-[calc(100%-3rem)]'
+                className={`fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 border-t border-[var(--border)] bg-[var(--card-bg)] shadow-2xl transition-transform duration-300 ${panelOpen ? 'translate-y-0' : 'translate-y-[calc(25vh+2rem)]'
                     }`}
             >
                 <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3">

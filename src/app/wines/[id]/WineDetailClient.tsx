@@ -6,7 +6,7 @@ import { TastingNote, WineImage } from '@/types/custom';
 import WineDetailView from '@/components/WineDetailView';
 import WineForm, { WineFormValues, wineTypes } from '@/components/WineForm';
 import { updateWine, deleteWine, updateWineImages } from '@/app/actions/wine';
-import { optimizeAndAnalyzeWineImage } from '@/app/actions/gemini';
+import { optimizeWineImage } from '@/app/actions/gemini';
 
 type WineType = WineFormValues['wineType'];
 type NoseCondition = NonNullable<WineFormValues['noseCondition']>;
@@ -61,7 +61,7 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
 
         setIsOptimizingImage(true);
         try {
-            const result = await optimizeAndAnalyzeWineImage(targetUrl);
+            const result = await optimizeWineImage(targetUrl);
             const optimized = result.optimizedImage;
             const sourceImage: Partial<WineImage> = sortedImages[0] ?? {
                 url: targetUrl,
