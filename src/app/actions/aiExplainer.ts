@@ -24,12 +24,25 @@ type AiExplanationRow = {
     country?: string | null;
     locality?: string | null;
     headline?: string | null;
+    price?: number | null;
 };
 
 function normalizeClientKey(clientKey?: string | null) {
     const value = clientKey?.trim();
     if (!value) return null;
     return /^[a-zA-Z0-9_-]{16,80}$/.test(value) ? value : null;
+}
+
+function normalizePrice(value: string | number | null | undefined) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return Math.max(0, Math.round(value));
+    }
+
+    const raw = String(value ?? '').replace(/[^\d]/g, '');
+    if (!raw) return null;
+
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
 }
 
 async function getCurrentUserId() {
@@ -56,6 +69,7 @@ function toStored(row: AiExplanationRow): StoredVisualExplanation {
             country: row.input?.country || '',
             locality: row.input?.locality || '',
             imageUrl: row.input?.imageUrl || row.image_url || '',
+            price: row.input?.price || (row.price != null ? String(row.price) : row.explanation?.wine?.marketPriceJpy ? String(row.explanation.wine.marketPriceJpy) : ''),
             sourceWineId: row.input?.sourceWineId,
         },
         explanation: row.explanation,
@@ -73,6 +87,7 @@ function toHistoryItem(row: AiExplanationRow): AiExplainerHistoryItem {
         locality: row.locality || row.explanation?.wine?.region || row.input?.locality || '',
         imageUrl: row.image_url || row.input?.imageUrl || '',
         headline: row.headline || row.explanation?.headline || '',
+        price: row.price ?? normalizePrice(row.input?.price) ?? normalizePrice(row.explanation?.wine?.marketPriceJpy),
         sourceWineId: row.source_tasting_note_id || row.input?.sourceWineId,
     };
 }
@@ -83,6 +98,29 @@ function formatAiExplanationTableError(error: { code?: string; message?: string 
         return 'AI explanation save failed: ai_explanations table is not available. Apply infra/create_ai_explanations.sql to Supabase and reload the schema cache.';
     }
     return `AI explanation save failed: ${message}`;
+}
+
+async function linkSourceTastingNote(
+    sourceWineId: number | undefined,
+    aiExplanationId: string,
+    userId: string | null,
+) {
+    if (!sourceWineId) return;
+
+    const supabase = getSupabaseClient();
+    let query = supabase
+        .from('tasting_notes')
+        .update({ ai_explanation_id: aiExplanationId })
+        .eq('id', sourceWineId);
+
+    if (userId) {
+        query = query.eq('user_id', userId);
+    }
+
+    const { error } = await query;
+    if (error) {
+        console.error('linkSourceTastingNote error:', error);
+    }
 }
 
 export async function saveAiExplanation(
@@ -120,6 +158,7 @@ export async function saveAiExplanation(
         country: wine.country || input.country || null,
         locality: wine.region || input.locality || null,
         headline: payload.explanation.headline || null,
+        price: normalizePrice(input.price) ?? normalizePrice(wine.marketPriceJpy),
         updated_at: new Date().toISOString(),
     };
 
@@ -136,6 +175,11 @@ export async function saveAiExplanation(
 
     revalidatePath('/ai-explainer');
     revalidatePath('/ai-explainer/result');
+    await linkSourceTastingNote(input.sourceWineId, id, userId);
+    if (input.sourceWineId) {
+        revalidatePath(`/wines/${input.sourceWineId}`);
+        revalidatePath('/tasting-notes');
+    }
 
     return toStored(data as AiExplanationRow);
 }
@@ -149,7 +193,7 @@ export async function listAiExplanations(clientKeyValue?: string | null): Promis
     const supabase = getSupabaseClient();
     let query = supabase
         .from('ai_explanations')
-        .select('id,user_id,client_key,source_tasting_note_id,generated_at,input,explanation,image_url,wine_name,producer,vintage,country,locality,headline')
+        .select('id,user_id,client_key,source_tasting_note_id,generated_at,input,explanation,image_url,wine_name,producer,vintage,country,locality,headline,price')
         .order('generated_at', { ascending: false });
 
     if (userId && clientKey) {

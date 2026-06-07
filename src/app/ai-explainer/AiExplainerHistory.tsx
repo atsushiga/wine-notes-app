@@ -86,6 +86,7 @@ export default function AiExplainerHistory() {
                                     {[
                                         item.producer,
                                         item.vintage,
+                                        item.price ? `¥${item.price.toLocaleString()}` : "",
                                         [item.country, item.locality].filter(Boolean).join(" / "),
                                     ].filter(Boolean).join(" ・ ") || "銘柄情報なし"}
                                 </p>

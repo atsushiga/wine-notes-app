@@ -9,6 +9,14 @@ type UnknownRecord = Record<string, unknown>;
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic';
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function normalizeUuid(value: unknown) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return UUID_PATTERN.test(trimmed) ? trimmed : null;
+}
+
 // Supabaseに保存する関数（camelCaseをsnake_caseに変換）
 async function appendToSupabase(data: UnknownRecord, userId?: string, status?: string): Promise<{ id: string }> {
   // camelCaseをsnake_caseに変換するヘルパー
@@ -43,6 +51,7 @@ async function appendToSupabase(data: UnknownRecord, userId?: string, status?: s
       additionalInfo: 'additional_info',
       sparkleIntensity: 'sparkle_intensity',
       localityVocabId: 'locality_vocab_id',
+      aiExplanationId: 'ai_explanation_id',
     };
 
     if (replacements[str]) {
@@ -86,6 +95,9 @@ async function appendToSupabase(data: UnknownRecord, userId?: string, status?: s
     supabaseData.created_at = new Date().toISOString();
   }
 
+  const aiExplanationId = normalizeUuid(supabaseData.ai_explanation_id);
+  supabaseData.ai_explanation_id = aiExplanationId;
+
   const supabase = getSupabaseClient();
 
   const { data: insertedData, error } = await supabase
@@ -117,6 +129,17 @@ async function appendToSupabase(data: UnknownRecord, userId?: string, status?: s
     if (imageError) {
       console.error('Error inserting wine images:', imageError);
       // NOTE: We don't fail the whole request if image insert fails, but maybe we should warn?
+    }
+  }
+
+  if (aiExplanationId) {
+    const { error: linkError } = await supabase
+      .from('ai_explanations')
+      .update({ source_tasting_note_id: tastingNoteId })
+      .eq('id', aiExplanationId);
+
+    if (linkError) {
+      console.error('Error linking AI explanation to tasting note:', linkError);
     }
   }
 

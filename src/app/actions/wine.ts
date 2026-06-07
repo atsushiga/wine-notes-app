@@ -34,6 +34,7 @@ const toSnakeCase = (str: string): string => {
         referenceUrl: 'reference_url',
         additionalInfo: 'additional_info',
         sparkleIntensity: 'sparkle_intensity',
+        aiExplanationId: 'ai_explanation_id',
     };
     if (replacements[str]) return replacements[str];
     return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);

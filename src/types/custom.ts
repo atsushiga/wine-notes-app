@@ -66,6 +66,7 @@ export interface TastingNote {
     vivino_url?: string;
     reference_url?: string;
     additional_info?: string;
+    ai_explanation_id?: string | null;
 
     // AI / Grounding Info
     terroir_info?: string;

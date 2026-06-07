@@ -224,6 +224,7 @@ export interface VisualWineExplanationRequest {
     country?: string;
     locality?: string;
     referenceUrl?: string;
+    price?: string | number | null;
 }
 
 export interface VisualScale {
@@ -270,6 +271,7 @@ export interface VisualWineExplanation {
         grapeVarieties: string[];
         style: string;
         classification: string;
+        marketPriceJpy?: number | null;
     };
     headline: string;
     lead: string;
@@ -915,6 +917,7 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
     - Country: ${query.country || "Unknown"}
     - Region/Locality: ${query.locality || "Unknown"}
     - User reference URL: ${query.referenceUrl || "None"}
+    - Bottle price JPY: ${query.price || "Unknown"}
 
     Content goal:
     Produce structured Japanese content for a visual HTML page similar to a premium wine lecture handout:
@@ -929,6 +932,13 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
     - For tasting profile, distinguish reported/professional notes from general regional tendencies.
     - If a value is inferred, say so in sourceNotes or the relevant note.
     - Keep all strings short enough for card-style UI. Avoid markdown.
+    - wine.name must use the same format as the app's AI label search:
+      "Original Name (Japanese Name)". If the input already includes Japanese in parentheses, preserve it.
+      If Japanese is missing, translate or transliterate it yourself.
+    - wine.producer must also use "Original Producer (Japanese Producer)" whenever possible.
+      Preserve the original spelling first, then put Japanese in parentheses.
+    - If Bottle price JPY is provided, copy it as wine.marketPriceJpy as an integer.
+      If it is unknown, estimate the typical Japanese retail bottle price in JPY as a single integer.
 
     Scale rules:
     - tasting.scales must contain 5 to 7 items.
@@ -945,7 +955,8 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
         "region": "string",
         "grapeVarieties": ["string"],
         "style": "string",
-        "classification": "string"
+        "classification": "string",
+        "marketPriceJpy": 5000
       },
       "headline": "string",
       "lead": "string",

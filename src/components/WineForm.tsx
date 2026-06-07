@@ -201,6 +201,7 @@ export const wineFormSchema = z.object({
     rating: z.number().min(0).max(5),
     notes: z.string().optional().nullable(),
     vivinoUrl: z.string().optional().nullable(),
+    aiExplanationId: z.string().optional().nullable(),
 
     // AI Fields
     terroir_info: z.string().optional().nullable(),
@@ -280,6 +281,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             readiness: '今飲めるが熟成可能',
             rating: 3.5,
             notes: '',
+            aiExplanationId: '',
 
 
 
@@ -436,6 +438,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             readiness: '今飲めるが熟成可能',
             rating: 3.0,
             notes: '',
+            aiExplanationId: '',
 
 
             terroir_info: '',
@@ -515,6 +518,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             readiness: '今飲めるが熟成可能',
             rating: 3.5,
             notes: '',
+            aiExplanationId: '',
 
             terroir_info: '',
             producer_philosophy: '',
@@ -714,6 +718,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
     return (
         <form onSubmit={handleSubmit(handleFormSubmit)} className="w-full pb-24 space-y-8">
+            <input type="hidden" {...register('aiExplanationId')} />
 
             {/* タブ：ワインタイプ */}
             <section className="mb-4">

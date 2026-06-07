@@ -21,7 +21,7 @@ import {
 import { SAT_CONSTANTS } from '@/constants/sat';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Loader2, Sparkles } from 'lucide-react';
+import { History, Loader2, Sparkles } from 'lucide-react';
 import ImageCarousel from './ImageCarousel';
 import AiWineInfo from './AiWineInfo';
 import { generateVisualWineExplanation } from '@/app/actions/gemini';
@@ -99,6 +99,7 @@ export default function WineDetailView({ wine, onEdit, onDelete, isDeleting }: P
                 country: input.country || undefined,
                 locality: input.locality || undefined,
                 referenceUrl: wine.reference_url || undefined,
+                price: input.price || undefined,
             });
             const stored = await saveAiExplanation({
                 generatedAt: new Date().toISOString(),
@@ -132,6 +133,15 @@ export default function WineDetailView({ wine, onEdit, onDelete, isDeleting }: P
                         {new Date(wine.created_at).toLocaleDateString("ja-JP")}
                     </div>
                     <div className="flex flex-wrap gap-2">
+                        {wine.ai_explanation_id && (
+                            <Link
+                                href={`/ai-explainer/result?historyId=${encodeURIComponent(wine.ai_explanation_id)}`}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[var(--text)] bg-[var(--card-bg)] border border-[var(--border)] rounded-lg hover:bg-[var(--surface-2)]"
+                            >
+                                <History size={15} />
+                                AI解説履歴
+                            </Link>
+                        )}
                         <button
                             onClick={handleGenerateAiExplanation}
                             disabled={isGeneratingAi || !wine.wine_name}

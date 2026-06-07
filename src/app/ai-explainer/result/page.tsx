@@ -35,7 +35,6 @@ import {
     Mountain,
     MapPin,
     NotebookPen,
-    ScanSearch,
     Sparkles,
     Sprout,
     Sun,
@@ -85,6 +84,7 @@ function readLegacyStoredVisualExplanation(): StoredVisualExplanation | null {
                 country: parsed.input.country || "",
                 locality: parsed.input.locality || "",
                 imageUrl: parsed.input.imageUrl || parsed.imageUrl || "",
+                price: parsed.input.price || "",
                 sourceWineId: parsed.input.sourceWineId,
             },
             explanation: parsed.explanation,
@@ -105,6 +105,12 @@ function assetKindLabel(asset?: VisualImageAsset) {
     if (asset.kind === "source-backed-generated") return "出典情報をもとにAI生成";
     if (asset.kind === "generated") return "AI生成画像";
     return "";
+}
+
+function formatPriceDisplay(value: string | number | null | undefined) {
+    const raw = String(value ?? "").replace(/[^\d]/g, "");
+    if (!raw) return "不明";
+    return `¥${Number(raw).toLocaleString()}`;
 }
 
 function HighlightText({ text }: { text?: string }) {
@@ -280,6 +286,7 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
     const terroirCallouts = normalizeTerroirCallouts(explanation);
     const visualAssets = explanation.visualAssets || {};
     const featuredPairing = explanation.serving.featuredPairing || asList(explanation.serving.pairings)[0] || "";
+    const priceLabel = formatPriceDisplay(data.input.price || wine.marketPriceJpy);
 
     const handleCreateRecord = () => {
         saveRecordDraftFromVisualExplanation(data);
@@ -324,10 +331,11 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                             </p>
                         </div>
 
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                             <FactTile label="生産者" value={wine.producer || data.input.producer || "不明"} />
                             <FactTile label="ヴィンテージ" value={wine.vintage || data.input.vintage || "不明"} />
                             <FactTile label="産地" value={[wine.country, wine.region].filter(Boolean).join(" / ") || "不明"} />
+                            <FactTile label="ボトル価格" value={priceLabel} />
                             <FactTile label="スタイル" value={wine.style || "検索結果を参照"} />
                         </div>
                         <VisualSignalStrip
@@ -340,39 +348,21 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                         />
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-[minmax(160px,0.8fr)_minmax(0,1fr)] lg:grid-cols-1">
-                        <div className="relative min-h-80 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--app-bg)]">
-                            {data.imageUrl ? (
-                                <ImageButton
-                                    src={data.imageUrl}
-                                    alt={`${wine.name} bottle or label`}
-                                    className="absolute inset-0 h-full w-full"
-                                    imgClassName="h-full w-full object-contain p-6"
-                                    onOpen={openImage}
-                                    caption={wine.name || data.input.wineName}
-                                />
-                            ) : (
-                                <div className="flex h-full min-h-80 items-center justify-center text-[var(--text-muted)]">
-                                    <Wine size={56} />
-                                </div>
-                            )}
-                        </div>
-                        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-5">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                                Generated
-                            </p>
-                            <p className="mt-1 text-sm font-medium text-[var(--text)]">{generatedAt}</p>
-                            <div className="mt-4 flex flex-wrap gap-2">
-                                {grapeVarieties.map((grape) => (
-                                    <span
-                                        key={grape}
-                                        className="rounded-full border border-[var(--border)] bg-[var(--card-bg)] px-3 py-1 text-xs font-medium text-[var(--text)]"
-                                    >
-                                        {grape}
-                                    </span>
-                                ))}
+                    <div className="relative min-h-80 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--app-bg)]">
+                        {data.imageUrl ? (
+                            <ImageButton
+                                src={data.imageUrl}
+                                alt={`${wine.name} bottle or label`}
+                                className="absolute inset-0 h-full w-full"
+                                imgClassName="h-full w-full object-contain p-6"
+                                onOpen={openImage}
+                                caption={wine.name || data.input.wineName}
+                            />
+                        ) : (
+                            <div className="flex h-full min-h-80 items-center justify-center text-[var(--text-muted)]">
+                                <Wine size={56} />
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             </section>
@@ -561,6 +551,10 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                     </Panel>
 
                     <Panel title="参照範囲と出典" icon={<ExternalLink size={18} />}>
+                        <div className="mb-4 rounded-lg bg-[var(--app-bg)] px-3 py-2">
+                            <p className="text-xs font-bold text-[var(--primary)]">生成日時</p>
+                            <p className="mt-1 text-sm leading-6 text-[var(--text)]">{generatedAt}</p>
+                        </div>
                         <div className="space-y-2">
                             {asList(explanation.sourceNotes).map((note, index) => (
                                 <p key={`${note}-${index}`} className="rounded-lg bg-[var(--app-bg)] px-3 py-2 text-sm leading-6 text-[var(--text)]">
@@ -889,7 +883,7 @@ function TasteRadar({ scales }: { scales?: VisualScale[] }) {
     const polygon = points.map((point) => `${point.x},${point.y}`).join(" ");
 
     return (
-        <div className="mt-5 grid items-center gap-5 rounded-xl border border-[var(--border)] bg-[var(--app-bg)] p-4 xl:grid-cols-[260px_minmax(0,1fr)]">
+        <div className="mt-5 rounded-xl border border-[var(--border)] bg-[var(--app-bg)] p-4">
             <svg viewBox="0 0 240 240" className="mx-auto h-60 w-60 max-w-full overflow-hidden">
                 {[0.25, 0.5, 0.75, 1].map((step) => (
                     <circle
@@ -931,12 +925,6 @@ function TasteRadar({ scales }: { scales?: VisualScale[] }) {
                     </g>
                 ))}
             </svg>
-            <div>
-                <SectionEyebrow icon={<ScanSearch size={16} />} label="構造の見取り図" />
-                <p className="mt-2 text-sm leading-7 text-[var(--text)]">
-                    <HighlightText text="味わいの主要要素をレーダーで俯瞰します。棒グラフは各要素の根拠説明、レーダーは全体の重心を見るための補助図です。" />
-                </p>
-            </div>
         </div>
     );
 }

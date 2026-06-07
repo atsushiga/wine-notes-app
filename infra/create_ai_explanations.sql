@@ -15,10 +15,29 @@ create table if not exists public.ai_explanations (
   country text,
   locality text,
   headline text,
+  price integer,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint ai_explanations_owner_check check (user_id is not null or client_key is not null)
 );
+
+alter table public.ai_explanations
+  add column if not exists price integer;
+
+update public.ai_explanations
+set price = coalesce(
+  nullif(regexp_replace(coalesce(input->>'price', ''), '\D', '', 'g'), '')::integer,
+  case
+    when explanation #>> '{wine,marketPriceJpy}' ~ '^\d+$'
+      then (explanation #>> '{wine,marketPriceJpy}')::integer
+    else null
+  end
+)
+where price is null
+  and (
+    nullif(regexp_replace(coalesce(input->>'price', ''), '\D', '', 'g'), '') is not null
+    or explanation #>> '{wine,marketPriceJpy}' ~ '^\d+$'
+  );
 
 create index if not exists ai_explanations_user_generated_at_idx
   on public.ai_explanations(user_id, generated_at desc);
@@ -28,6 +47,12 @@ create index if not exists ai_explanations_client_generated_at_idx
 
 create index if not exists ai_explanations_source_tasting_note_id_idx
   on public.ai_explanations(source_tasting_note_id);
+
+alter table public.tasting_notes
+  add column if not exists ai_explanation_id uuid references public.ai_explanations(id) on delete set null;
+
+create index if not exists tasting_notes_ai_explanation_id_idx
+  on public.tasting_notes(ai_explanation_id);
 
 alter table public.ai_explanations enable row level security;
 

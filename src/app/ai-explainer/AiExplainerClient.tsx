@@ -29,6 +29,11 @@ type UploadStatus = "idle" | "uploading" | "analyzing" | "ready" | "error";
 
 type UploadedWineState = AiExplainerInput;
 
+function formatPriceInput(value: string) {
+    const raw = value.replace(/[^\d]/g, "");
+    return raw ? Number(raw).toLocaleString() : "";
+}
+
 async function uploadFile(file: File): Promise<string> {
     const payload = {
         filename: file.name,
@@ -68,6 +73,7 @@ export default function AiExplainerClient() {
         country: "",
         locality: "",
         imageUrl: "",
+        price: "",
     });
     const [status, setStatus] = useState<UploadStatus>("idle");
     const [isGenerating, setIsGenerating] = useState(false);
@@ -115,6 +121,7 @@ export default function AiExplainerClient() {
                 vintage: analysis.vintage || current.vintage,
                 country: analysis.country || current.country,
                 locality: analysis.locality || current.locality,
+                price: analysis.price ? String(analysis.price) : current.price,
             }));
             setStatus("ready");
             setMessage("ラベルから銘柄情報を自動入力しました。必要に応じて修正してください。");
@@ -138,6 +145,7 @@ export default function AiExplainerClient() {
                 vintage: form.vintage.trim() || undefined,
                 country: form.country.trim() || undefined,
                 locality: form.locality.trim() || undefined,
+                price: form.price.trim() || undefined,
             });
 
             const payload = {
@@ -225,6 +233,9 @@ export default function AiExplainerClient() {
                             {form.locality && (
                                 <InfoPill label="地域" value={form.locality} />
                             )}
+                            {form.price && (
+                                <InfoPill label="価格" value={`¥${Number(form.price).toLocaleString()}`} />
+                            )}
                         </div>
 
                         <input
@@ -254,7 +265,7 @@ export default function AiExplainerClient() {
                         />
                     </FieldRow>
 
-                    <div className="grid gap-5 sm:grid-cols-2">
+                    <div className="grid gap-5 sm:grid-cols-3">
                         <FieldRow label="生産者">
                             <input
                                 className={FORM_CONTROL_BASE}
@@ -270,6 +281,18 @@ export default function AiExplainerClient() {
                                 value={form.vintage}
                                 onChange={(event) => updateField("vintage", event.target.value)}
                             />
+                        </FieldRow>
+                        <FieldRow label="ボトル価格">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    className={`${FORM_CONTROL_BASE} text-right`}
+                                    inputMode="numeric"
+                                    placeholder="4,500"
+                                    value={formatPriceInput(form.price)}
+                                    onChange={(event) => updateField("price", event.target.value.replace(/[^\d]/g, ""))}
+                                />
+                                <span className="text-sm text-[var(--text-muted)]">円</span>
+                            </div>
                         </FieldRow>
                     </div>
                 </div>
