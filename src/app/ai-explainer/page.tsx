@@ -2,6 +2,7 @@ import { ContentContainer } from "@/components/layout/ContentContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Sparkles } from "lucide-react";
 import AiExplainerClient from "./AiExplainerClient";
+import AiExplainerHistory from "./AiExplainerHistory";
 
 export default function AiExplainerPage() {
     return (
@@ -17,6 +18,7 @@ export default function AiExplainerPage() {
                 }
             />
             <AiExplainerClient />
+            <AiExplainerHistory />
         </ContentContainer>
     );
 }

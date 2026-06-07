@@ -6,7 +6,12 @@ import {
     analyzeWineImage,
     generateVisualWineExplanation,
 } from "@/app/actions/gemini";
-import type { VisualWineExplanation } from "@/app/actions/gemini";
+import { saveAiExplanation } from "@/app/actions/aiExplainer";
+import type { AiExplainerInput } from "@/lib/aiExplainerStorage";
+import {
+    getAiExplainerClientKey,
+    saveCurrentAiExplanationId,
+} from "@/lib/aiExplainerStorage";
 import { FORM_CONTROL_BASE } from "@/constants/styles";
 import { SectionCard } from "@/components/ui/section-card";
 import { FieldRow } from "@/components/ui/field-row";
@@ -20,25 +25,9 @@ import {
     Wand2,
 } from "lucide-react";
 
-const RESULT_STORAGE_KEY = "wine-ai-visual-explanation";
-
 type UploadStatus = "idle" | "uploading" | "analyzing" | "ready" | "error";
 
-interface UploadedWineState {
-    wineName: string;
-    producer: string;
-    vintage: string;
-    country: string;
-    locality: string;
-    imageUrl: string;
-}
-
-interface StoredVisualExplanation {
-    generatedAt: string;
-    imageUrl: string;
-    input: UploadedWineState;
-    explanation: VisualWineExplanation;
-}
+type UploadedWineState = AiExplainerInput;
 
 async function uploadFile(file: File): Promise<string> {
     const payload = {
@@ -151,15 +140,16 @@ export default function AiExplainerClient() {
                 locality: form.locality.trim() || undefined,
             });
 
-            const payload: StoredVisualExplanation = {
+            const payload = {
                 generatedAt: new Date().toISOString(),
                 imageUrl: form.imageUrl,
                 input: form,
                 explanation,
             };
 
-            sessionStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify(payload));
-            router.push("/ai-explainer/result");
+            const stored = await saveAiExplanation(payload, getAiExplainerClientKey());
+            saveCurrentAiExplanationId(stored.id);
+            router.push(`/ai-explainer/result?historyId=${encodeURIComponent(stored.id)}`);
         } catch (error) {
             console.error(error);
             setMessage("解説生成に失敗しました。銘柄情報を確認して、もう一度お試しください。");

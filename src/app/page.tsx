@@ -1,15 +1,26 @@
 'use client';
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import WineForm, { WineFormValues, WineFormHandle } from '@/components/WineForm';
 import { ContentContainer } from '@/components/layout/ContentContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Sparkles } from 'lucide-react';
+import { consumeRecordDraftFromVisualExplanation } from '@/lib/aiExplainerStorage';
 
 export default function Page() {
   const [sent, setSent] = useState<null | { ok: boolean; id?: string; error?: string }>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentWineType, setCurrentWineType] = useState('赤');
+  const [initialValues, setInitialValues] = useState<Partial<WineFormValues> | undefined>();
+  const [hasLoadedInitialValues, setHasLoadedInitialValues] = useState(false);
   const formRef = useRef<WineFormHandle>(null);
+
+  useEffect(() => {
+    const aiDraft = consumeRecordDraftFromVisualExplanation();
+    if (aiDraft) {
+      setInitialValues(aiDraft);
+    }
+    setHasLoadedInitialValues(true);
+  }, []);
 
   const onSubmit = async (values: WineFormValues) => {
     setSent(null);
@@ -51,23 +62,35 @@ export default function Page() {
         subtitle="感性を言葉にして、記憶に残す"
         accentColor="var(--accent)"
         actions={
-          <button
-            onClick={handleClear}
-            className="flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
-          >
-            <RotateCcw size={16} />
-            <span>入力をクリア</span>
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <Link
+              href="/ai-explainer"
+              className="flex items-center gap-2 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--primary)]"
+            >
+              <Sparkles size={16} />
+              <span>AI解説へ</span>
+            </Link>
+            <button
+              onClick={handleClear}
+              className="flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
+            >
+              <RotateCcw size={16} />
+              <span>入力をクリア</span>
+            </button>
+          </div>
         }
       />
 
-      <WineForm
-        ref={formRef}
-        onSubmit={onSubmit}
-        isSubmitting={isSubmitting}
-        persistKey="wine-form-new"
-        onWineTypeChange={setCurrentWineType}
-      />
+      {hasLoadedInitialValues && (
+        <WineForm
+          key={initialValues ? 'ai-explainer-draft' : 'new-record'}
+          ref={formRef}
+          defaultValues={initialValues}
+          onSubmit={onSubmit}
+          isSubmitting={isSubmitting}
+          persistKey="wine-form-new"
+        />
+      )}
 
       {sent && (
         <p className={`text-sm ${sent.ok ? 'text-green-600' : 'text-red-600'} mt-4 px-4`}>

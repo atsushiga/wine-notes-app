@@ -1,5 +1,6 @@
 'use server';
 
+import { createHash } from "crypto";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
 import { createClient } from "@/utils/supabase/server";
@@ -244,6 +245,7 @@ export interface VisualImageAsset {
     url?: string;
     prompt?: string;
     caption: string;
+    alt?: string;
     sourceTitle?: string;
     sourceUrl?: string;
     kind?: "source" | "generated" | "source-backed-generated";
@@ -254,6 +256,8 @@ export interface AromaVisual {
     family: "fruit" | "floral" | "spice" | "earth" | "herbal" | "oak" | "mineral" | "other";
     color: string;
     description: string;
+    image?: VisualImageAsset;
+    presetKey?: string;
 }
 
 export interface VisualWineExplanation {
@@ -305,6 +309,7 @@ export interface VisualWineExplanation {
         glass: string;
         decant: string;
         pairings: string[];
+        featuredPairing?: string;
     };
     studyPoints: { title: string; description: string }[];
     sourceNotes: string[];
@@ -313,6 +318,7 @@ export interface VisualWineExplanation {
         producer?: VisualImageAsset;
         map?: VisualImageAsset;
         aromaBoard?: VisualImageAsset;
+        pairing?: VisualImageAsset;
     };
 }
 
@@ -413,12 +419,12 @@ function openAIImageSize(width: number, height: number): "1024x1024" | "1536x102
     return width > height ? "1536x1024" : "1024x1536";
 }
 
-async function generateCompressedOpenAIImageDataUrl(
+async function generateCompressedOpenAIImageBuffer(
     prompt: string,
     width = 1200,
     height = 760,
     options: { allowText?: boolean; style?: VisualImageStyle } = {}
-): Promise<string | null> {
+): Promise<Buffer | null> {
     if (!openaiApiKey || !ENABLE_VISUAL_IMAGE_GENERATION) return null;
 
     try {
@@ -442,9 +448,87 @@ async function generateCompressedOpenAIImageDataUrl(
             .webp({ quality: 82 })
             .toBuffer();
 
-        return `data:image/webp;base64,${compressed.toString("base64")}`;
+        return compressed;
     } catch (error) {
         console.warn("Visual image generation failed:", error);
+        return null;
+    }
+}
+
+async function uploadAiGeneratedImage(buffer: Buffer, prefix: string): Promise<string> {
+    const now = new Date();
+    const key = [
+        "ai-explanations",
+        "visuals",
+        String(now.getFullYear()),
+        String(now.getMonth() + 1).padStart(2, "0"),
+        `${Date.now()}_${prefix}_${Math.random().toString(36).slice(2, 9)}.webp`,
+    ].join("/");
+
+    await storage.bucket(BUCKET).file(key).save(buffer, {
+        metadata: {
+            contentType: "image/webp",
+            cacheControl: "public, max-age=31536000",
+        },
+        resumable: false,
+    });
+
+    return `/api/images/${key}`;
+}
+
+async function generateCompressedOpenAIImageStorageUrl(
+    prompt: string,
+    width = 1200,
+    height = 760,
+    options: { allowText?: boolean; style?: VisualImageStyle; storagePrefix?: string } = {}
+): Promise<string | null> {
+    const compressed = await generateCompressedOpenAIImageBuffer(prompt, width, height, options);
+    if (!compressed) return null;
+
+    try {
+        return await uploadAiGeneratedImage(compressed, options.storagePrefix || "visual");
+    } catch (error) {
+        console.warn("Failed to upload generated AI explanation image:", error);
+        return null;
+    }
+}
+
+function generatedCacheKey(prefix: string, text: string) {
+    const hash = createHash("sha1").update(text.trim().toLowerCase()).digest("hex").slice(0, 14);
+    return `${prefix}-${hash}`;
+}
+
+async function generateOrReuseStorageImage(
+    subdir: string,
+    key: string,
+    prompt: string,
+    width: number,
+    height: number,
+    options: { allowText?: boolean; style?: VisualImageStyle } = {}
+): Promise<string | null> {
+    const objectKey = `ai-explanations/generated/${subdir}/${key}.webp`;
+    const publicPath = `/api/images/${objectKey}`;
+    const file = storage.bucket(BUCKET).file(objectKey);
+
+    const [exists] = await file.exists();
+    if (exists) {
+        return publicPath;
+    }
+
+    const buffer = await generateCompressedOpenAIImageBuffer(prompt, width, height, options);
+    if (!buffer) return null;
+
+    try {
+        await file.save(buffer, {
+            metadata: {
+                contentType: "image/webp",
+                cacheControl: "public, max-age=31536000",
+            },
+            resumable: false,
+        });
+        return publicPath;
+    } catch (error) {
+        console.warn("Failed to save generated image to storage:", error);
         return null;
     }
 }
@@ -526,6 +610,87 @@ Arrange these aroma references as real objects on a natural tabletop: ${aromaObj
 Use actual fruits, flowers, herbs, spices, soil/mineral cues, and subtle oak or tea elements when relevant.
 Composition: objects neatly placed on a wood or stone table, viewed from directly above, soft window light, realistic shadows, tasting workshop mood.
 No text, no labels, no hands, no bottles, no glasses, no logos, no artificial collage look.`;
+}
+
+function buildAromaPresetPrompt(aroma: AromaVisual) {
+    const objectLabel = aroma.label || aroma.description || "wine aroma reference";
+    const familyHint = {
+        fruit: "fresh fruit, berries, citrus, orchard fruit, or stone fruit as appropriate",
+        floral: "real edible flowers or flower petals with botanical detail",
+        spice: "whole spices, cracked pepper, dried spice pieces, or warm baking spice",
+        earth: "clean natural earth cues such as forest floor, tea leaves, dried mushrooms, or humus-like texture",
+        herbal: "fresh herbs, leaves, stems, or aromatic green elements",
+        oak: "vanilla pod, toasted nuts, cedar, oak chips, or gentle baking spice",
+        mineral: "clean stones, slate, chalk, sea salt, or wet pebble texture",
+        other: "real tasting reference objects",
+    }[aroma.family] || "real tasting reference objects";
+
+    return `Create a reusable photorealistic aroma preset image for the wine aroma "${objectLabel}".
+Show the aroma as real objects: ${familyHint}.
+Composition: overhead tabletop photograph, single clear theme, natural wood or stone surface, soft daylight, realistic shadows, premium wine tasting classroom reference.
+Keep it useful as a small UI tile: centered subject, uncluttered background, rich texture, no text, no labels, no hands, no bottles, no glasses, no logos.`;
+}
+
+function buildPairingImagePrompt(query: VisualWineExplanationRequest, data: VisualWineExplanation, pairing: string) {
+    return `Create a photorealistic plated food pairing image for ${wineLabelForPrompt(query)}.
+Dish: ${pairing}.
+Wine context: ${data.wine?.style || "wine"} from ${data.wine?.region || query.locality || data.wine?.country || query.country || "the researched region"}.
+Composition: premium restaurant table or natural tabletop, realistic dish presentation, soft directional daylight, appetizing but restrained, no text, no menus, no people, no bottle labels, no logos.
+The image should explain why this dish fits the wine's acidity, body, tannin, aroma, or texture without adding text.`;
+}
+
+async function attachAromaPresetImages(data: VisualWineExplanation) {
+    const aromas = Array.isArray(data.tasting?.aromaVisuals) ? data.tasting.aromaVisuals.slice(0, 6) : [];
+    if (aromas.length === 0) return;
+
+    const withImages = await Promise.all(
+        aromas.map(async (aroma) => {
+            const key = generatedCacheKey(`aroma-${aroma.family || "other"}`, `${aroma.family}:${aroma.label}:${aroma.description}`);
+            const prompt = buildAromaPresetPrompt(aroma);
+            const url = await generateOrReuseStorageImage("aromas", key, prompt, 640, 520, { style: "photo" });
+
+            return {
+                ...aroma,
+                presetKey: key,
+                image: {
+                    url: url || aroma.image?.url,
+                    prompt,
+                    caption: `${aroma.label}の実写的な香りプリセット`,
+                    alt: `${aroma.label}の香りを表す実写的な卓上イメージ`,
+                    kind: url ? "generated" as const : aroma.image?.kind,
+                },
+            };
+        })
+    );
+
+    data.tasting.aromaVisuals = withImages;
+}
+
+async function attachPairingImage(query: VisualWineExplanationRequest, data: VisualWineExplanation) {
+    data.visualAssets = data.visualAssets || {};
+    const pairing = data.serving?.featuredPairing || data.serving?.pairings?.[0];
+    if (!pairing) return;
+
+    data.serving.featuredPairing = pairing;
+    const prompt = buildPairingImagePrompt(query, data, pairing);
+    const key = generatedCacheKey("pairing", `${wineLabelForPrompt(query)}:${pairing}`);
+    const url = await generateOrReuseStorageImage("pairings", key, prompt, 980, 720, { style: "photo" });
+
+    if (data.visualAssets.pairing) {
+        data.visualAssets.pairing.prompt = prompt;
+        data.visualAssets.pairing.url = url || data.visualAssets.pairing.url;
+        data.visualAssets.pairing.kind = url ? "generated" : data.visualAssets.pairing.kind;
+        data.visualAssets.pairing.caption = data.visualAssets.pairing.caption || `${pairing}のAI生成ペアリング画像`;
+        data.visualAssets.pairing.alt = data.visualAssets.pairing.alt || `${pairing}の料理写真`;
+    } else if (url) {
+        data.visualAssets.pairing = {
+            url,
+            prompt,
+            caption: `${pairing}のAI生成ペアリング画像`,
+            alt: `${pairing}の料理写真`,
+            kind: "generated",
+        };
+    }
 }
 
 export async function searchWineDetails(wineId: number, query: { name: string; winery?: string; vintage?: string; country?: string; locality?: string; referenceUrl?: string }) {
@@ -826,7 +991,8 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
         "temperature": "string",
         "glass": "string",
         "decant": "string",
-        "pairings": ["string"]
+        "pairings": ["string"],
+        "featuredPairing": "string"
       },
       "studyPoints": [{"title": "string", "description": "string"}],
       "sourceNotes": ["string"],
@@ -845,6 +1011,10 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
         "aromaBoard": {
           "prompt": "photorealistic overhead flat-lay image prompt for 4-6 representative aroma objects on a tabletop",
           "caption": "string"
+        },
+        "pairing": {
+          "prompt": "photorealistic plated food pairing image prompt for the one best pairing dish",
+          "caption": "string"
         }
       }
     }
@@ -862,6 +1032,8 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
       The image style should be photorealistic, overhead flat-lay, objects arranged on a wood or stone tabletop,
       with no text, no labels, no hands, no bottles, and no glasses.
     - aromaVisuals must contain 4 to 6 representative aromas that can be rendered as image tiles.
+    - serving.featuredPairing must choose exactly one best dish from serving.pairings for a photorealistic food image.
+    - visualAssets.pairing.prompt must describe that selected dish as a realistic plated food photograph.
     `;
 
     try {
@@ -881,26 +1053,32 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
         const terroirMapPrompt = buildTerroirMapPrompt(query, data);
         const producerImagePrompt = buildProducerImagePrompt(query, data, producerAsset);
         const aromaBoardPrompt = buildAromaBoardPrompt(query, data);
-        const [mapImage, producerGeneratedImage, aromaBoardImage] = await Promise.all([
-            generateCompressedOpenAIImageDataUrl(
+        const mainVisualsPromise = Promise.all([
+            generateCompressedOpenAIImageStorageUrl(
                 terroirMapPrompt,
                 1200,
                 760,
-                { allowText: true, style: "editorial" }
+                { allowText: true, style: "editorial", storagePrefix: "map" }
             ),
-            generateCompressedOpenAIImageDataUrl(
+            generateCompressedOpenAIImageStorageUrl(
                 producerImagePrompt,
                 1200,
                 760,
-                { style: "editorial" }
+                { style: "editorial", storagePrefix: "producer" }
             ),
-            generateCompressedOpenAIImageDataUrl(
+            generateCompressedOpenAIImageStorageUrl(
                 aromaBoardPrompt,
                 1200,
                 620,
-                { style: "photo" }
+                { style: "photo", storagePrefix: "aroma" }
             ),
         ]);
+        const cachedVisualsPromise = Promise.all([
+            attachAromaPresetImages(data),
+            attachPairingImage(query, data),
+        ]);
+        const [mapImage, producerGeneratedImage, aromaBoardImage] = await mainVisualsPromise;
+        await cachedVisualsPromise;
 
         if (data.visualAssets.map) {
             data.visualAssets.map.prompt = terroirMapPrompt;

@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { AromaVisual, TerroirMapCallout, VisualImageAsset, VisualScale, VisualWineExplanation } from "@/app/actions/gemini";
+import { getAiExplanation } from "@/app/actions/aiExplainer";
+import {
+    getAiExplainerClientKey,
+    readCurrentAiExplanationId,
+    saveRecordDraftFromVisualExplanation,
+    type StoredVisualExplanation,
+} from "@/lib/aiExplainerStorage";
 import {
     ArrowLeft,
     BadgeInfo,
@@ -26,6 +34,7 @@ import {
     Map,
     Mountain,
     MapPin,
+    NotebookPen,
     ScanSearch,
     Sparkles,
     Sprout,
@@ -35,28 +44,55 @@ import {
     Waves,
     Wheat,
     Wine,
+    Utensils,
+    X,
+    ZoomIn,
 } from "lucide-react";
 
-const RESULT_STORAGE_KEY = "wine-ai-visual-explanation";
+type ExpandedImage = {
+    src: string;
+    alt: string;
+    caption?: string;
+    label?: string;
+};
 
-interface UploadedWineState {
-    wineName: string;
-    producer: string;
-    vintage: string;
-    country: string;
-    locality: string;
-    imageUrl: string;
-}
+type ImageOpenHandler = (image: ExpandedImage) => void;
 
-interface StoredVisualExplanation {
-    generatedAt: string;
-    imageUrl: string;
-    input: UploadedWineState;
-    explanation: VisualWineExplanation;
-}
+const LEGACY_RESULT_STORAGE_KEY = "wine-ai-visual-explanation";
+const HIGHLIGHT_PATTERN = /(酸味?|タンニン|ミネラル|石灰|粘土|砂利|火山|花崗岩|海風|冷涼|昼夜|標高|斜面|水はけ|日照|乾燥|湿度|熟度|果実味|樽|発酵|熟成|余韻|骨格|複雑|エレガント|フレッシュ|塩味|旨味|\d{4}年?)/g;
+const HIGHLIGHT_TOKEN_PATTERN = new RegExp(`^${HIGHLIGHT_PATTERN.source}$`);
 
 function asList<T>(value: T[] | undefined, fallback: T[] = []): T[] {
     return Array.isArray(value) ? value : fallback;
+}
+
+function readLegacyStoredVisualExplanation(): StoredVisualExplanation | null {
+    try {
+        const raw = sessionStorage.getItem(LEGACY_RESULT_STORAGE_KEY);
+        if (!raw) return null;
+
+        const parsed = JSON.parse(raw) as Partial<StoredVisualExplanation>;
+        if (!parsed.generatedAt || !parsed.explanation || !parsed.input) return null;
+
+        return {
+            id: parsed.id || "legacy-session",
+            generatedAt: parsed.generatedAt,
+            imageUrl: parsed.imageUrl || parsed.input.imageUrl || "",
+            input: {
+                wineName: parsed.input.wineName || "",
+                producer: parsed.input.producer || "",
+                vintage: parsed.input.vintage || "",
+                country: parsed.input.country || "",
+                locality: parsed.input.locality || "",
+                imageUrl: parsed.input.imageUrl || parsed.imageUrl || "",
+                sourceWineId: parsed.input.sourceWineId,
+            },
+            explanation: parsed.explanation,
+        };
+    } catch (error) {
+        console.error("Failed to read legacy AI explanation", error);
+        return null;
+    }
 }
 
 function assetUrl(asset?: VisualImageAsset) {
@@ -69,6 +105,24 @@ function assetKindLabel(asset?: VisualImageAsset) {
     if (asset.kind === "source-backed-generated") return "出典情報をもとにAI生成";
     if (asset.kind === "generated") return "AI生成画像";
     return "";
+}
+
+function HighlightText({ text }: { text?: string }) {
+    if (!text) return null;
+
+    return (
+        <>
+            {text.split(HIGHLIGHT_PATTERN).map((part, index) => (
+                HIGHLIGHT_TOKEN_PATTERN.test(part) ? (
+                    <strong key={`${part}-${index}`} className="font-bold text-[var(--primary)]">
+                        {part}
+                    </strong>
+                ) : (
+                    <span key={`${part}-${index}`}>{part}</span>
+                )
+            ))}
+        </>
+    );
 }
 
 function normalizeAromaVisuals(explanation: VisualWineExplanation): AromaVisual[] {
@@ -144,15 +198,36 @@ export default function AiExplainerResultPage() {
     const [hasLoaded, setHasLoaded] = useState(false);
 
     useEffect(() => {
-        const stored = sessionStorage.getItem(RESULT_STORAGE_KEY);
-        if (stored) {
-            try {
-                setData(JSON.parse(stored) as StoredVisualExplanation);
-            } catch (error) {
-                console.error(error);
-            }
+        let isMounted = true;
+        const params = new URLSearchParams(window.location.search);
+        const historyId = params.get("historyId") || readCurrentAiExplanationId();
+
+        if (!historyId) {
+            setData(readLegacyStoredVisualExplanation());
+            setHasLoaded(true);
+            return () => {
+                isMounted = false;
+            };
         }
-        setHasLoaded(true);
+
+        getAiExplanation(historyId, getAiExplainerClientKey())
+            .then((stored) => {
+                if (!isMounted) return;
+                setData(stored || readLegacyStoredVisualExplanation());
+            })
+            .catch((error) => {
+                console.error(error);
+                if (!isMounted) return;
+                setData(readLegacyStoredVisualExplanation());
+            })
+            .finally(() => {
+                if (!isMounted) return;
+                setHasLoaded(true);
+            });
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     if (!hasLoaded) {
@@ -184,6 +259,8 @@ export default function AiExplainerResultPage() {
 }
 
 function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
+    const router = useRouter();
+    const [expandedImage, setExpandedImage] = useState<ExpandedImage | null>(null);
     const explanation = data.explanation;
     const wine = explanation.wine;
     const generatedAt = useMemo(() => {
@@ -202,6 +279,16 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
     const aromaVisuals = normalizeAromaVisuals(explanation);
     const terroirCallouts = normalizeTerroirCallouts(explanation);
     const visualAssets = explanation.visualAssets || {};
+    const featuredPairing = explanation.serving.featuredPairing || asList(explanation.serving.pairings)[0] || "";
+
+    const handleCreateRecord = () => {
+        saveRecordDraftFromVisualExplanation(data);
+        router.push("/");
+    };
+
+    const openImage: ImageOpenHandler = (image) => {
+        if (image.src) setExpandedImage(image);
+    };
 
     return (
         <main className="pb-32">
@@ -209,13 +296,23 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                 <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] lg:px-8">
                     <div className="flex flex-col justify-between gap-8">
                         <div>
-                            <Link
-                                href="/ai-explainer"
-                                className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--primary)]"
-                            >
-                                <ArrowLeft size={16} />
-                                AI解説に戻る
-                            </Link>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <Link
+                                    href="/ai-explainer"
+                                    className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--primary)]"
+                                >
+                                    <ArrowLeft size={16} />
+                                    AI解説に戻る
+                                </Link>
+                                <button
+                                    type="button"
+                                    onClick={handleCreateRecord}
+                                    className="inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-[var(--primary-foreground)] shadow-sm transition-opacity hover:opacity-90"
+                                >
+                                    <NotebookPen size={16} />
+                                    記録ページに反映
+                                </button>
+                            </div>
                             <p className="mt-8 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
                                 Visual Wine Lecture
                             </p>
@@ -223,7 +320,7 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                                 {wine.name || data.input.wineName}
                             </h1>
                             <p className="mt-4 max-w-3xl text-lg leading-8 text-[var(--text)]">
-                                {explanation.headline}
+                                <HighlightText text={explanation.headline} />
                             </p>
                         </div>
 
@@ -246,10 +343,13 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                     <div className="grid gap-4 sm:grid-cols-[minmax(160px,0.8fr)_minmax(0,1fr)] lg:grid-cols-1">
                         <div className="relative min-h-80 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--app-bg)]">
                             {data.imageUrl ? (
-                                <img
+                                <ImageButton
                                     src={data.imageUrl}
                                     alt={`${wine.name} bottle or label`}
-                                    className="absolute inset-0 h-full w-full object-contain p-6"
+                                    className="absolute inset-0 h-full w-full"
+                                    imgClassName="h-full w-full object-contain p-6"
+                                    onOpen={openImage}
+                                    caption={wine.name || data.input.wineName}
                                 />
                             ) : (
                                 <div className="flex h-full min-h-80 items-center justify-center text-[var(--text-muted)]">
@@ -282,7 +382,9 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                     <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
                         <div>
                             <SectionEyebrow icon={<BookOpen size={18} />} label="このワインを読む視点" />
-                            <p className="mt-3 text-base leading-8 text-[var(--text)]">{explanation.lead}</p>
+                            <p className="mt-3 text-base leading-8 text-[var(--text)]">
+                                <HighlightText text={explanation.lead} />
+                            </p>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-3">
                             {takeaways.map((takeaway, index) => (
@@ -294,7 +396,7 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                                         {String(index + 1).padStart(2, "0")}
                                     </p>
                                     <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text)]">
-                                        {takeaway}
+                                        <HighlightText text={takeaway} />
                                     </p>
                                 </div>
                             ))}
@@ -321,7 +423,7 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                             <TerroirMapVisual
                                 asset={visualAssets.map}
                                 label={explanation.terroir.mapHint || wine.region || "産地"}
-                                callouts={terroirCallouts}
+                                onImageOpen={openImage}
                             />
                             {visualAssets.map?.caption && (
                                 <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
@@ -329,7 +431,10 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                                 </p>
                             )}
                         </div>
-                        <p className="mt-4 text-sm leading-7 text-[var(--text)]">{explanation.terroir.summary}</p>
+                        <p className="mt-4 text-sm leading-7 text-[var(--text)]">
+                            <HighlightText text={explanation.terroir.summary} />
+                        </p>
+                        <TerroirPointCards callouts={terroirCallouts} />
                         <div className="mt-4 grid gap-3 sm:grid-cols-2">
                             <MiniInfo title="気候" value={explanation.terroir.climate} />
                             <MiniInfo title="土壌" value={explanation.terroir.soil} />
@@ -338,7 +443,9 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                     </Panel>
 
                     <Panel title="味わいの重心" icon={<Grape size={18} />}>
-                        <p className="text-sm leading-7 text-[var(--text)]">{explanation.tasting.overview}</p>
+                        <p className="text-sm leading-7 text-[var(--text)]">
+                            <HighlightText text={explanation.tasting.overview} />
+                        </p>
                         <TasteRadar scales={explanation.tasting.scales} />
                         <div className="mt-5 space-y-5">
                             {asList(explanation.tasting.scales).map((scale) => (
@@ -350,10 +457,12 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
 
                 <section className="grid gap-8 lg:grid-cols-3">
                     <Panel title="生産者" icon={<Wine size={18} />}>
-                        <ProducerVisual asset={visualAssets.producer} producer={wine.producer || data.input.producer} />
-                        <p className="text-sm leading-7 text-[var(--text)]">{explanation.producerStory.summary}</p>
+                        <ProducerVisual asset={visualAssets.producer} producer={wine.producer || data.input.producer} onImageOpen={openImage} />
+                        <p className="text-sm leading-7 text-[var(--text)]">
+                            <HighlightText text={explanation.producerStory.summary} />
+                        </p>
                         <p className="mt-4 border-l-4 border-[var(--primary)] bg-[var(--app-bg)] p-4 text-sm leading-7 text-[var(--text)]">
-                            {explanation.producerStory.philosophy}
+                            <HighlightText text={explanation.producerStory.philosophy} />
                         </p>
                         <div className="mt-5 space-y-3">
                             {asList(explanation.producerStory.milestones).slice(0, 4).map((milestone) => (
@@ -368,7 +477,9 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                     </Panel>
 
                     <Panel title="造り" icon={<Sparkles size={18} />}>
-                        <p className="text-sm leading-7 text-[var(--text)]">{explanation.winemaking.summary}</p>
+                        <p className="text-sm leading-7 text-[var(--text)]">
+                            <HighlightText text={explanation.winemaking.summary} />
+                        </p>
                         <div className="mt-5 space-y-3">
                             {asList(explanation.winemaking.steps).slice(0, 5).map((step, index) => (
                                 <FlowStep
@@ -382,7 +493,9 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                     </Panel>
 
                     <Panel title="ヴィンテージ" icon={<Calendar size={18} />}>
-                        <p className="text-sm leading-7 text-[var(--text)]">{explanation.vintage.summary}</p>
+                        <p className="text-sm leading-7 text-[var(--text)]">
+                            <HighlightText text={explanation.vintage.summary} />
+                        </p>
                         <div className="mt-5 space-y-3">
                             {asList(explanation.vintage.conditions).map((condition, index) => (
                                 <NumberedNote key={`${condition}-${index}`} index={index + 1} text={condition} />
@@ -393,8 +506,8 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
 
                 <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
                     <Panel title="香り・味わいの読み解き" icon={<Grape size={18} />}>
-                        <AromaImageBoard asset={visualAssets.aromaBoard} />
-                        <AromaVisualGrid aromas={aromaVisuals} />
+                        <AromaImageBoard asset={visualAssets.aromaBoard} onImageOpen={openImage} />
+                        <AromaVisualGrid aromas={aromaVisuals} onImageOpen={openImage} />
                         <div className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_0.8fr]">
                             <TastingColumn title="香りの根拠" items={explanation.tasting.aroma} />
                             <TastingColumn title="味わい" items={explanation.tasting.palate} />
@@ -403,12 +516,15 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                                     <Clock3 size={16} className="text-[var(--primary)]" />
                                     余韻
                                 </div>
-                                <p className="mt-3 text-sm leading-7 text-[var(--text)]">{explanation.tasting.finish}</p>
+                                <p className="mt-3 text-sm leading-7 text-[var(--text)]">
+                                    <HighlightText text={explanation.tasting.finish} />
+                                </p>
                             </div>
                         </div>
                     </Panel>
 
                     <Panel title="サービス" icon={<Thermometer size={18} />}>
+                        <PairingVisual asset={visualAssets.pairing} pairing={featuredPairing} onImageOpen={openImage} />
                         <div className="grid gap-3">
                             <IconInfo title="温度" value={explanation.serving.temperature} icon={<Thermometer size={17} />} />
                             <IconInfo title="グラス" value={explanation.serving.glass} icon={<GlassWater size={17} />} />
@@ -436,7 +552,9 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                             {asList(explanation.studyPoints).map((point, index) => (
                                 <div key={`${point.title}-${index}`} className="border-l-4 border-[var(--primary)] bg-[var(--app-bg)] p-4">
                                     <p className="font-bold text-[var(--text)]">{point.title}</p>
-                                    <p className="mt-2 text-sm leading-7 text-[var(--text-muted)]">{point.description}</p>
+                                    <p className="mt-2 text-sm leading-7 text-[var(--text-muted)]">
+                                        <HighlightText text={point.description} />
+                                    </p>
                                 </div>
                             ))}
                         </div>
@@ -446,7 +564,7 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                         <div className="space-y-2">
                             {asList(explanation.sourceNotes).map((note, index) => (
                                 <p key={`${note}-${index}`} className="rounded-lg bg-[var(--app-bg)] px-3 py-2 text-sm leading-6 text-[var(--text)]">
-                                    {note}
+                                    <HighlightText text={note} />
                                 </p>
                             ))}
                         </div>
@@ -469,6 +587,7 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                     </Panel>
                 </section>
             </div>
+            <ImageLightbox image={expandedImage} onClose={() => setExpandedImage(null)} />
         </main>
     );
 }
@@ -486,7 +605,7 @@ function FactTile({ label, value }: { label: string; value: string }) {
     return (
         <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-4">
             <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
-            <p className="mt-2 line-clamp-2 text-sm font-semibold leading-6 text-[var(--text)]">{value}</p>
+            <p className="mt-2 break-words text-sm font-semibold leading-6 text-[var(--text)]">{value}</p>
         </div>
     );
 }
@@ -501,7 +620,7 @@ function VisualSignalStrip({ items }: { items: { icon: React.ReactNode; label: s
                     </div>
                     <div className="min-w-0">
                         <p className="text-[10px] font-bold text-[var(--text-muted)]">{item.label}</p>
-                        <p className="truncate text-xs font-semibold text-[var(--text)]">{item.value}</p>
+                        <p className="break-words text-xs font-semibold leading-5 text-[var(--text)]">{item.value}</p>
                     </div>
                 </div>
             ))}
@@ -509,16 +628,95 @@ function VisualSignalStrip({ items }: { items: { icon: React.ReactNode; label: s
     );
 }
 
-function ProducerVisual({ asset, producer }: { asset?: VisualImageAsset; producer?: string }) {
+function ImageCreditOverlay({ asset }: { asset?: VisualImageAsset }) {
+    const label = assetKindLabel(asset);
+    if (!label || asset?.kind === "source") return null;
+
+    return (
+        <span className="pointer-events-none absolute bottom-2 right-2 z-10 text-[10px] font-semibold leading-none text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.85)]">
+            {label}
+        </span>
+    );
+}
+
+function ImageButton({
+    src,
+    alt,
+    caption,
+    asset,
+    className,
+    imgClassName,
+    onOpen,
+}: {
+    src: string;
+    alt: string;
+    caption?: string;
+    asset?: VisualImageAsset;
+    className?: string;
+    imgClassName?: string;
+    onOpen?: ImageOpenHandler;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={() => onOpen?.({ src, alt, caption: caption || asset?.caption, label: assetKindLabel(asset) })}
+            className={`group relative block overflow-hidden text-left ${className || ""}`}
+            aria-label={`${alt}を拡大`}
+        >
+            <img src={src} alt={alt} className={imgClassName || "h-full w-full object-cover"} />
+            <span className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/45 text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                <ZoomIn size={16} />
+            </span>
+            <ImageCreditOverlay asset={asset} />
+        </button>
+    );
+}
+
+function ImageLightbox({ image, onClose }: { image: ExpandedImage | null; onClose: () => void }) {
+    if (!image) return null;
+
+    return (
+        <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/88 px-4 py-8"
+            role="dialog"
+            aria-modal="true"
+            onClick={onClose}
+        >
+            <button
+                type="button"
+                onClick={onClose}
+                className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/12 text-white transition-colors hover:bg-white/20"
+                aria-label="拡大画像を閉じる"
+            >
+                <X size={22} />
+            </button>
+            <figure className="flex max-h-full max-w-6xl flex-col items-center gap-3" onClick={(event) => event.stopPropagation()}>
+                <img src={image.src} alt={image.alt} className="max-h-[82vh] max-w-full rounded-xl object-contain shadow-2xl" />
+                {(image.label || image.caption) && (
+                    <figcaption className="max-w-3xl text-center text-xs leading-5 text-white/82">
+                        {image.label && <span className="font-semibold text-white">{image.label}</span>}
+                        {image.label && image.caption ? " / " : ""}
+                        {image.caption}
+                    </figcaption>
+                )}
+            </figure>
+        </div>
+    );
+}
+
+function ProducerVisual({ asset, producer, onImageOpen }: { asset?: VisualImageAsset; producer?: string; onImageOpen?: ImageOpenHandler }) {
     const src = assetUrl(asset);
     return (
         <div className="mb-5 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--app-bg)]">
             <div className="relative h-44 bg-[var(--surface-2)]">
                 {src ? (
-                    <img
+                    <ImageButton
                         src={src}
                         alt={`${producer || "生産者"} visual`}
-                        className="h-full w-full object-cover"
+                        asset={asset}
+                        onOpen={onImageOpen}
+                        className="h-full w-full"
+                        imgClassName="h-full w-full object-cover"
                     />
                 ) : (
                     <div className="grid h-full grid-cols-3 items-center gap-3 p-5 text-[var(--primary)]">
@@ -533,13 +731,10 @@ function ProducerVisual({ asset, producer }: { asset?: VisualImageAsset; produce
                         </div>
                     </div>
                 )}
-                <div className="absolute left-3 top-3 rounded-full bg-[var(--card-bg)]/95 px-3 py-1 text-[10px] font-bold text-[var(--primary)] shadow-sm">
-                    {assetKindLabel(asset) || "生産者イメージ"}
-                </div>
             </div>
             <div className="space-y-2 p-3">
                 {asset?.caption && (
-                    <p className="text-xs leading-5 text-[var(--text)]">{asset.caption}</p>
+                    <p className="text-xs leading-5 text-[var(--text)]"><HighlightText text={asset.caption} /></p>
                 )}
                 {asset?.sourceUrl && (
                     <a
@@ -560,19 +755,24 @@ function ProducerVisual({ asset, producer }: { asset?: VisualImageAsset; produce
 function TerroirMapVisual({
     asset,
     label,
-    callouts,
+    onImageOpen,
 }: {
     asset?: VisualImageAsset;
     label: string;
-    callouts?: TerroirMapCallout[];
+    onImageOpen?: ImageOpenHandler;
 }) {
     const src = assetUrl(asset);
     if (src) {
         return (
             <div className="relative h-72 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card-bg)] sm:h-80">
-                <img src={src} alt={label} className="h-full w-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/20" />
-                <TerroirMapCallouts callouts={callouts} fallbackLabel={label} />
+                <ImageButton
+                    src={src}
+                    alt={label}
+                    asset={asset}
+                    onOpen={onImageOpen}
+                    className="h-full w-full"
+                    imgClassName="h-full w-full object-cover"
+                />
             </div>
         );
     }
@@ -587,71 +787,53 @@ function TerroirMapVisual({
             <div className="absolute right-8 top-8 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--app-bg)] text-[var(--primary)]">
                 <Mountain size={22} />
             </div>
-            <TerroirMapCallouts callouts={callouts} fallbackLabel={label} />
+            <div className="absolute bottom-3 left-3 right-3 flex items-center gap-2 rounded-xl bg-[var(--card-bg)]/95 px-3 py-2 text-xs font-bold text-[var(--text)] shadow-sm">
+                <MapPin size={15} className="text-[var(--primary)]" />
+                <span className="line-clamp-2">{label}</span>
+            </div>
         </div>
     );
 }
 
-function TerroirMapCallouts({
-    callouts,
-    fallbackLabel,
-}: {
-    callouts?: TerroirMapCallout[];
-    fallbackLabel: string;
-}) {
-    const list = asList(callouts).slice(0, 4);
-    if (list.length === 0) {
-        return (
-            <div className="absolute bottom-3 left-3 right-3 flex items-center gap-2 rounded-xl bg-[var(--card-bg)]/95 px-3 py-2 text-xs font-bold text-[var(--text)] shadow-sm">
-                <MapPin size={15} className="text-[var(--primary)]" />
-                <span className="line-clamp-2">{fallbackLabel}</span>
-            </div>
-        );
+function TerroirCalloutIcon({ icon, size = 15 }: { icon?: TerroirMapCallout["icon"]; size?: number }) {
+    switch (icon) {
+        case "coast":
+        case "river":
+            return <Waves size={size} />;
+        case "mountain":
+            return <Mountain size={size} />;
+        case "soil":
+            return <Layers3 size={size} />;
+        case "slope":
+            return <Sprout size={size} />;
+        case "climate":
+            return <Sun size={size} />;
+        default:
+            return <MapPin size={size} />;
     }
+}
 
-    const positionClass: Record<NonNullable<TerroirMapCallout["position"]>, string> = {
-        "top-left": "left-3 top-3",
-        "top-right": "right-3 top-3",
-        "bottom-left": "bottom-3 left-3",
-        "bottom-right": "bottom-3 right-3",
-    };
+function TerroirPointCards({ callouts }: { callouts?: TerroirMapCallout[] }) {
+    const list = asList(callouts).slice(0, 4);
+    if (list.length === 0) return null;
 
     return (
-        <div className="pointer-events-none absolute inset-0">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {list.map((callout, index) => (
-                <div
-                    key={`${callout.label}-${index}`}
-                    className={`absolute max-w-[46%] rounded-lg border border-white/30 bg-[var(--card-bg)]/95 px-2.5 py-2 text-[var(--text)] shadow-lg backdrop-blur ${positionClass[callout.position || "top-left"]}`}
-                >
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--primary)]">
+                <div key={`${callout.label}-${index}`} className="flex gap-3 rounded-xl border border-[var(--border)] bg-[var(--app-bg)] p-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--card-bg)] text-[var(--primary)]">
                         <TerroirCalloutIcon icon={callout.icon} />
-                        <span className="truncate">{callout.label}</span>
                     </div>
-                    <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-[var(--text)]">
-                        {callout.description}
-                    </p>
+                    <div>
+                        <p className="text-sm font-bold text-[var(--text)]">{callout.label}</p>
+                        <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+                            <HighlightText text={callout.description} />
+                        </p>
+                    </div>
                 </div>
             ))}
         </div>
     );
-}
-
-function TerroirCalloutIcon({ icon }: { icon?: TerroirMapCallout["icon"] }) {
-    switch (icon) {
-        case "coast":
-        case "river":
-            return <Waves size={12} />;
-        case "mountain":
-            return <Mountain size={12} />;
-        case "soil":
-            return <Layers3 size={12} />;
-        case "slope":
-            return <Sprout size={12} />;
-        case "climate":
-            return <Sun size={12} />;
-        default:
-            return <MapPin size={12} />;
-    }
 }
 
 function TerroirInfluences({ items }: { items?: { title: string; description: string }[] }) {
@@ -659,43 +841,56 @@ function TerroirInfluences({ items }: { items?: { title: string; description: st
     if (list.length === 0) return null;
 
     const icons = [<Sun size={16} />, <CloudRain size={16} />, <Mountain size={16} />];
+    const gridClass = list.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-2 xl:grid-cols-3";
     return (
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className={`mt-4 grid gap-3 ${gridClass}`}>
             {list.map((item, index) => (
                 <div key={`${item.title}-${index}`} className="rounded-xl border border-[var(--border)] bg-[var(--app-bg)] p-3">
                     <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--card-bg)] text-[var(--primary)]">
                         {icons[index % icons.length]}
                     </div>
                     <p className="text-sm font-bold text-[var(--text)]">{item.title}</p>
-                    <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{item.description}</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+                        <HighlightText text={item.description} />
+                    </p>
                 </div>
             ))}
         </div>
     );
 }
 
+function compactScaleLabel(label: string) {
+    return label
+        .replace("果実の熟度", "果実熟度")
+        .replace("樽の存在感", "樽感")
+        .replace("アルコール感", "アルコール");
+}
+
 function TasteRadar({ scales }: { scales?: VisualScale[] }) {
     const list = asList(scales).slice(0, 6);
     if (list.length < 3) return null;
 
-    const center = 96;
-    const radius = 68;
+    const center = 120;
+    const radius = 64;
+    const labelRadius = 90;
     const points = list.map((scale, index) => {
         const angle = -Math.PI / 2 + (index * 2 * Math.PI) / list.length;
         const value = Math.min(100, Math.max(0, Number(scale.value) || 0)) / 100;
         return {
             x: center + Math.cos(angle) * radius * value,
             y: center + Math.sin(angle) * radius * value,
-            labelX: center + Math.cos(angle) * (radius + 22),
-            labelY: center + Math.sin(angle) * (radius + 22),
-            label: scale.label,
+            axisX: center + Math.cos(angle) * radius,
+            axisY: center + Math.sin(angle) * radius,
+            labelX: center + Math.cos(angle) * labelRadius,
+            labelY: center + Math.sin(angle) * labelRadius,
+            label: compactScaleLabel(scale.label),
         };
     });
     const polygon = points.map((point) => `${point.x},${point.y}`).join(" ");
 
     return (
-        <div className="mt-5 grid items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--app-bg)] p-4 sm:grid-cols-[210px_minmax(0,1fr)]">
-            <svg viewBox="0 0 192 192" className="mx-auto h-48 w-48 overflow-visible">
+        <div className="mt-5 grid items-center gap-5 rounded-xl border border-[var(--border)] bg-[var(--app-bg)] p-4 xl:grid-cols-[260px_minmax(0,1fr)]">
+            <svg viewBox="0 0 240 240" className="mx-auto h-60 w-60 max-w-full overflow-hidden">
                 {[0.25, 0.5, 0.75, 1].map((step) => (
                     <circle
                         key={step}
@@ -712,8 +907,8 @@ function TasteRadar({ scales }: { scales?: VisualScale[] }) {
                         key={`${point.label}-axis`}
                         x1={center}
                         y1={center}
-                        x2={point.labelX - (point.labelX > center ? 12 : point.labelX < center ? -12 : 0)}
-                        y2={point.labelY - (point.labelY > center ? 12 : point.labelY < center ? -12 : 0)}
+                        x2={point.axisX}
+                        y2={point.axisY}
                         stroke="var(--border)"
                         strokeWidth="1"
                     />
@@ -728,7 +923,7 @@ function TasteRadar({ scales }: { scales?: VisualScale[] }) {
                             textAnchor={point.labelX > center ? "start" : point.labelX < center ? "end" : "middle"}
                             dominantBaseline="middle"
                             fill="var(--text)"
-                            fontSize="10"
+                            fontSize="9"
                             fontWeight="700"
                         >
                             {point.label}
@@ -739,7 +934,7 @@ function TasteRadar({ scales }: { scales?: VisualScale[] }) {
             <div>
                 <SectionEyebrow icon={<ScanSearch size={16} />} label="構造の見取り図" />
                 <p className="mt-2 text-sm leading-7 text-[var(--text)]">
-                    味わいの主要要素をレーダーで俯瞰します。棒グラフは各要素の根拠説明、レーダーは全体の重心を見るための補助図です。
+                    <HighlightText text="味わいの主要要素をレーダーで俯瞰します。棒グラフは各要素の根拠説明、レーダーは全体の重心を見るための補助図です。" />
                 </p>
             </div>
         </div>
@@ -764,7 +959,9 @@ function MiniInfo({ title, value }: { title: string; value?: string }) {
     return (
         <div className="rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4">
             <p className="text-xs font-bold text-[var(--primary)]">{title}</p>
-            <p className="mt-2 text-sm leading-7 text-[var(--text)]">{value || "公開情報から確認中"}</p>
+            <p className="mt-2 text-sm leading-7 text-[var(--text)]">
+                <HighlightText text={value || "公開情報から確認中"} />
+            </p>
         </div>
     );
 }
@@ -777,32 +974,69 @@ function IconInfo({ title, value, icon }: { title: string; value?: string; icon:
             </div>
             <div>
                 <p className="text-xs font-bold text-[var(--primary)]">{title}</p>
-                <p className="mt-1 text-sm leading-6 text-[var(--text)]">{value || "公開情報から確認中"}</p>
+                <p className="mt-1 text-sm leading-6 text-[var(--text)]">
+                    <HighlightText text={value || "公開情報から確認中"} />
+                </p>
             </div>
         </div>
     );
 }
 
-function AromaImageBoard({ asset }: { asset?: VisualImageAsset }) {
+function AromaImageBoard({ asset, onImageOpen }: { asset?: VisualImageAsset; onImageOpen?: ImageOpenHandler }) {
     const src = assetUrl(asset);
     if (!src) return null;
 
     return (
         <div className="mb-5 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--app-bg)]">
             <div className="relative h-56">
-                <img src={src} alt={asset?.caption || "代表的な香りのイメージ"} className="h-full w-full object-cover" />
-                <div className="absolute left-3 top-3 rounded-full bg-[var(--card-bg)]/95 px-3 py-1 text-[10px] font-bold text-[var(--primary)] shadow-sm">
-                    {assetKindLabel(asset) || "香りイメージ"}
-                </div>
+                <ImageButton
+                    src={src}
+                    alt={asset?.alt || asset?.caption || "代表的な香りのイメージ"}
+                    asset={asset}
+                    onOpen={onImageOpen}
+                    className="h-full w-full"
+                    imgClassName="h-full w-full object-cover"
+                />
             </div>
             {asset?.caption && (
-                <p className="px-3 py-2 text-xs leading-5 text-[var(--text-muted)]">{asset.caption}</p>
+                <p className="px-3 py-2 text-xs leading-5 text-[var(--text-muted)]">
+                    <HighlightText text={asset.caption} />
+                </p>
             )}
         </div>
     );
 }
 
-function AromaVisualGrid({ aromas }: { aromas: AromaVisual[] }) {
+function PairingVisual({ asset, pairing, onImageOpen }: { asset?: VisualImageAsset; pairing?: string; onImageOpen?: ImageOpenHandler }) {
+    const src = assetUrl(asset);
+    if (!src) return null;
+
+    return (
+        <div className="mb-5 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--app-bg)]">
+            <div className="relative h-48">
+                <ImageButton
+                    src={src}
+                    alt={asset?.alt || `${pairing || "ペアリング"}の料理画像`}
+                    asset={asset}
+                    onOpen={onImageOpen}
+                    className="h-full w-full"
+                    imgClassName="h-full w-full object-cover"
+                />
+                <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-[var(--card-bg)]/95 px-3 py-1 text-[10px] font-bold text-[var(--primary)] shadow-sm">
+                    <Utensils size={13} />
+                    {pairing || "ペアリング"}
+                </div>
+            </div>
+            {asset?.caption && (
+                <p className="px-3 py-2 text-xs leading-5 text-[var(--text-muted)]">
+                    <HighlightText text={asset.caption} />
+                </p>
+            )}
+        </div>
+    );
+}
+
+function AromaVisualGrid({ aromas, onImageOpen }: { aromas: AromaVisual[]; onImageOpen?: ImageOpenHandler }) {
     if (aromas.length === 0) return null;
 
     return (
@@ -810,18 +1044,38 @@ function AromaVisualGrid({ aromas }: { aromas: AromaVisual[] }) {
             {aromas.map((aroma) => (
                 <div key={`${aroma.label}-${aroma.description}`} className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--app-bg)]">
                     <div className="relative h-28" style={{ background: `linear-gradient(135deg, ${aroma.color || "#be123c"} 0%, var(--card-bg) 78%)` }}>
-                        <div className="absolute left-3 top-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--card-bg)]/95 text-[var(--primary)] shadow-sm">
-                            <AromaIcon family={aroma.family} size={23} />
-                        </div>
-                        <div className="absolute bottom-3 right-3 flex gap-2 text-[var(--card-bg)]/80">
-                            <CircleVisual />
-                            <CircleVisual small />
-                            <CircleVisual />
-                        </div>
+                        {aroma.image?.url ? (
+                            <>
+                                <ImageButton
+                                    src={aroma.image.url}
+                                    alt={aroma.image.alt || `${aroma.label}の香りイメージ`}
+                                    asset={aroma.image}
+                                    onOpen={onImageOpen}
+                                    className="h-full w-full"
+                                    imgClassName="h-full w-full object-cover"
+                                />
+                                <div className="pointer-events-none absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-xl bg-black/35 text-white shadow-sm">
+                                    <AromaIcon family={aroma.family} size={22} />
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="absolute left-3 top-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--card-bg)]/95 text-[var(--primary)] shadow-sm">
+                                    <AromaIcon family={aroma.family} size={23} />
+                                </div>
+                                <div className="absolute bottom-3 right-3 flex gap-2 text-[var(--card-bg)]/80">
+                                    <CircleVisual />
+                                    <CircleVisual small />
+                                    <CircleVisual />
+                                </div>
+                            </>
+                        )}
                     </div>
                     <div className="p-3">
                         <p className="text-sm font-bold text-[var(--text)]">{aroma.label}</p>
-                        <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{aroma.description}</p>
+                        <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+                            <HighlightText text={aroma.description} />
+                        </p>
                     </div>
                 </div>
             ))}
@@ -837,33 +1091,50 @@ function CircleVisual({ small = false }: { small?: boolean }) {
     );
 }
 
+function ScaleIcon({ label }: { label: string }) {
+    if (/酸/.test(label)) return <Citrus size={18} />;
+    if (/果実|熟度/.test(label)) return <Cherry size={18} />;
+    if (/樽/.test(label)) return <Wheat size={18} />;
+    if (/タンニン|ボディ/.test(label)) return <Layers3 size={18} />;
+    if (/アルコール/.test(label)) return <Flame size={18} />;
+    if (/余韻/.test(label)) return <Clock3 size={18} />;
+    return <Grape size={18} />;
+}
+
 function ScaleBar({ scale }: { scale: VisualScale }) {
     const value = Math.min(100, Math.max(0, Number(scale.value) || 0));
 
     return (
-        <div>
-            <div className="mb-2 flex items-start justify-between gap-3">
-                <div>
-                    <p className="font-bold text-[var(--text)]">{scale.label}</p>
-                    <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{scale.note}</p>
+        <div className="grid grid-cols-[42px_minmax(0,1fr)] gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--app-bg)] text-[var(--primary)]">
+                <ScaleIcon label={scale.label} />
+            </div>
+            <div>
+                <div className="mb-2 flex items-start justify-between gap-3">
+                    <div>
+                        <p className="font-bold text-[var(--text)]">{scale.label}</p>
+                        <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+                            <HighlightText text={scale.note} />
+                        </p>
+                    </div>
+                    <span className="rounded-full bg-[var(--app-bg)] px-2.5 py-1 text-xs font-bold text-[var(--primary)]">
+                        {value}
+                    </span>
                 </div>
-                <span className="rounded-full bg-[var(--app-bg)] px-2.5 py-1 text-xs font-bold text-[var(--primary)]">
-                    {value}
-                </span>
-            </div>
-            <div className="relative h-3 rounded-full bg-[var(--app-bg)]">
-                <div
-                    className="absolute left-0 top-0 h-3 rounded-full bg-[var(--primary)]"
-                    style={{ width: `${value}%` }}
-                />
-                <div
-                    className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--card-bg)] bg-[var(--primary)] shadow-sm"
-                    style={{ left: `${value}%` }}
-                />
-            </div>
-            <div className="mt-1 flex justify-between text-xs text-[var(--text-muted)]">
-                <span>{scale.lowLabel}</span>
-                <span>{scale.highLabel}</span>
+                <div className="relative h-3 rounded-full bg-[var(--app-bg)]">
+                    <div
+                        className="absolute left-0 top-0 h-3 rounded-full bg-[var(--primary)]"
+                        style={{ width: `${value}%` }}
+                    />
+                    <div
+                        className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--card-bg)] bg-[var(--primary)] shadow-sm"
+                        style={{ left: `${value}%` }}
+                    />
+                </div>
+                <div className="mt-1 flex justify-between gap-3 text-xs text-[var(--text-muted)]">
+                    <span className="min-w-0 break-words">{scale.lowLabel}</span>
+                    <span className="min-w-0 break-words text-right">{scale.highLabel}</span>
+                </div>
             </div>
         </div>
     );
@@ -875,7 +1146,9 @@ function TimelineItem({ label, title, description }: { label: string; title: str
             <div className="text-sm font-bold text-[var(--primary)]">{label}</div>
             <div>
                 <p className="text-sm font-bold text-[var(--text)]">{title}</p>
-                <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">{description}</p>
+                <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+                    <HighlightText text={description} />
+                </p>
             </div>
         </div>
     );
@@ -892,7 +1165,9 @@ function FlowStep({ index, label, description }: { index: number; label: string;
                     <span className="mr-2 text-[var(--primary)]">{String(index).padStart(2, "0")}</span>
                     {label}
                 </p>
-                <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">{description}</p>
+                <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+                    <HighlightText text={description} />
+                </p>
             </div>
         </div>
     );
@@ -905,7 +1180,9 @@ function NumberedNote({ index, text }: { index: number; text: string }) {
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--card-bg)] text-[var(--primary)]">
                 {icons[(index - 1) % icons.length]}
             </span>
-            <p className="text-sm leading-6 text-[var(--text)]">{text}</p>
+            <p className="text-sm leading-6 text-[var(--text)]">
+                <HighlightText text={text} />
+            </p>
         </div>
     );
 }
@@ -921,7 +1198,7 @@ function TastingColumn({ title, items }: { title: string; items?: string[] }) {
                 {asList(items).map((item) => (
                     <li key={item} className="flex gap-2 text-sm leading-6 text-[var(--text)]">
                         <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--primary)]" />
-                        <span>{item}</span>
+                        <span><HighlightText text={item} /></span>
                     </li>
                 ))}
             </ul>
