@@ -475,11 +475,7 @@ export function createWineFormDefaultsFromVisualExplanation(data: StoredVisualEx
             section("余韻", explanation.tasting.finish),
         ]).join("\n\n"),
         readiness: inferReadiness(allText),
-        notes: compact([
-            explanation.headline,
-            explanation.lead,
-            section("学習ポイント", asList(explanation.studyPoints).map((item) => `${item.title}: ${item.description}`)),
-        ]).join("\n\n"),
+        notes: "",
         terroir_info: compact([
             explanation.terroir.summary,
             section("気候", explanation.terroir.climate),
