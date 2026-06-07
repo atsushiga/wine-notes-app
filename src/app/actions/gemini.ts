@@ -1538,7 +1538,7 @@ type VisualImageGenerationOptions = {
 
 function imagePromptBase(prompt: string, options: VisualImageGenerationOptions = {}) {
     const textRule = options.allowText
-        ? "short, readable Japanese map labels and callout captions are allowed only for terrain features"
+        ? "large, short, readable Japanese map labels and callout captions are allowed only for essential terrain features; keep text mobile-readable at 390px screen width"
         : "no readable text and no labels";
     const styleRequirements = options.style === "photo"
         ? [
@@ -1548,8 +1548,8 @@ function imagePromptBase(prompt: string, options: VisualImageGenerationOptions =
         ]
         : [
             "premium Japanese wine lecture handout visual",
-            "clean editorial illustration, warm neutral background, burgundy and muted gold accents",
-            "high visual clarity, balanced composition",
+            "modern flat editorial illustration, dark slate-compatible canvas, burgundy primary accents, muted rose and blue-slate supporting colors",
+            "minimal texture, clean vector-like fills, high visual clarity, balanced composition",
         ];
 
     return `${prompt}
@@ -1679,14 +1679,28 @@ async function generateOrReuseStorageImage(
     }
 }
 
+function formatMapRegionLabel(parts: Array<string | undefined | null>) {
+    const omittedLabels = new Set(["その他", "不明", "unknown", "n/a", "none", "-"]);
+    const seen = new Set<string>();
+
+    return parts
+        .map((part) => (part || "").trim())
+        .filter((part) => part && !omittedLabels.has(part.toLowerCase()))
+        .filter((part) => {
+            const key = part.toLowerCase().replace(/\s+/g, " ");
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
+        .join(" / ");
+}
+
 function buildTerroirMapPrompt(query: VisualWineExplanationRequest, data: VisualWineExplanation) {
-    const regionLabel = [
+    const regionLabel = formatMapRegionLabel([
         data.wine?.country || query.country,
         data.wine?.region || query.locality,
         data.terroir?.title,
-    ]
-        .filter(Boolean)
-        .join(" / ");
+    ]);
 
     const fallbackCallouts: TerroirMapCallout[] = [];
     if (data.terroir?.climate) {
@@ -1709,16 +1723,39 @@ function buildTerroirMapPrompt(query: VisualWineExplanationRequest, data: Visual
         : fallbackCallouts;
 
     const calloutLines = callouts
-        .slice(0, 4)
+        .slice(0, 3)
         .map((item) => `- ${item.label}: ${item.description}`)
         .join("\n");
 
     return `Create a geographically grounded illustrated terroir map for ${regionLabel || wineLabelForPrompt(query)}.
-Use the actual wine region as reference: recognizable relative position of coastlines, mountains or hills, valleys, rivers, lakes, important nearby towns, and appellation/vineyard context where relevant.
-This must look like an editorial regional map, not a fantasy landscape and not a satellite photo. If the exact vineyard is unknown, show the broader appellation or locality context accurately.
-Add 3 to 4 compact Japanese callout caption boxes inside the map, connected with fine leader lines to the relevant terrain areas. Use these callouts:
+
+Map accuracy and boundary:
+- Use the actual wine region as reference: recognizable relative position of coastlines, mountains or hills, valleys, rivers, lakes, important nearby towns, and appellation/vineyard context where relevant.
+- Make the target wine-growing area unmistakable: draw its boundary as one continuous burgundy outline with a restrained muted-rose fill, and show the neighboring land outside that boundary in darker slate-neutral tones.
+- If the exact vineyard boundary is unknown, show the broader appellation, locality, or administrative wine region accurately and label it as the referenced area.
+- Include enough surrounding context that viewers can tell where the region starts and ends.
+
+Terrain readability:
+- Use flat modern cartography: elevation should be shown with clean stepped bands and a few restrained contour lines, not realistic relief or paper-map texture.
+- Make hills, valleys, slopes, and lowlands clear at thumbnail size.
+- Show rivers, lakes, coastlines, and sea areas with muted blue-slate lines/fills; make water visibly different from land.
+- Distinguish soil or geological zones with simple flat patterns such as sparse hatching or dot texture. Limestone/chalk/clay/gravel zones should be visibly different from ordinary land.
+- Vineyard dots, terraces, or small field marks may be used, but keep them understated and sparse.
+
+Text and captions:
+- Add exactly 3 compact Japanese callout caption boxes inside the map, connected with fine leader lines to the relevant terrain areas. Use these callouts:
 ${calloutLines || "- 地形: 産地の位置関係\n- 気候: 熟度を支える条件\n- 土壌: 味わいの骨格"}
-Also include a small north arrow, restrained contour lines, vineyard dots or terraces, and subtle color coding for terrain.`;
+- Callout explanations must be Japanese. Place names must be Japanese plus original name in parentheses when known, for example ウェスト・サセックス (West Sussex).
+- Use large sans-serif typography. The image will be shown on smartphones, so text must remain readable at 390px screen width.
+- Keep each callout to a short title plus one short sentence. Avoid paragraphs.
+- Limit place labels to the target region plus 2 to 4 essential context labels; do not label every town.
+- Prefer no legend when the terrain is self-explanatory. A small legend is allowed only if it improves clarity, with at most 3 entries and large icons. The map must remain understandable without relying on the legend.
+
+Visual style:
+- This must look like a modern flat editorial regional map for a wine learning note, not a fantasy landscape, not an antique map, and not a satellite photo.
+- Use a darker theme-compatible palette: dark slate base, muted slate land, restrained muted rose target region, burgundy boundary/accent, and muted blue-slate water.
+- It must sit comfortably on both light and dark themes: avoid pure white backgrounds, pure black backgrounds, parchment texture, metallic gold, high-gloss effects, neon colors, heavy drop shadows, and strong purple/blue gradients.
+- Include a small north arrow and optional scale cue. No logos or watermark.`;
 }
 
 function buildProducerImagePrompt(
@@ -2230,13 +2267,23 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
 
     For visualAssets:
     - producer.sourceUrl should prefer the producer's official winery/about page, then importer page.
-    - terroir.mapCallouts must contain 3 to 4 short terrain features suited for labels inside the map.
+    - terroir.mapCallouts must contain exactly 3 short terrain features suited for labels inside the map.
       Use positions from top-left, top-right, bottom-left, bottom-right without repeating when possible.
       Use icons from coast, mountain, river, soil, slope, climate.
-      Keep label under 8 Japanese characters and description under 28 Japanese characters.
+      Keep label under 8 Japanese characters and description under 18 Japanese characters.
     - map.prompt must describe a geographically grounded illustrated map of the actual region or broader appellation.
-      It should mention recognizable coastlines, mountain ranges, hills, rivers, lakes, towns, appellation boundaries,
-      vineyard dots/terraces, and 3 to 4 short Japanese callout captions when relevant.
+      It must make the target wine-growing area boundary unmistakable from surrounding land, preferably with a burgundy outline
+      and restrained muted-rose fill. It should mention recognizable coastlines, mountain ranges, hills, rivers, lakes,
+      appellation/locality boundaries, sparse vineyard dots/terraces, and exactly 3 short Japanese callout captions.
+      It must ask for flat modern cartography: clear elevation bands, a few restrained contour lines, visibly distinct water,
+      land, slopes, and soil/geology zones, with no antique paper texture or realistic relief.
+      It must keep mobile readability: large sans-serif labels, no paragraphs, at most 3 callout boxes, preferably no legend
+      and at most 3 legend entries when needed, and only 2 to 4 essential place labels beyond the target region.
+      It must use a darker restrained palette aligned with the app design system: dark slate base, muted slate land,
+      muted rose target region, burgundy accents, and muted blue-slate water; avoid metallic gold, neon colors,
+      pure black/white backgrounds, parchment texture, heavy shadows, and strong gradients so it works in both light and dark themes.
+      Japanese captions are required; place names should be Japanese plus original in parentheses when known.
+    - visualAssets.map.caption must be Japanese. If it mentions place names, include Japanese plus original name in parentheses when known.
     - aromaBoard.prompt must name 4-6 real aroma objects from tasting.aromaVisuals.
       The image style should be photorealistic, overhead flat-lay, objects arranged on a wood or stone tabletop,
       with no text, no labels, no hands, no bottles, and no glasses.

@@ -21,7 +21,6 @@ import {
     Citrus,
     Clock3,
     CloudRain,
-    Compass,
     Droplets,
     ExternalLink,
     Factory,
@@ -31,7 +30,6 @@ import {
     Grape,
     Layers3,
     Leaf,
-    Map,
     Mountain,
     MapPin,
     NotebookPen,
@@ -111,6 +109,21 @@ function formatPriceDisplay(value: string | number | null | undefined) {
     const raw = String(value ?? "").replace(/[^\d]/g, "");
     if (!raw) return "不明";
     return `¥${Number(raw).toLocaleString()}`;
+}
+
+function splitLocalizedName(value: string | undefined) {
+    const fullName = (value || "").trim();
+    const match = fullName.match(/^(.*\S)\s*[（(]([^()（）]+)[）)]\s*$/);
+    const hasJapaneseSubtitle = match ? /[ぁ-んァ-ヶ一-龠々]/.test(match[2]) : false;
+
+    if (!match || !hasJapaneseSubtitle) {
+        return { title: fullName, subtitle: "" };
+    }
+
+    return {
+        title: match[1].trim(),
+        subtitle: match[2].trim(),
+    };
 }
 
 function HighlightText({ text }: { text?: string }) {
@@ -209,8 +222,11 @@ export default function AiExplainerResultPage() {
         const historyId = params.get("historyId") || readCurrentAiExplanationId();
 
         if (!historyId) {
-            setData(readLegacyStoredVisualExplanation());
-            setHasLoaded(true);
+            void Promise.resolve().then(() => {
+                if (!isMounted) return;
+                setData(readLegacyStoredVisualExplanation());
+                setHasLoaded(true);
+            });
             return () => {
                 isMounted = false;
             };
@@ -279,8 +295,8 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
         });
     }, [data.generatedAt]);
 
-    const grapeVarieties = asList(wine.grapeVarieties, ["品種情報を検索中"]);
-    const takeaways = asList(explanation.keyTakeaways).slice(0, 4);
+    const displayName = splitLocalizedName(wine.name || data.input.wineName);
+    const takeaways = asList(explanation.keyTakeaways).slice(0, 3);
     const sources = asList(explanation.sources);
     const aromaVisuals = normalizeAromaVisuals(explanation);
     const terroirCallouts = normalizeTerroirCallouts(explanation);
@@ -300,100 +316,93 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
     return (
         <main className="pb-32">
             <section className="border-b border-[var(--border)] bg-[var(--card-bg)]">
-                <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] lg:px-8">
-                    <div className="flex flex-col justify-between gap-8">
-                        <div>
-                            <div className="flex flex-wrap items-center gap-3">
-                                <Link
-                                    href="/ai-explainer"
-                                    className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--primary)]"
-                                >
-                                    <ArrowLeft size={16} />
-                                    AI解説に戻る
-                                </Link>
-                                <button
-                                    type="button"
-                                    onClick={handleCreateRecord}
-                                    className="inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-[var(--primary-foreground)] shadow-sm transition-opacity hover:opacity-90"
-                                >
-                                    <NotebookPen size={16} />
-                                    記録ページに反映
-                                </button>
-                            </div>
-                            <p className="mt-8 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
-                                Visual Wine Lecture
-                            </p>
-                            <h1 className="mt-3 text-4xl font-bold leading-tight tracking-normal text-[var(--text)] sm:text-5xl">
-                                {wine.name || data.input.wineName}
+                <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Link
+                            href="/ai-explainer"
+                            className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--primary)]"
+                        >
+                            <ArrowLeft size={16} />
+                            AI解説に戻る
+                        </Link>
+                        <button
+                            type="button"
+                            onClick={handleCreateRecord}
+                            className="inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-[var(--primary-foreground)] shadow-sm transition-opacity hover:opacity-90"
+                        >
+                            <NotebookPen size={16} />
+                            記録ページに反映
+                        </button>
+                    </div>
+
+                    <div className="mt-6 grid gap-7 lg:grid-cols-[minmax(0,0.95fr)_minmax(340px,1.05fr)]">
+                        <div className="flex min-w-0 flex-col">
+                            <h1 className="font-serif text-4xl font-bold leading-tight tracking-normal text-[var(--text)] sm:text-5xl">
+                                {displayName.title || "名称未設定"}
                             </h1>
-                            <p className="mt-4 max-w-3xl text-lg leading-8 text-[var(--text)]">
+                            {displayName.subtitle && (
+                                <p className="mt-2 text-2xl font-bold leading-snug tracking-normal text-[var(--primary)] sm:text-3xl">
+                                    {displayName.subtitle}
+                                </p>
+                            )}
+                            <p className="mt-5 max-w-3xl text-lg leading-8 text-[var(--text)]">
                                 <HighlightText text={explanation.headline} />
                             </p>
-                        </div>
 
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                            <FactTile label="生産者" value={wine.producer || data.input.producer || "不明"} />
-                            <FactTile label="ヴィンテージ" value={wine.vintage || data.input.vintage || "不明"} />
-                            <FactTile label="産地" value={[wine.country, wine.region].filter(Boolean).join(" / ") || "不明"} />
-                            <FactTile label="ボトル価格" value={priceLabel} />
-                            <FactTile label="スタイル" value={wine.style || "検索結果を参照"} />
-                        </div>
-                        <VisualSignalStrip
-                            items={[
-                                { icon: <Map size={18} />, label: "産地", value: wine.region || data.input.locality || wine.country || "地域情報" },
-                                { icon: <Grape size={18} />, label: "品種", value: grapeVarieties.slice(0, 2).join(" / ") },
-                                { icon: <Compass size={18} />, label: "格付け", value: wine.classification || "参照範囲を確認" },
-                                { icon: <Thermometer size={18} />, label: "提供", value: explanation.serving.temperature || "温度未確認" },
-                            ]}
-                        />
-                    </div>
-
-                    <div className="relative min-h-80 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--app-bg)]">
-                        {data.imageUrl ? (
-                            <ImageButton
-                                src={data.imageUrl}
-                                alt={`${wine.name} bottle or label`}
-                                className="absolute inset-0 h-full w-full"
-                                imgClassName="h-full w-full object-contain p-6"
-                                onOpen={openImage}
-                                caption={wine.name || data.input.wineName}
-                            />
-                        ) : (
-                            <div className="flex h-full min-h-80 items-center justify-center text-[var(--text-muted)]">
-                                <Wine size={56} />
+                            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                <FactTile label="生産者" value={wine.producer || data.input.producer || "不明"} />
+                                <FactTile label="ヴィンテージ" value={wine.vintage || data.input.vintage || "不明"} />
+                                <FactTile label="産地" value={[wine.country, wine.region].filter(Boolean).join(" / ") || "不明"} />
+                                <FactTile label="ボトル価格" value={priceLabel} />
+                                <FactTile label="スタイル" value={wine.style || "検索結果を参照"} className="sm:col-span-2 lg:col-span-2" />
                             </div>
-                        )}
-                    </div>
-                </div>
-            </section>
 
-            <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
-                <section className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-5 sm:p-6">
-                    <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
-                        <div>
-                            <SectionEyebrow icon={<BookOpen size={18} />} label="このワインを読む視点" />
-                            <p className="mt-3 text-base leading-8 text-[var(--text)]">
-                                <HighlightText text={explanation.lead} />
-                            </p>
+                            <div className="mt-6 border-l-4 border-[var(--primary)] bg-[var(--app-bg)] px-4 py-3">
+                                <p className="text-base leading-7 text-[var(--text)]">
+                                    <HighlightText text={explanation.lead} />
+                                </p>
+                            </div>
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-3">
+
+                        <div className="relative h-[360px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--app-bg)] sm:h-[440px] lg:h-[620px]">
+                            {data.imageUrl ? (
+                                <ImageButton
+                                    src={data.imageUrl}
+                                    alt={`${wine.name} bottle or label`}
+                                    className="absolute inset-0 h-full w-full"
+                                    imgClassName="h-full w-full object-contain p-6 sm:p-8"
+                                    onOpen={openImage}
+                                    caption={wine.name || data.input.wineName}
+                                />
+                            ) : (
+                                <div className="flex h-full items-center justify-center text-[var(--text-muted)]">
+                                    <Wine size={56} />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {takeaways.length > 0 && (
+                        <div className="mt-6 grid gap-4 md:grid-cols-3">
                             {takeaways.map((takeaway, index) => (
                                 <div
                                     key={`${takeaway}-${index}`}
-                                    className="border-l-4 border-[var(--primary)] bg-[var(--app-bg)] p-4"
+                                    className="min-h-32 border border-[var(--border)] bg-[var(--app-bg)] p-4"
                                 >
-                                    <p className="text-3xl font-bold text-[var(--primary)]">
+                                    <p className="text-4xl font-bold leading-none tracking-normal text-[var(--primary)] opacity-60">
                                         {String(index + 1).padStart(2, "0")}
                                     </p>
-                                    <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text)]">
+                                    <p className="mt-3 text-sm font-semibold leading-6 text-[var(--text)]">
                                         <HighlightText text={takeaway} />
                                     </p>
                                 </div>
                             ))}
                         </div>
-                    </div>
-                </section>
+                    )}
+                </div>
+            </section>
 
+            <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
                 <section className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
                     <Panel title="産地とテロワール" icon={<MapPin size={18} />}>
                         <div className="rounded-xl border border-[var(--border)] bg-[var(--app-bg)] p-5">
@@ -595,29 +604,11 @@ function SectionEyebrow({ icon, label }: { icon: React.ReactNode; label: string 
     );
 }
 
-function FactTile({ label, value }: { label: string; value: string }) {
+function FactTile({ label, value, className = "" }: { label: string; value: string; className?: string }) {
     return (
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-4">
+        <div className={`rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-4 ${className}`}>
             <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
             <p className="mt-2 break-words text-sm font-semibold leading-6 text-[var(--text)]">{value}</p>
-        </div>
-    );
-}
-
-function VisualSignalStrip({ items }: { items: { icon: React.ReactNode; label: string; value: string }[] }) {
-    return (
-        <div className="grid gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-3 sm:grid-cols-2 lg:grid-cols-4">
-            {items.map((item) => (
-                <div key={`${item.label}-${item.value}`} className="flex items-center gap-3 rounded-xl bg-[var(--card-bg)] px-3 py-2">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--app-bg)] text-[var(--primary)]">
-                        {item.icon}
-                    </div>
-                    <div className="min-w-0">
-                        <p className="text-[10px] font-bold text-[var(--text-muted)]">{item.label}</p>
-                        <p className="break-words text-xs font-semibold leading-5 text-[var(--text)]">{item.value}</p>
-                    </div>
-                </div>
-            ))}
         </div>
     );
 }
@@ -834,7 +825,11 @@ function TerroirInfluences({ items }: { items?: { title: string; description: st
     const list = asList(items).slice(0, 3);
     if (list.length === 0) return null;
 
-    const icons = [<Sun size={16} />, <CloudRain size={16} />, <Mountain size={16} />];
+    const icons = [
+        <Sun key="sun" size={16} />,
+        <CloudRain key="cloud-rain" size={16} />,
+        <Mountain key="mountain" size={16} />,
+    ];
     const gridClass = list.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-2 xl:grid-cols-3";
     return (
         <div className={`mt-4 grid gap-3 ${gridClass}`}>
@@ -1162,7 +1157,14 @@ function FlowStep({ index, label, description }: { index: number; label: string;
 }
 
 function NumberedNote({ index, text }: { index: number; text: string }) {
-    const icons = [<Sun size={16} />, <CloudRain size={16} />, <Thermometer size={16} />, <Droplets size={16} />, <Grape size={16} />, <BadgeInfo size={16} />];
+    const icons = [
+        <Sun key="sun" size={16} />,
+        <CloudRain key="cloud-rain" size={16} />,
+        <Thermometer key="thermometer" size={16} />,
+        <Droplets key="droplets" size={16} />,
+        <Grape key="grape" size={16} />,
+        <BadgeInfo key="badge-info" size={16} />,
+    ];
     return (
         <div className="flex gap-3 rounded-xl bg-[var(--app-bg)] p-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--card-bg)] text-[var(--primary)]">
