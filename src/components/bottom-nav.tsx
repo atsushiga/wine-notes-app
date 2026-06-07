@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type MouseEvent } from "react";
-import { BarChart2, List, LoaderCircle, NotebookPen, Settings, type LucideIcon } from "lucide-react";
+import { BarChart2, List, LoaderCircle, NotebookPen, Settings, Sparkles, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
     { href: "/", label: "記録", Icon: NotebookPen },
+    { href: "/ai-explainer", label: "AI解説", Icon: Sparkles },
     { href: "/tasting-notes", label: "一覧", Icon: List },
     { href: "/statistics", label: "統計", Icon: BarChart2 },
     { href: "/settings", label: "設定", Icon: Settings },
@@ -28,8 +29,8 @@ function shouldIgnoreNavigationClick(event: MouseEvent<HTMLAnchorElement>) {
         event.ctrlKey ||
         event.shiftKey ||
         event.altKey
-    );
-}
+        );
+    }
 
 export default function BottomNav() {
     const pathname = usePathname();
@@ -39,13 +40,18 @@ export default function BottomNav() {
         pathname === "/login" ||
         pathname === "/signup" ||
         pathname === "/set-password" ||
+        pathname === "/ai-explainer/result" ||
+        pathname.startsWith("/ai-explainer/result/") ||
         pathname.startsWith("/auth/");
 
     if (shouldHideNav) {
         return null;
     }
 
-    const isActive = (path: string) => pathname === path;
+    const isActive = (path: string) => {
+        if (path === "/") return pathname === "/";
+        return pathname === path || pathname.startsWith(`${path}/`);
+    };
 
     const handleNavClick = (href: string, event: MouseEvent<HTMLAnchorElement>) => {
         if (shouldIgnoreNavigationClick(event) || isActive(href)) {

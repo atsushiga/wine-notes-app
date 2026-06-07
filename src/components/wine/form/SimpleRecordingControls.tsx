@@ -235,7 +235,7 @@ export function SimpleRecordingControls({
             </div>
 
             <div
-                className={`fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 border-t border-[var(--border)] bg-[var(--card-bg)] shadow-2xl transition-transform duration-300 ${panelOpen ? 'translate-y-0' : 'translate-y-[calc(25vh+2rem)]'
+                className={`fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 border-t border-[var(--border)] bg-[var(--card-bg)] shadow-2xl transition-transform duration-300 ${panelOpen ? 'translate-y-0' : 'translate-y-[calc(100%-3.75rem)]'
                     }`}
             >
                 <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3">

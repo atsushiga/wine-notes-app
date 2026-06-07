@@ -1,10 +1,10 @@
 'use server';
 
+import { createHash, randomUUID } from "node:crypto";
 import { GoogleGenerativeAI, type Tool } from "@google/generative-ai";
 import OpenAI, { toFile } from "openai";
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 
 import { storage, BUCKET } from "@/lib/gcs";
@@ -14,6 +14,12 @@ import { SAT_AROMA_DEFINITIONS } from "@/constants/sat_aromas";
 import { countries, mainVarieties, wineTypes } from "@/constants/wine";
 
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+const openaiApiKey = process.env.OPENAI_API_KEY;
+const GEMINI_MODEL = process.env.GOOGLE_GENERATIVE_AI_MODEL || "gemini-2.5-flash";
+const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
+type OpenAIImageQuality = "low" | "medium" | "high" | "auto";
+const OPENAI_IMAGE_QUALITY = (process.env.OPENAI_IMAGE_QUALITY || "high") as OpenAIImageQuality;
+const ENABLE_VISUAL_IMAGE_GENERATION = process.env.GENERATE_VISUAL_WINE_IMAGES !== "false";
 
 export interface WineImageAnalysis {
     wineName: string;
@@ -788,7 +794,7 @@ async function resolveLocality(countryJa: string, localityText: string): Promise
 
         // 2. Gemini Re-ranking
         const genAI = new GoogleGenerativeAI(apiKey!);
-        const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
         const candidateListJson = JSON.stringify(candidates.map((c) => ({
             id: c.id,
@@ -861,9 +867,18 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
     // Download image from GCS
     const file = storage.bucket(BUCKET).file(key);
     const [buffer] = await file.download();
+    let mimeType = "image/jpeg";
+    try {
+        const [metadata] = await file.getMetadata();
+        if (metadata.contentType) {
+            mimeType = metadata.contentType;
+        }
+    } catch {
+        // Fall back to JPEG; existing uploads are commonly JPG/JPEG.
+    }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
     const prompt = `
     Analyze this wine label image and extract the following information.
@@ -890,7 +905,7 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
         {
             inlineData: {
                 data: buffer.toString("base64"),
-                mimeType: "image/jpeg", // Assuming JPEG for simplicity
+                mimeType,
             },
         },
     ]);
@@ -1341,6 +1356,489 @@ export async function interpretTastingTranscript(input: {
     }
 }
 
+export interface VisualWineExplanationRequest {
+    name: string;
+    producer?: string;
+    vintage?: string;
+    country?: string;
+    locality?: string;
+    referenceUrl?: string;
+    price?: string | number | null;
+}
+
+export interface VisualScale {
+    label: string;
+    value: number;
+    lowLabel: string;
+    highLabel: string;
+    note: string;
+}
+
+export interface TerroirMapCallout {
+    label: string;
+    description: string;
+    position?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+    icon?: "coast" | "mountain" | "river" | "soil" | "slope" | "climate";
+}
+
+export interface VisualImageAsset {
+    url?: string;
+    prompt?: string;
+    caption: string;
+    alt?: string;
+    sourceTitle?: string;
+    sourceUrl?: string;
+    kind?: "source" | "generated" | "source-backed-generated";
+}
+
+export interface AromaVisual {
+    label: string;
+    family: "fruit" | "floral" | "spice" | "earth" | "herbal" | "oak" | "mineral" | "other";
+    color: string;
+    description: string;
+    image?: VisualImageAsset;
+    presetKey?: string;
+}
+
+export interface VisualWineExplanation {
+    wine: {
+        name: string;
+        producer: string;
+        vintage: string;
+        country: string;
+        region: string;
+        grapeVarieties: string[];
+        style: string;
+        classification: string;
+        marketPriceJpy?: number | null;
+    };
+    headline: string;
+    lead: string;
+    keyTakeaways: string[];
+    terroir: {
+        title: string;
+        summary: string;
+        climate: string;
+        soil: string;
+        mapHint: string;
+        mapCallouts?: TerroirMapCallout[];
+        influences: { title: string; description: string }[];
+    };
+    producerStory: {
+        summary: string;
+        philosophy: string;
+        milestones: { year: string; title: string; description: string }[];
+    };
+    winemaking: {
+        summary: string;
+        steps: { label: string; description: string }[];
+    };
+    vintage: {
+        summary: string;
+        conditions: string[];
+    };
+    tasting: {
+        overview: string;
+        aroma: string[];
+        aromaVisuals?: AromaVisual[];
+        palate: string[];
+        finish: string;
+        scales: VisualScale[];
+    };
+    serving: {
+        temperature: string;
+        glass: string;
+        decant: string;
+        pairings: string[];
+        featuredPairing?: string;
+    };
+    studyPoints: { title: string; description: string }[];
+    sourceNotes: string[];
+    sources?: { title: string; url?: string }[];
+    visualAssets?: {
+        producer?: VisualImageAsset;
+        map?: VisualImageAsset;
+        aromaBoard?: VisualImageAsset;
+        pairing?: VisualImageAsset;
+    };
+}
+
+function extractJsonObjectText(text: string) {
+    const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
+
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+        throw new Error("Model response did not contain a JSON object.");
+    }
+
+    return cleaned.slice(firstBrace, lastBrace + 1);
+}
+
+function parseJsonText<T>(jsonText: string): T {
+    return JSON.parse(jsonText) as T;
+}
+
+async function parseJsonFromModel<T>(text: string): Promise<T> {
+    const jsonText = extractJsonObjectText(text);
+
+    try {
+        return parseJsonText<T>(jsonText);
+    } catch (initialError) {
+        const withoutTrailingCommas = jsonText.replace(/,\s*([}\]])/g, "$1");
+        try {
+            return parseJsonText<T>(withoutTrailingCommas);
+        } catch {
+            if (!apiKey) throw initialError;
+
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const repairModel = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+            const repairResult = await repairModel.generateContent(`
+Repair the following invalid JSON into strictly valid JSON.
+Do not add, remove, summarize, translate, or reinterpret content.
+Return only one JSON object, with no markdown fences.
+
+${jsonText}
+`);
+            const repairResponse = await repairResult.response;
+            const repairedText = repairResponse.text();
+            return parseJsonText<T>(extractJsonObjectText(repairedText));
+        }
+    }
+}
+
+function extractGroundingSources(response: any): { title: string; url?: string }[] {
+    const chunks = response?.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    if (!Array.isArray(chunks)) return [];
+
+    const seen = new Set<string>();
+    const sources: { title: string; url?: string }[] = [];
+
+    for (const chunk of chunks) {
+        const web = chunk?.web;
+        const url = web?.uri || web?.url;
+        const title = web?.title || url;
+        if (!title) continue;
+
+        const key = url || title;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        sources.push({ title, url });
+    }
+
+    return sources.slice(0, 8);
+}
+
+type VisualImageStyle = "editorial" | "photo";
+type VisualImageGenerationOptions = {
+    allowText?: boolean;
+    style?: VisualImageStyle;
+    quality?: OpenAIImageQuality;
+};
+
+function imagePromptBase(prompt: string, options: VisualImageGenerationOptions = {}) {
+    const textRule = options.allowText
+        ? "short, readable Japanese map labels and callout captions are allowed only for terrain features"
+        : "no readable text and no labels";
+    const styleRequirements = options.style === "photo"
+        ? [
+            "photorealistic overhead flat-lay photograph",
+            "natural tabletop surface, soft daylight, realistic shadows, high detail",
+            "premium wine tasting workshop reference image, not a digital illustration",
+        ]
+        : [
+            "premium Japanese wine lecture handout visual",
+            "clean editorial illustration, warm neutral background, burgundy and muted gold accents",
+            "high visual clarity, balanced composition",
+        ];
+
+    return `${prompt}
+
+Style requirements:
+- ${styleRequirements.join("\n- ")}
+- ${textRule}
+- no logos or watermark`;
+}
+
+function openAIImageSize(width: number, height: number): "1024x1024" | "1536x1024" | "1024x1536" {
+    if (Math.abs(width - height) < 160) return "1024x1024";
+    return width > height ? "1536x1024" : "1024x1536";
+}
+
+async function generateCompressedOpenAIImageBuffer(
+    prompt: string,
+    width = 1200,
+    height = 760,
+    options: VisualImageGenerationOptions = {}
+): Promise<Buffer | null> {
+    if (!openaiApiKey || !ENABLE_VISUAL_IMAGE_GENERATION) return null;
+
+    try {
+        const openai = new OpenAI({ apiKey: openaiApiKey });
+        const result = await openai.images.generate({
+            model: OPENAI_IMAGE_MODEL,
+            prompt: imagePromptBase(prompt, options),
+            quality: options.quality || OPENAI_IMAGE_QUALITY,
+            size: openAIImageSize(width, height),
+            output_format: "webp",
+            output_compression: 86,
+            n: 1,
+        });
+        const base64 = result.data?.[0]?.b64_json;
+
+        if (!base64) return null;
+
+        const original = Buffer.from(base64, "base64");
+        const compressed = await sharp(original)
+            .resize({ width, height, fit: "cover", withoutEnlargement: true })
+            .webp({ quality: 82 })
+            .toBuffer();
+
+        return compressed;
+    } catch (error) {
+        console.warn("Visual image generation failed:", error);
+        return null;
+    }
+}
+
+async function uploadAiGeneratedImage(buffer: Buffer, prefix: string): Promise<string> {
+    const now = new Date();
+    const key = [
+        "ai-explanations",
+        "visuals",
+        String(now.getFullYear()),
+        String(now.getMonth() + 1).padStart(2, "0"),
+        `${Date.now()}_${prefix}_${Math.random().toString(36).slice(2, 9)}.webp`,
+    ].join("/");
+
+    await storage.bucket(BUCKET).file(key).save(buffer, {
+        metadata: {
+            contentType: "image/webp",
+            cacheControl: "public, max-age=31536000",
+        },
+        resumable: false,
+    });
+
+    return `/api/images/${key}`;
+}
+
+async function generateCompressedOpenAIImageStorageUrl(
+    prompt: string,
+    width = 1200,
+    height = 760,
+    options: VisualImageGenerationOptions & { storagePrefix?: string } = {}
+): Promise<string | null> {
+    const compressed = await generateCompressedOpenAIImageBuffer(prompt, width, height, options);
+    if (!compressed) return null;
+
+    try {
+        return await uploadAiGeneratedImage(compressed, options.storagePrefix || "visual");
+    } catch (error) {
+        console.warn("Failed to upload generated AI explanation image:", error);
+        return null;
+    }
+}
+
+function generatedCacheKey(prefix: string, text: string) {
+    const hash = createHash("sha1").update(text.trim().toLowerCase()).digest("hex").slice(0, 14);
+    return `${prefix}-${hash}`;
+}
+
+async function generateOrReuseStorageImage(
+    subdir: string,
+    key: string,
+    prompt: string,
+    width: number,
+    height: number,
+    options: VisualImageGenerationOptions = {}
+): Promise<string | null> {
+    const objectKey = `ai-explanations/generated/${subdir}/${key}.webp`;
+    const publicPath = `/api/images/${objectKey}`;
+    const file = storage.bucket(BUCKET).file(objectKey);
+
+    const [exists] = await file.exists();
+    if (exists) {
+        return publicPath;
+    }
+
+    const buffer = await generateCompressedOpenAIImageBuffer(prompt, width, height, options);
+    if (!buffer) return null;
+
+    try {
+        await file.save(buffer, {
+            metadata: {
+                contentType: "image/webp",
+                cacheControl: "public, max-age=31536000",
+            },
+            resumable: false,
+        });
+        return publicPath;
+    } catch (error) {
+        console.warn("Failed to save generated image to storage:", error);
+        return null;
+    }
+}
+
+function buildTerroirMapPrompt(query: VisualWineExplanationRequest, data: VisualWineExplanation) {
+    const regionLabel = [
+        data.wine?.country || query.country,
+        data.wine?.region || query.locality,
+        data.terroir?.title,
+    ]
+        .filter(Boolean)
+        .join(" / ");
+
+    const fallbackCallouts: TerroirMapCallout[] = [];
+    if (data.terroir?.climate) {
+        fallbackCallouts.push({ label: "気候", description: data.terroir.climate });
+    }
+    if (data.terroir?.soil) {
+        fallbackCallouts.push({ label: "土壌", description: data.terroir.soil });
+    }
+    if (Array.isArray(data.terroir?.influences)) {
+        fallbackCallouts.push(
+            ...data.terroir.influences.map((item) => ({
+                label: item.title,
+                description: item.description,
+            }))
+        );
+    }
+
+    const callouts = Array.isArray(data.terroir?.mapCallouts) && data.terroir.mapCallouts.length > 0
+        ? data.terroir.mapCallouts
+        : fallbackCallouts;
+
+    const calloutLines = callouts
+        .slice(0, 4)
+        .map((item) => `- ${item.label}: ${item.description}`)
+        .join("\n");
+
+    return `Create a geographically grounded illustrated terroir map for ${regionLabel || wineLabelForPrompt(query)}.
+Use the actual wine region as reference: recognizable relative position of coastlines, mountains or hills, valleys, rivers, lakes, important nearby towns, and appellation/vineyard context where relevant.
+This must look like an editorial regional map, not a fantasy landscape and not a satellite photo. If the exact vineyard is unknown, show the broader appellation or locality context accurately.
+Add 3 to 4 compact Japanese callout caption boxes inside the map, connected with fine leader lines to the relevant terrain areas. Use these callouts:
+${calloutLines || "- 地形: 産地の位置関係\n- 気候: 熟度を支える条件\n- 土壌: 味わいの骨格"}
+Also include a small north arrow, restrained contour lines, vineyard dots or terraces, and subtle color coding for terrain.`;
+}
+
+function buildProducerImagePrompt(
+    query: VisualWineExplanationRequest,
+    data: VisualWineExplanation,
+    asset?: VisualImageAsset
+) {
+    const producer = data.wine?.producer || query.producer || query.name;
+    const region = [data.wine?.country || query.country, data.wine?.region || query.locality]
+        .filter(Boolean)
+        .join(" / ");
+    const sourceContext = [asset?.sourceTitle, asset?.sourceUrl, asset?.caption]
+        .filter(Boolean)
+        .join(" / ");
+
+    return `${asset?.prompt || `Create a source-backed editorial image of the producer estate, winery building, cellar, and surrounding vineyards for ${producer}.`}
+Producer: ${producer}
+Region: ${region || "unknown wine region"}
+Source context: ${sourceContext || "Use the researched producer story and region context from the page content."}
+Make the image feel like a premium wine lecture handout: realistic editorial rendering, vineyard and winery context, no bottle label close-up, no logos, no readable brand marks, no invented people.`;
+}
+
+function buildAromaBoardPrompt(query: VisualWineExplanationRequest, data: VisualWineExplanation) {
+    const visualAromas = Array.isArray(data.tasting?.aromaVisuals) && data.tasting.aromaVisuals.length > 0
+        ? data.tasting.aromaVisuals.map((item) => item.label)
+        : [];
+    const textAromas = Array.isArray(data.tasting?.aroma) ? data.tasting.aroma : [];
+    const aromaObjects = [...visualAromas, ...textAromas]
+        .map((item) => item.split(/[、,（(]/)[0]?.trim())
+        .filter(Boolean)
+        .slice(0, 6);
+
+    return `Create a photorealistic overhead flat-lay aroma image for ${wineLabelForPrompt(query)}.
+Arrange these aroma references as real objects on a natural tabletop: ${aromaObjects.join(", ") || "red cherries, raspberries, rose petals, violets, dried herbs, forest floor, spice"}.
+Use actual fruits, flowers, herbs, spices, soil/mineral cues, and subtle oak or tea elements when relevant.
+Composition: objects neatly placed on a wood or stone table, viewed from directly above, soft window light, realistic shadows, tasting workshop mood.
+No text, no labels, no hands, no bottles, no glasses, no logos, no artificial collage look.`;
+}
+
+function buildAromaPresetPrompt(aroma: AromaVisual) {
+    const objectLabel = aroma.label || aroma.description || "wine aroma reference";
+    const familyHint = {
+        fruit: "fresh fruit, berries, citrus, orchard fruit, or stone fruit as appropriate",
+        floral: "real edible flowers or flower petals with botanical detail",
+        spice: "whole spices, cracked pepper, dried spice pieces, or warm baking spice",
+        earth: "clean natural earth cues such as forest floor, tea leaves, dried mushrooms, or humus-like texture",
+        herbal: "fresh herbs, leaves, stems, or aromatic green elements",
+        oak: "vanilla pod, toasted nuts, cedar, oak chips, or gentle baking spice",
+        mineral: "clean stones, slate, chalk, sea salt, or wet pebble texture",
+        other: "real tasting reference objects",
+    }[aroma.family] || "real tasting reference objects";
+
+    return `Create a reusable photorealistic aroma preset image for the wine aroma "${objectLabel}".
+Show the aroma as real objects: ${familyHint}.
+Composition: overhead tabletop photograph, single clear theme, natural wood or stone surface, soft daylight, realistic shadows, premium wine tasting classroom reference.
+Keep it useful as a small UI tile: centered subject, uncluttered background, rich texture, no text, no labels, no hands, no bottles, no glasses, no logos.`;
+}
+
+function buildPairingImagePrompt(query: VisualWineExplanationRequest, data: VisualWineExplanation, pairing: string) {
+    return `Create a photorealistic plated food pairing image for ${wineLabelForPrompt(query)}.
+Dish: ${pairing}.
+Wine context: ${data.wine?.style || "wine"} from ${data.wine?.region || query.locality || data.wine?.country || query.country || "the researched region"}.
+Composition: premium restaurant table or natural tabletop, realistic dish presentation, soft directional daylight, appetizing but restrained, no text, no menus, no people, no bottle labels, no logos.
+The image should explain why this dish fits the wine's acidity, body, tannin, aroma, or texture without adding text.`;
+}
+
+async function attachAromaPresetImages(data: VisualWineExplanation) {
+    const aromas = Array.isArray(data.tasting?.aromaVisuals) ? data.tasting.aromaVisuals.slice(0, 6) : [];
+    if (aromas.length === 0) return;
+
+    const withImages = await Promise.all(
+        aromas.map(async (aroma) => {
+            const key = generatedCacheKey(`aroma-${aroma.family || "other"}`, `${aroma.family}:${aroma.label}:${aroma.description}`);
+            const prompt = buildAromaPresetPrompt(aroma);
+            const url = await generateOrReuseStorageImage("aromas", key, prompt, 640, 520, { style: "photo", quality: "medium" });
+
+            return {
+                ...aroma,
+                presetKey: key,
+                image: {
+                    url: url || aroma.image?.url,
+                    prompt,
+                    caption: `${aroma.label}の実写的な香りプリセット`,
+                    alt: `${aroma.label}の香りを表す実写的な卓上イメージ`,
+                    kind: url ? "generated" as const : aroma.image?.kind,
+                },
+            };
+        })
+    );
+
+    data.tasting.aromaVisuals = withImages;
+}
+
+async function attachPairingImage(query: VisualWineExplanationRequest, data: VisualWineExplanation) {
+    data.visualAssets = data.visualAssets || {};
+    const pairing = data.serving?.featuredPairing || data.serving?.pairings?.[0];
+    if (!pairing) return;
+
+    data.serving.featuredPairing = pairing;
+    const prompt = buildPairingImagePrompt(query, data, pairing);
+    const key = generatedCacheKey("pairing", `${wineLabelForPrompt(query)}:${pairing}`);
+    const url = await generateOrReuseStorageImage("pairings", key, prompt, 980, 720, { style: "photo", quality: "medium" });
+
+    if (data.visualAssets.pairing) {
+        data.visualAssets.pairing.prompt = prompt;
+        data.visualAssets.pairing.url = url || data.visualAssets.pairing.url;
+        data.visualAssets.pairing.kind = url ? "generated" : data.visualAssets.pairing.kind;
+        data.visualAssets.pairing.caption = data.visualAssets.pairing.caption || `${pairing}のAI生成ペアリング画像`;
+        data.visualAssets.pairing.alt = data.visualAssets.pairing.alt || `${pairing}の料理写真`;
+    } else if (url) {
+        data.visualAssets.pairing = {
+            url,
+            prompt,
+            caption: `${pairing}のAI生成ペアリング画像`,
+            alt: `${pairing}の料理写真`,
+            kind: "generated",
+        };
+    }
+}
+
 export async function searchWineDetails(wineId: number, query: { name: string; winery?: string; vintage?: string; country?: string; locality?: string; referenceUrl?: string }) {
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
@@ -1348,7 +1846,7 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-        model: "gemini-3.5-flash",
+        model: GEMINI_MODEL,
         tools: [
             {
                 googleSearch: {},
@@ -1584,6 +2082,269 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
         console.error("Gemini Search Error Full:", error);
         throw new Error(`Failed to fetch wine details: ${getErrorMessage(error)}`);
     }
+}
+
+export async function generateVisualWineExplanation(query: VisualWineExplanationRequest): Promise<VisualWineExplanation> {
+    if (!apiKey) {
+        throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
+    }
+
+    if (!query.name || query.name.trim().length === 0) {
+        throw new Error("Wine name is required.");
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+        model: GEMINI_MODEL,
+        tools: [
+            {
+                googleSearch: {},
+            } as any,
+        ],
+    });
+
+    const prompt = `
+    You are creating a Japanese visual wine lecture page for a tasting-note app.
+    Use Google Search grounding to research reliable web pages, prioritizing official producer pages,
+    technical sheets, importer pages, and professional wine references.
+
+    Wine:
+    - Name: ${query.name}
+    - Producer: ${query.producer || "Unknown"}
+    - Vintage: ${query.vintage || "Unknown"}
+    - Country: ${query.country || "Unknown"}
+    - Region/Locality: ${query.locality || "Unknown"}
+    - User reference URL: ${query.referenceUrl || "None"}
+    - Bottle price JPY: ${query.price || "Unknown"}
+
+    Content goal:
+    Produce structured Japanese content for a visual HTML page similar to a premium wine lecture handout:
+    concise headline, producer story, terroir, climate, winemaking, vintage, tasting profile,
+    serving suggestions, study points, and source notes.
+
+    Important accuracy rules:
+    - Prefer exact wine + producer + vintage when available.
+    - If exact data is insufficient, clearly broaden scope in sourceNotes:
+      Tier0 exact wine/producer/vintage, Tier1 appellation/locality, Tier2 sub-region, Tier3 region, Tier4 country/grape.
+    - Do not use promotional claims. Use calm, factual, educational Japanese.
+    - For tasting profile, distinguish reported/professional notes from general regional tendencies.
+    - If a value is inferred, say so in sourceNotes or the relevant note.
+    - Keep all strings short enough for card-style UI. Avoid markdown.
+    - wine.name must use the same format as the app's AI label search:
+      "Original Name (Japanese Name)". If the input already includes Japanese in parentheses, preserve it.
+      If Japanese is missing, translate or transliterate it yourself.
+    - wine.producer must also use "Original Producer (Japanese Producer)" whenever possible.
+      Preserve the original spelling first, then put Japanese in parentheses.
+    - If Bottle price JPY is provided, copy it as wine.marketPriceJpy as an integer.
+      If it is unknown, estimate the typical Japanese retail bottle price in JPY as a single integer.
+
+    Scale rules:
+    - tasting.scales must contain 5 to 7 items.
+    - Each value must be an integer from 0 to 100.
+    - Use labels such as 酸味, 果実の熟度, 樽の存在感, ボディ, タンニン, アルコール感, 余韻.
+
+    Return STRICTLY valid JSON only, with this exact shape:
+    {
+      "wine": {
+        "name": "string",
+        "producer": "string",
+        "vintage": "string",
+        "country": "string",
+        "region": "string",
+        "grapeVarieties": ["string"],
+        "style": "string",
+        "classification": "string",
+        "marketPriceJpy": 5000
+      },
+      "headline": "string",
+      "lead": "string",
+      "keyTakeaways": ["string", "string", "string"],
+      "terroir": {
+        "title": "string",
+        "summary": "string",
+        "climate": "string",
+        "soil": "string",
+        "mapHint": "string",
+        "mapCallouts": [
+          {
+            "label": "海風",
+            "description": "短い地形・気候キャプション",
+            "position": "top-left",
+            "icon": "coast"
+          }
+        ],
+        "influences": [{"title": "string", "description": "string"}]
+      },
+      "producerStory": {
+        "summary": "string",
+        "philosophy": "string",
+        "milestones": [{"year": "string", "title": "string", "description": "string"}]
+      },
+      "winemaking": {
+        "summary": "string",
+        "steps": [{"label": "string", "description": "string"}]
+      },
+      "vintage": {
+        "summary": "string",
+        "conditions": ["string"]
+      },
+      "tasting": {
+        "overview": "string",
+        "aroma": ["string"],
+        "aromaVisuals": [{"label": "string", "family": "fruit", "color": "#b91c1c", "description": "string"}],
+        "palate": ["string"],
+        "finish": "string",
+        "scales": [{"label": "string", "value": 70, "lowLabel": "string", "highLabel": "string", "note": "string"}]
+      },
+      "serving": {
+        "temperature": "string",
+        "glass": "string",
+        "decant": "string",
+        "pairings": ["string"],
+        "featuredPairing": "string"
+      },
+      "studyPoints": [{"title": "string", "description": "string"}],
+      "sourceNotes": ["string"],
+      "sources": [{"title": "string", "url": "string"}],
+      "visualAssets": {
+        "producer": {
+          "prompt": "source-backed editorial image prompt for the producer estate, winery, cellar, or vineyard",
+          "caption": "string",
+          "sourceTitle": "official or importer source title",
+          "sourceUrl": "official or importer source url"
+        },
+        "map": {
+          "prompt": "image generation prompt for a geographically grounded illustrated regional terroir map with Japanese callout captions",
+          "caption": "string"
+        },
+        "aromaBoard": {
+          "prompt": "photorealistic overhead flat-lay image prompt for 4-6 representative aroma objects on a tabletop",
+          "caption": "string"
+        },
+        "pairing": {
+          "prompt": "photorealistic plated food pairing image prompt for the one best pairing dish",
+          "caption": "string"
+        }
+      }
+    }
+
+    For visualAssets:
+    - producer.sourceUrl should prefer the producer's official winery/about page, then importer page.
+    - terroir.mapCallouts must contain 3 to 4 short terrain features suited for labels inside the map.
+      Use positions from top-left, top-right, bottom-left, bottom-right without repeating when possible.
+      Use icons from coast, mountain, river, soil, slope, climate.
+      Keep label under 8 Japanese characters and description under 28 Japanese characters.
+    - map.prompt must describe a geographically grounded illustrated map of the actual region or broader appellation.
+      It should mention recognizable coastlines, mountain ranges, hills, rivers, lakes, towns, appellation boundaries,
+      vineyard dots/terraces, and 3 to 4 short Japanese callout captions when relevant.
+    - aromaBoard.prompt must name 4-6 real aroma objects from tasting.aromaVisuals.
+      The image style should be photorealistic, overhead flat-lay, objects arranged on a wood or stone tabletop,
+      with no text, no labels, no hands, no bottles, and no glasses.
+    - aromaVisuals must contain 4 to 6 representative aromas that can be rendered as image tiles.
+    - serving.featuredPairing must choose exactly one best dish from serving.pairings for a photorealistic food image.
+    - visualAssets.pairing.prompt must describe that selected dish as a realistic plated food photograph.
+    `;
+
+    try {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+        const data = await parseJsonFromModel<VisualWineExplanation>(text);
+        const groundedSources = extractGroundingSources(response);
+
+        if ((!data.sources || data.sources.length === 0) && groundedSources.length > 0) {
+            data.sources = groundedSources;
+        }
+
+        data.visualAssets = data.visualAssets || {};
+
+        const producerAsset = data.visualAssets.producer;
+        const terroirMapPrompt = buildTerroirMapPrompt(query, data);
+        const producerImagePrompt = buildProducerImagePrompt(query, data, producerAsset);
+        const aromaBoardPrompt = buildAromaBoardPrompt(query, data);
+        const mainVisualsPromise = Promise.all([
+            generateCompressedOpenAIImageStorageUrl(
+                terroirMapPrompt,
+                1200,
+                760,
+                { allowText: true, style: "editorial", storagePrefix: "map" }
+            ),
+            generateCompressedOpenAIImageStorageUrl(
+                producerImagePrompt,
+                1200,
+                760,
+                { style: "editorial", storagePrefix: "producer" }
+            ),
+            generateCompressedOpenAIImageStorageUrl(
+                aromaBoardPrompt,
+                1200,
+                620,
+                { style: "photo", quality: "medium", storagePrefix: "aroma" }
+            ),
+        ]);
+        const cachedVisualsPromise = Promise.all([
+            attachAromaPresetImages(data),
+            attachPairingImage(query, data),
+        ]);
+        const [mapImage, producerGeneratedImage, aromaBoardImage] = await mainVisualsPromise;
+        await cachedVisualsPromise;
+
+        if (data.visualAssets.map) {
+            data.visualAssets.map.prompt = terroirMapPrompt;
+            data.visualAssets.map.url = mapImage || data.visualAssets.map.url;
+            data.visualAssets.map.kind = mapImage ? "generated" : data.visualAssets.map.kind;
+        } else if (mapImage) {
+            data.visualAssets.map = {
+                url: mapImage,
+                prompt: terroirMapPrompt,
+                caption: "AI生成による実在地域ベースのテロワールマップ",
+                kind: "generated",
+            };
+        }
+
+        if (producerAsset) {
+            producerAsset.prompt = producerImagePrompt;
+            if (producerGeneratedImage) {
+                producerAsset.url = producerGeneratedImage;
+                producerAsset.kind = "source-backed-generated";
+            }
+        } else if (producerGeneratedImage) {
+            data.visualAssets.producer = {
+                url: producerGeneratedImage,
+                prompt: producerImagePrompt,
+                caption: "公開情報をもとにしたAI生成の生産者イメージ",
+                kind: "source-backed-generated",
+            };
+        }
+
+        if (data.visualAssets.aromaBoard) {
+            data.visualAssets.aromaBoard.prompt = aromaBoardPrompt;
+            data.visualAssets.aromaBoard.url = aromaBoardImage || data.visualAssets.aromaBoard.url;
+            data.visualAssets.aromaBoard.kind = aromaBoardImage ? "generated" : data.visualAssets.aromaBoard.kind;
+        } else if (aromaBoardImage) {
+            data.visualAssets.aromaBoard = {
+                url: aromaBoardImage,
+                prompt: aromaBoardPrompt,
+                caption: "AI生成による代表的な香りのイメージボード",
+                kind: "generated",
+            };
+        }
+
+        return data;
+    } catch (error: any) {
+        console.error("Gemini Visual Explanation Error Full:", error);
+        throw new Error(`Failed to generate visual wine explanation: ${error.message || String(error)}`);
+    }
+}
+
+function wineLabelForPrompt(query: VisualWineExplanationRequest) {
+    return [
+        query.producer,
+        query.name,
+        query.vintage,
+        query.country,
+        query.locality,
+    ].filter(Boolean).join(", ");
 }
 
 export async function saveGeminiData(wineId: number, data: GroundingData) {

@@ -161,6 +161,7 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
         rating: wine.rating || 0,
         notes: wine.notes || '',
         vivinoUrl: wine.vivino_url || '',
+        aiExplanationId: wine.ai_explanation_id || '',
 
         terroir_info: wine.terroir_info || '',
         producer_philosophy: wine.producer_philosophy || '',

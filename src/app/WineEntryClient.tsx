@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import WineForm, { WineFormHandle, WineFormValues } from '@/components/WineForm';
 import { defaultSimpleAiAutomationSettings, type SimpleAiAutomationSettings } from '@/lib/simpleAiAutomation';
+import { consumeRecordDraftFromVisualExplanation } from '@/lib/aiExplainerStorage';
 import { ContentContainer } from '@/components/layout/ContentContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Mic, RotateCcw, SlidersHorizontal } from 'lucide-react';
@@ -18,7 +19,18 @@ export default function WineEntryClient({ defaultInputMode, simpleAiAutomation }
   const [sent, setSent] = useState<null | { ok: boolean; id?: string; error?: string }>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [simpleMode, setSimpleMode] = useState(defaultInputMode !== 'detailed');
+  const [initialValues, setInitialValues] = useState<Partial<WineFormValues> | undefined>();
+  const [hasLoadedInitialValues, setHasLoadedInitialValues] = useState(false);
   const formRef = useRef<WineFormHandle>(null);
+
+  useEffect(() => {
+    const aiDraft = consumeRecordDraftFromVisualExplanation();
+    if (aiDraft) {
+      setInitialValues(aiDraft);
+      setSimpleMode(false);
+    }
+    setHasLoadedInitialValues(true);
+  }, []);
 
   const onSubmit = async (values: WineFormValues) => {
     setSent(null);
@@ -100,14 +112,18 @@ export default function WineEntryClient({ defaultInputMode, simpleAiAutomation }
         }
       />
 
-      <WineForm
-        ref={formRef}
-        onSubmit={onSubmit}
-        isSubmitting={isSubmitting}
-        persistKey="wine-form-new"
-        simpleMode={simpleMode}
-        simpleAiAutomation={simpleAiAutomation ?? defaultSimpleAiAutomationSettings}
-      />
+      {hasLoadedInitialValues && (
+        <WineForm
+          key={initialValues ? 'ai-explainer-draft' : 'new-record'}
+          ref={formRef}
+          defaultValues={initialValues}
+          onSubmit={onSubmit}
+          isSubmitting={isSubmitting}
+          persistKey="wine-form-new"
+          simpleMode={simpleMode}
+          simpleAiAutomation={simpleAiAutomation ?? defaultSimpleAiAutomationSettings}
+        />
+      )}
 
       {sent && (
         <p className={`text-sm ${sent.ok ? 'text-green-600' : 'text-red-600'} mt-4 px-4`}>

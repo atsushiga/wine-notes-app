@@ -1,4 +1,8 @@
+'use client';
+
 // Imports updated
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     round1,
     fruitStateLabel,
@@ -17,9 +21,16 @@ import {
 import { SAT_CONSTANTS } from '@/constants/sat';
 import Link from 'next/link';
 import Image from 'next/image';
+import { History, Loader2, Sparkles } from 'lucide-react';
 import ImageCarousel from './ImageCarousel';
 import AiWineInfo from './AiWineInfo';
-import { Loader2, Sparkles } from 'lucide-react';
+import { generateVisualWineExplanation } from '@/app/actions/gemini';
+import { saveAiExplanation } from '@/app/actions/aiExplainer';
+import {
+    createAiExplainerInputFromTastingNote,
+    getAiExplainerClientKey,
+    saveCurrentAiExplanationId,
+} from '@/lib/aiExplainerStorage';
 
 import { TastingNote } from '@/types/custom';
 
@@ -38,6 +49,8 @@ const getSatLabel = (options: readonly string[], value: number) => {
 
 
 export default function WineDetailView({ wine, onEdit, onDelete, isDeleting, onOptimizeImage, isOptimizingImage = false }: Props) {
+    const router = useRouter();
+    const [isGeneratingAi, setIsGeneratingAi] = useState(false);
     const wineType = wine.wine_type || "";
     const hasOptimizableImage = Boolean(wine.images?.some((image) => image.url) || wine.image_url);
     // ... (booleans same)
@@ -73,21 +86,73 @@ export default function WineDetailView({ wine, onEdit, onDelete, isDeleting, onO
         return `${labelLeft} ${comp.toFixed(1)} : ${labelRight} ${v.toFixed(1)}`;
     };
 
+    const handleGenerateAiExplanation = async () => {
+        if (!wine.wine_name) {
+            alert('ワイン名がないためAI解説を生成できません。');
+            return;
+        }
+
+        setIsGeneratingAi(true);
+        try {
+            const input = createAiExplainerInputFromTastingNote(wine);
+            const explanation = await generateVisualWineExplanation({
+                name: input.wineName,
+                producer: input.producer || undefined,
+                vintage: input.vintage || undefined,
+                country: input.country || undefined,
+                locality: input.locality || undefined,
+                referenceUrl: wine.reference_url || undefined,
+                price: input.price || undefined,
+            });
+            const stored = await saveAiExplanation({
+                generatedAt: new Date().toISOString(),
+                imageUrl: input.imageUrl,
+                input,
+                explanation,
+            }, getAiExplainerClientKey());
+
+            saveCurrentAiExplanationId(stored.id);
+            router.push(`/ai-explainer/result?historyId=${encodeURIComponent(stored.id)}`);
+        } catch (error) {
+            console.error(error);
+            alert('AI解説の生成に失敗しました。時間をおいてもう一度お試しください。');
+        } finally {
+            setIsGeneratingAi(false);
+        }
+    };
+
     return (
         <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8 pb-32">
             {/* Header ... same */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <Link
                     href="/tasting-notes"
                     className="text-[var(--text-muted)] hover:text-[var(--text)] flex items-center gap-1 text-sm transition-colors"
                 >
                     ← 一覧に戻る
                 </Link>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-3 sm:justify-end">
                     <div className="text-[var(--text-muted)] text-sm">
                         {new Date(wine.created_at).toLocaleDateString("ja-JP")}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                        {wine.ai_explanation_id && (
+                            <Link
+                                href={`/ai-explainer/result?historyId=${encodeURIComponent(wine.ai_explanation_id)}`}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[var(--text)] bg-[var(--card-bg)] border border-[var(--border)] rounded-lg hover:bg-[var(--surface-2)]"
+                            >
+                                <History size={15} />
+                                AI解説履歴
+                            </Link>
+                        )}
+                        <button
+                            onClick={handleGenerateAiExplanation}
+                            disabled={isGeneratingAi || !wine.wine_name}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[var(--primary-foreground)] bg-[var(--primary)] rounded-lg hover:opacity-90 disabled:opacity-50"
+                        >
+                            {isGeneratingAi ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+                            AI解説を生成
+                        </button>
                         <button onClick={onEdit} className="px-3 py-1.5 text-sm font-medium text-[var(--text)] bg-[var(--card-bg)] border border-[var(--border)] rounded-lg hover:bg-[var(--surface-2)]">編集</button>
                         <button onClick={onDelete} disabled={isDeleting} className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50">{isDeleting ? '削除中...' : '削除'}</button>
                     </div>
