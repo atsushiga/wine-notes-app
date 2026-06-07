@@ -39,6 +39,8 @@ interface Props {
     onEdit: () => void;
     onDelete: () => void;
     isDeleting: boolean;
+    onOptimizeImage?: () => void;
+    isOptimizingImage?: boolean;
 }
 
 const getSatLabel = (options: readonly string[], value: number) => {
@@ -46,10 +48,11 @@ const getSatLabel = (options: readonly string[], value: number) => {
 };
 
 
-export default function WineDetailView({ wine, onEdit, onDelete, isDeleting }: Props) {
+export default function WineDetailView({ wine, onEdit, onDelete, isDeleting, onOptimizeImage, isOptimizingImage = false }: Props) {
     const router = useRouter();
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
     const wineType = wine.wine_type || "";
+    const hasOptimizableImage = Boolean(wine.images?.some((image) => image.url) || wine.image_url);
     // ... (booleans same)
     const isRed = wineType === '赤';
     const isWhite = wineType === '白';
@@ -181,6 +184,19 @@ export default function WineDetailView({ wine, onEdit, onDelete, isDeleting }: P
                                 {wine.wine_type && (
                                     <div className="absolute top-4 left-4 bg-[var(--chip-bg)]/90 border border-[var(--chip-border)] backdrop-blur-sm text-[var(--chip-text)] px-3 py-1.5 rounded-full text-sm font-medium z-10">{wine.wine_type}</div>
                                 )}
+                            </div>
+                        )}
+                        {hasOptimizableImage && onOptimizeImage && (
+                            <div className="p-3 border-t border-[var(--border)] bg-[var(--card-bg)]">
+                                <button
+                                    type="button"
+                                    onClick={onOptimizeImage}
+                                    disabled={isOptimizingImage}
+                                    className="w-full px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold rounded-md shadow-sm hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isOptimizingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                    AI画像補正
+                                </button>
                             </div>
                         )}
                     </div>

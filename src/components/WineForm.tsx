@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useImperativeHandle, forwardRef } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import React, { useCallback, useEffect, useImperativeHandle, forwardRef, useLayoutEffect, useRef } from 'react';
+import { useForm, Controller, type Resolver } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { searchWineDetails, analyzeWineImage } from '@/app/actions/gemini';
-import { Sparkles, Loader2, Eye, Wind, Grape, Award, Bot, ChevronDown, ChevronUp, BookOpen, User, Settings, Calendar, FileText } from 'lucide-react';
+import { searchWineDetails, optimizeWineImage, analyzeWineImage, interpretTastingTranscript, type WineImageAnalysis } from '@/app/actions/gemini';
+import { Sparkles, Loader2, Eye, Wind, Grape, Award, ChevronDown, ChevronUp, BookOpen, User, Settings, Calendar, FileText, Bot, ImageIcon, UploadCloud, CheckCircle2, Circle, Search } from 'lucide-react';
 import { useState } from 'react';
 import { SectionCard } from '@/components/ui/section-card';
 import { LocalityCombobox } from '@/components/wine/form/LocalityCombobox';
@@ -21,17 +21,21 @@ import {
     worldLabel,
     fruitStateLabel,
 } from '@/lib/wineHelpers';
-import { generateThumbnail } from '@/lib/imageUtils';
-import { WineImage } from '@/types/custom';
+import { extractExifCaptureDate, generateThumbnail } from '@/lib/imageUtils';
 import { Trash2 } from 'lucide-react';
 import { SAT_CONSTANTS } from '@/constants/sat';
 import AromaSelector from '@/components/AromaSelector';
 import { FieldRow } from '@/components/ui/field-row';
 import { FORM_CONTROL_BASE } from '@/constants/styles';
+import { SimpleRecordingControls } from '@/components/wine/form/SimpleRecordingControls';
+import { countries, mainVarieties, wineTypes } from '@/constants/wine';
+import { defaultSimpleAiAutomationSettings, type SimpleAiAutomationSettings } from '@/lib/simpleAiAutomation';
+
+export { countries, mainVarieties, wineTypes } from '@/constants/wine';
 
 // === 定義：画像シートを意識した選択肢 ===
-function removeUndefined(obj: Record<string, any>) {
-    const newObj: Record<string, any> = {};
+function removeUndefined<T extends object>(obj: T): Partial<T> {
+    const newObj: Partial<T> = {};
     for (const key in obj) {
         if (obj[key] !== undefined) {
             newObj[key] = obj[key];
@@ -102,6 +106,40 @@ function NullableRangeField({
     );
 }
 
+type AutoGrowingTextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
+    value: string;
+};
+
+function AutoGrowingTextarea({ className = '', value, onInput, ...props }: AutoGrowingTextareaProps) {
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    const resize = useCallback(() => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        textarea.style.height = 'auto';
+        textarea.style.height = `${Math.max(textarea.scrollHeight, 192)}px`;
+    }, []);
+
+    useLayoutEffect(() => {
+        resize();
+    }, [resize, value]);
+
+    return (
+        <textarea
+            {...props}
+            ref={textareaRef}
+            value={value}
+            rows={6}
+            className={`${className} min-h-48 resize-none overflow-hidden`}
+            onInput={(event) => {
+                onInput?.(event);
+                resize();
+            }}
+        />
+    );
+}
+
 const apperance = {
     clarity: [
         { label: '澄んだ', score: 1 },
@@ -115,24 +153,6 @@ const apperance = {
         { label: 'モヤがかった', score: -1 },
     ],
 };
-
-// ワインの種類
-export const wineTypes = ['赤', '白', 'ロゼ', 'オレンジ', '発泡白', '発泡ロゼ'] as const;
-
-export const countries = [
-    'フランス', 'イタリア', 'スペイン', 'ドイツ', 'オーストリア', 'スイス',
-    'アメリカ', 'カナダ', 'チリ', 'アルゼンチン', 'オーストラリア', 'ニュージーランド',
-    '日本', '南アフリカ', 'ポルトガル', 'ギリシャ', 'ジョージア', 'その他'
-] as const;
-
-export const mainVarieties = [
-    // 赤寄り
-    'ピノ・ノワール', 'カベルネ・ソーヴィニヨン', 'メルロ', 'シラー/シラーズ',
-    'サンジョヴェーゼ', 'ネッビオーロ', 'グルナッシュ', 'ジンファンデル', '赤その他',
-    // 白寄り
-    'シャルドネ', 'ソーヴィニヨン・ブラン', 'リースリング', 'シュナン・ブラン',
-    'ピノ・グリ', 'ヴィオニエ', 'ゲヴュルツトラミネール', 'アルバリーニョ', '白その他'
-] as const;
 
 // 代表的アロマ (Legacy - moved to SAT_AROMA_DEFINITIONS in AromaSelector)
 
@@ -190,7 +210,7 @@ export const wineFormSchema = z.object({
     acidityScore: nullableNumber(0, 10), // SAT 0-10
     tanninScore: nullableNumber(0, 10), // SAT 0-10
     bodyScore: nullableNumber(0, 10), // SAT 0-10
-    alcoholABV: z.coerce.number().min(0).max(100).optional().nullable(),
+    alcoholABV: nullableNumber(0, 100),
     finishScore: nullableNumber(0, 10), // SAT 0-10
     palateNotes: z.string().optional().nullable(),
 
@@ -215,6 +235,7 @@ export const wineFormSchema = z.object({
 });
 
 export type WineFormValues = z.infer<typeof wineFormSchema>;
+type WineImageValue = NonNullable<WineFormValues['images']>[number];
 
 interface WineFormProps {
     defaultValues?: Partial<WineFormValues>;
@@ -223,13 +244,143 @@ interface WineFormProps {
     submitLabel?: string;
     persistKey?: string; // New prop for persistence key
     onWineTypeChange?: (type: string) => void;
+    simpleMode?: boolean;
+    simpleAiAutomation?: SimpleAiAutomationSettings;
 }
 
 export interface WineFormHandle {
     clear: () => void;
 }
 
-const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onSubmit, isSubmitting, submitLabel = '保存する', persistKey, onWineTypeChange }, ref) => {
+const voiceWritableFields = [
+    'clarity',
+    'brightness',
+    'sparkleIntensity',
+    'appearanceOther',
+    'intensity',
+    'color',
+    'noseIntensity',
+    'noseCondition',
+    'development',
+    'oldNewWorld',
+    'fruitsMaturity',
+    'aromaNeutrality',
+    'oakAroma',
+    'aromas',
+    'aromaOther',
+    'sweetness',
+    'acidityScore',
+    'tanninScore',
+    'bodyScore',
+    'alcoholABV',
+    'finishScore',
+    'palateNotes',
+    'qualityScore',
+    'readiness',
+    'rating',
+    'notes',
+] as const satisfies readonly (keyof WineFormValues)[];
+
+type VoiceWritableField = typeof voiceWritableFields[number];
+type DateValueOrigin = 'empty' | 'auto' | 'user' | 'savedOrDefault' | 'exif';
+type ImageAiProgressPhase = 'idle' | 'uploading' | 'imageOptimizing' | 'imageAnalyzing' | 'wineInfoAnalyzing' | 'complete' | 'error';
+
+const imageAiProgressSteps = [
+    { phase: 'uploading', label: '画像アップロード', activeText: '画像アップ中' },
+    { phase: 'imageOptimizing', label: 'AI画像補正', activeText: 'AI画像補正中' },
+    { phase: 'imageAnalyzing', label: 'AI銘柄検索', activeText: 'AI銘柄検索中' },
+    { phase: 'wineInfoAnalyzing', label: 'AIワイン情報分析', activeText: 'AIワイン情報分析中' },
+] as const satisfies readonly { phase: ImageAiProgressPhase; label: string; activeText: string }[];
+
+const voiceReplaceableDefaults: Partial<Record<keyof WineFormValues, unknown>> = {
+    clarity: '澄んだ',
+    brightness: '輝きのある',
+    sparkleIntensity: '',
+    intensity: null,
+    color: null,
+    noseIntensity: null,
+    noseCondition: '良好 (Clean)',
+    development: '若い',
+    oldNewWorld: null,
+    fruitsMaturity: null,
+    aromaNeutrality: null,
+    oakAroma: null,
+    aromas: [],
+    aromaOther: '',
+    sweetness: 1,
+    acidityScore: null,
+    tanninScore: null,
+    bodyScore: null,
+    alcoholABV: null,
+    finishScore: null,
+    palateNotes: '',
+    qualityScore: null,
+    readiness: '今飲めるが熟成可能',
+    rating: 3.5,
+    notes: '',
+};
+
+const aiSearchWritableFields = [
+    'producer',
+    'country',
+    'locality',
+    'region',
+    'mainVariety',
+    'otherVarieties',
+    'additionalInfo',
+    'vintage',
+    'importer',
+    'wineType',
+    'clarity',
+    'brightness',
+    'sparkleIntensity',
+    'appearanceOther',
+    'intensity',
+    'color',
+    'noseIntensity',
+    'noseCondition',
+    'development',
+    'oldNewWorld',
+    'fruitsMaturity',
+    'aromaNeutrality',
+    'oakAroma',
+    'aromas',
+    'aromaOther',
+    'sweetness',
+    'acidityScore',
+    'tanninScore',
+    'bodyScore',
+    'alcoholABV',
+    'finishScore',
+    'palateNotes',
+] as const satisfies readonly (keyof WineFormValues)[];
+
+type AiSearchWritableField = typeof aiSearchWritableFields[number];
+
+const aiSearchReplaceableDefaults: Partial<Record<keyof WineFormValues, unknown>> = {
+    ...voiceReplaceableDefaults,
+    producer: '',
+    country: '',
+    locality: '',
+    region: '',
+    mainVariety: '',
+    otherVarieties: '',
+    additionalInfo: '',
+    vintage: '2022',
+    importer: '',
+    wineType: '赤',
+};
+
+function serializeVoiceValue(value: unknown) {
+    return JSON.stringify(value ?? null);
+}
+
+function isEmptyVoiceValue(value: unknown) {
+    return value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
+}
+
+const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onSubmit, isSubmitting, submitLabel = '保存する', persistKey, onWineTypeChange, simpleMode = false, simpleAiAutomation = defaultSimpleAiAutomationSettings }, ref) => {
+    const dateValueOriginRef = useRef<DateValueOrigin>(defaultValues?.date ? 'savedOrDefault' : 'empty');
     const { register, handleSubmit, control, watch, setValue, getValues, reset, formState: { errors } } = useForm<WineFormValues>({
         defaultValues: {
             date: '',
@@ -273,7 +424,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             acidityScore: null,
             tanninScore: null,
             bodyScore: null,
-            alcoholABV: 12.5,
+            alcoholABV: null,
             finishScore: null,
             palateNotes: '',
 
@@ -293,7 +444,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             status: 'published',
             ...(defaultValues ? removeUndefined(defaultValues) : {})
         },
-        resolver: zodResolver(wineFormSchema) as any
+        resolver: zodResolver(wineFormSchema) as Resolver<WineFormValues>
     });
 
     // --- Persistence Logic ---
@@ -305,6 +456,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
+                const hasSavedDate = typeof parsed.date === 'string' && parsed.date.trim() !== '';
 
                 // Re-calculate date if not saved or safeguard it
                 if (!parsed.date && !getValues('date')) {
@@ -322,6 +474,12 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         setValue(k, parsed[k]);
                     }
                 });
+
+                if (hasSavedDate) {
+                    dateValueOriginRef.current = 'savedOrDefault';
+                } else if (parsed.date && dateValueOriginRef.current === 'empty') {
+                    dateValueOriginRef.current = 'auto';
+                }
 
             } catch (e) {
                 console.error("Failed to parse saved draft", e);
@@ -430,7 +588,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             acidityScore: null,
             tanninScore: null,
             bodyScore: null,
-            alcoholABV: 12.5,
+            alcoholABV: null,
             finishScore: null,
             palateNotes: '',
 
@@ -449,14 +607,18 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             status: 'published',
         };
 
-        // @ts-ignore - reset expects partial or values depending on version, strict type match might fail on undefineds but we can cast or just use what we have.
-        // Actually hook form reset can take values.
-
-        // We need to bring in the `reset` function from `useForm`.
         reset(freshDefaults);
+        dateValueOriginRef.current = 'auto';
 
         // Also clear any "search result" state
         setIsAiExpanded(false);
+        setImageAiProgressPhase('idle');
+        setIsImageDragActive(false);
+        voiceTranscriptRef.current = '';
+        setVoiceTranscript('');
+        setTranscriptPanelOpen(false);
+        voiceFieldValuesRef.current = {};
+        aiSearchFieldValuesRef.current = {};
     };
 
     const handleClear = () => {
@@ -511,7 +673,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             acidityScore: null,
             tanninScore: null,
             bodyScore: null,
-            alcoholABV: 12.5,
+            alcoholABV: null,
             finishScore: null,
             palateNotes: '',
             qualityScore: null,
@@ -527,8 +689,16 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             search_result_tasting_note: '',
             status: 'published',
         } as WineFormValues);
+        dateValueOriginRef.current = 'auto';
 
         setIsAiExpanded(false);
+        setImageAiProgressPhase('idle');
+        setIsImageDragActive(false);
+        voiceTranscriptRef.current = '';
+        setVoiceTranscript('');
+        setTranscriptPanelOpen(false);
+        voiceFieldValuesRef.current = {};
+        aiSearchFieldValuesRef.current = {};
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -550,7 +720,14 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
     const wineType = watch('wineType');
     const wineNameValue = watch('wineName');
     const hasWineName = !!wineNameValue;
-
+    const hasSearchableImage = !!(watch('images')?.[0]?.url || watch('imageUrl'));
+    const hasAiFormData = !!(
+        watch('terroir_info') ||
+        watch('producer_philosophy') ||
+        watch('technical_details') ||
+        watch('vintage_analysis') ||
+        watch('search_result_tasting_note')
+    );
     useEffect(() => {
         document.body.setAttribute('data-winetype', wineType ?? '');
         if (onWineTypeChange && wineType) {
@@ -588,12 +765,34 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             const mm = String(d.getMonth() + 1).padStart(2, '0');
             const dd = String(d.getDate()).padStart(2, '0');
             setValue('date', `${yyyy}-${mm}-${dd}`, { shouldDirty: false });
+            dateValueOriginRef.current = 'auto';
         }
     }, [getValues, setValue]);
 
     // const filteredAromaGroups = ... (Removed legacy filtering logic)
 
-    const uploadFile = async (file: File | Blob, filename: string): Promise<string> => {
+    const isLocalhostUpload = () => {
+        const { hostname } = window.location;
+        return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
+    };
+
+    const uploadFileViaApi = async (file: File | Blob, filename: string): Promise<string> => {
+        const formData = new FormData();
+        formData.append('file', file, filename);
+        formData.append('filename', filename);
+
+        const res = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+        });
+
+        const { getUrl, error } = await res.json();
+        if (!res.ok || error) throw new Error(error || 'Upload failed');
+
+        return getUrl;
+    };
+
+    const uploadFileViaSignedUrl = async (file: File | Blob, filename: string): Promise<string> => {
         const payload = {
             filename: filename,
             contentType: file.type || 'application/octet-stream',
@@ -615,15 +814,44 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         return getUrl;
     };
 
-    const handleFilesSelect = async (files: FileList | null) => {
-        if (!files || files.length === 0) return;
+    const uploadFile = async (file: File | Blob, filename: string): Promise<string> => {
+        if (isLocalhostUpload()) {
+            return uploadFileViaApi(file, filename);
+        }
 
-        const newImages: { url: string; thumbnail_url?: string; display_order: number }[] = [];
+        return uploadFileViaSignedUrl(file, filename);
+    };
+
+    const applyExifCaptureDateFromFirstPhoto = async (file: File) => {
+        if (dateValueOriginRef.current !== 'empty' && dateValueOriginRef.current !== 'auto') return;
+
+        const captureDate = await extractExifCaptureDate(file);
+        if (!captureDate) return;
+
+        const currentDate = getValues('date');
+        if (currentDate && dateValueOriginRef.current !== 'auto') return;
+
+        setValue('date', captureDate, { shouldDirty: true });
+        dateValueOriginRef.current = 'exif';
+    };
+
+    const handleFilesSelect = async (files: FileList | File[] | null, options?: { autoAi?: boolean }) => {
+        const selectedFiles = Array.from(files ?? []);
+        if (selectedFiles.length === 0) return;
+        const shouldRunSimpleAiFlow = !!options?.autoAi && simpleAutoAiEnabled;
+
+        if (shouldRunSimpleAiFlow) {
+            setImageAiProgressPhase('uploading');
+        }
+
+        await applyExifCaptureDateFromFirstPhoto(selectedFiles[0]);
+
+        const newImages: WineImageValue[] = [];
         const currentImages = getValues('images') || [];
-        let orderOffset = currentImages.length;
+        const orderOffset = currentImages.length;
 
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
+        for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
             try {
                 // 1. Generate Thumbnail
                 const thumbnailBlob = await generateThumbnail(file, 400); // slightly larger max just in case
@@ -654,7 +882,14 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         }
 
         if (newImages.length > 0) {
-            setValue('images', [...currentImages, ...newImages], { shouldDirty: true });
+            const nextImages = [...currentImages, ...newImages];
+            setValue('images', nextImages, { shouldDirty: true });
+
+            if (shouldRunSimpleAiFlow) {
+                await runSimpleImageAiFlow(newImages[0].url);
+            }
+        } else if (shouldRunSimpleAiFlow) {
+            setImageAiProgressPhase('error');
         }
     };
 
@@ -673,12 +908,212 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [isWineNameSearching, setIsWineNameSearching] = useState(false);
     const [isAiExpanded, setIsAiExpanded] = useState(false);
-    const [showTooltip, setShowTooltip] = useState(false);
+    const [imageAiProgressPhase, setImageAiProgressPhase] = useState<ImageAiProgressPhase>('idle');
+    const [isImageDragActive, setIsImageDragActive] = useState(false);
+    const [voiceTranscript, setVoiceTranscript] = useState('');
+    const [isInterpretingTranscript, setIsInterpretingTranscript] = useState(false);
+    const [transcriptPanelOpen, setTranscriptPanelOpen] = useState(false);
+    const [placeSuggestions, setPlaceSuggestions] = useState<string[]>([]);
+    const voiceTranscriptRef = useRef('');
+    const voiceFieldValuesRef = useRef<Partial<Record<keyof WineFormValues, string>>>({});
+    const aiSearchFieldValuesRef = useRef<Partial<Record<keyof WineFormValues, string>>>({});
+    const effectiveSimpleAiAutomation: SimpleAiAutomationSettings = {
+        imageOptimize: simpleAiAutomation.imageOptimize,
+        wineNameSearch: simpleAiAutomation.wineNameSearch,
+        aiInfo: simpleAiAutomation.wineNameSearch && simpleAiAutomation.aiInfo,
+    };
+    const simpleAutoAiEnabled = effectiveSimpleAiAutomation.imageOptimize || effectiveSimpleAiAutomation.wineNameSearch || effectiveSimpleAiAutomation.aiInfo;
+    const uploadAiNotice = simpleMode
+        ? (simpleAutoAiEnabled ? 'アップロード後、AI分析が自動で始まります' : 'アップロード後のAI自動実行は設定でオフです')
+        : '複数枚まとめてアップロードできます';
+    const visibleImageAiProgressSteps = imageAiProgressSteps.filter((step) => (
+        step.phase === 'uploading' ||
+        (step.phase === 'imageOptimizing' && effectiveSimpleAiAutomation.imageOptimize) ||
+        (step.phase === 'imageAnalyzing' && effectiveSimpleAiAutomation.wineNameSearch) ||
+        (step.phase === 'wineInfoAnalyzing' && effectiveSimpleAiAutomation.aiInfo)
+    ));
+    const imageAiProgressActiveIndex = visibleImageAiProgressSteps.findIndex((step) => step.phase === imageAiProgressPhase);
+    const imageAiProgressStatusText =
+        imageAiProgressPhase === 'complete'
+            ? '自動入力が完了しました'
+            : imageAiProgressPhase === 'error'
+                ? '自動入力を完了できませんでした'
+                : visibleImageAiProgressSteps[imageAiProgressActiveIndex]?.activeText ?? '自動入力を準備中';
+    const showImageAiProgress = simpleMode && imageAiProgressPhase !== 'idle' && visibleImageAiProgressSteps.length > 0;
+    const aiActionButtonClass = "inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-blue-500/20 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50";
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadPlaceSuggestions = async () => {
+            try {
+                const response = await fetch('/api/place-suggestions', { cache: 'no-store' });
+                if (!response.ok) return;
+
+                const data = await response.json();
+                if (isMounted && Array.isArray(data.suggestions)) {
+                    setPlaceSuggestions(
+                        data.suggestions.filter((item: unknown): item is string => typeof item === 'string')
+                    );
+                }
+            } catch (error) {
+                console.error('Failed to load place suggestions:', error);
+            }
+        };
+
+        void loadPlaceSuggestions();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
 
+    const applyWineImageAnalysis = (result: WineImageAnalysis) => {
+        if (result.wineName) setValue('wineName', result.wineName, { shouldDirty: true });
+        if (result.producer) setValue('producer', result.producer, { shouldDirty: true });
+        if (result.vintage) setValue('vintage', result.vintage, { shouldDirty: true });
+        if (result.country) setValue('country', result.country, { shouldDirty: true });
+        if (result.locality) {
+            setValue('locality', result.locality, { shouldDirty: true });
+            setValue('locality_vocab_id', result.locality_vocab_id ?? null, { shouldDirty: true });
+        }
+        if (result.price !== null && result.price !== undefined && result.price > 0) {
+            setValue('price', String(result.price), { shouldDirty: true });
+        }
+    };
 
-    const handleAiSearch = async () => {
+    const handleImageOptimize = async (targetImageUrl?: string, options?: { showProgress?: boolean }): Promise<string | null> => {
+        const currentImages = getValues('images') || [];
+        const targetUrl = targetImageUrl || currentImages[0]?.url || getValues('imageUrl');
+        if (!targetUrl) return null;
+
+        try {
+            setIsAnalyzing(true);
+            if (options?.showProgress) {
+                setImageAiProgressPhase('imageOptimizing');
+            }
+
+            const result = await optimizeWineImage(targetUrl);
+
+            if (result.optimizedImage) {
+                const optimized = result.optimizedImage;
+                const sourceIndex = currentImages.findIndex((image) => image.url === targetUrl);
+                const sourceImage: WineImageValue = sourceIndex >= 0 ? currentImages[sourceIndex] : {
+                    url: targetUrl,
+                    thumbnail_url: null,
+                    storage_path: null,
+                    display_order: 1,
+                };
+                const optimizedImage: WineImageValue = {
+                    ...sourceImage,
+                    url: optimized.url,
+                    thumbnail_url: optimized.thumbnail_url,
+                    storage_path: optimized.storage_path,
+                    display_order: 0,
+                };
+
+                const remainingImages = currentImages.filter((image, index) => (
+                    index !== sourceIndex &&
+                    image.url !== sourceImage.url &&
+                    image.url !== optimized.url
+                ));
+                const nextImages = [optimizedImage, sourceImage, ...remainingImages].map((image, index) => ({
+                    ...image,
+                    display_order: index,
+                }));
+                setValue('images', nextImages, { shouldDirty: true });
+
+                setValue('imageUrl', optimized.url, { shouldDirty: true });
+                return optimized.url;
+            }
+
+            return targetUrl;
+        } catch (e) {
+            console.error(e);
+            if (options?.showProgress) {
+                setImageAiProgressPhase('error');
+            }
+            alert('画像補正に失敗しました');
+            return null;
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    const handleWineNameSearch = async (targetImageUrl?: string, options?: { showProgress?: boolean }): Promise<boolean> => {
+        const currentImages = getValues('images') || [];
+        const targetUrl = targetImageUrl || currentImages[0]?.url || getValues('imageUrl');
+        if (!targetUrl) {
+            alert('銘柄検索に使う画像をアップロードしてください');
+            return false;
+        }
+
+        try {
+            setIsWineNameSearching(true);
+            if (options?.showProgress) {
+                setImageAiProgressPhase('imageAnalyzing');
+            }
+            const result = await analyzeWineImage(targetUrl);
+            applyWineImageAnalysis(result);
+            return true;
+        } catch (e) {
+            console.error(e);
+            if (options?.showProgress) {
+                setImageAiProgressPhase('error');
+            }
+            alert('AI銘柄検索に失敗しました');
+            return false;
+        } finally {
+            setIsWineNameSearching(false);
+        }
+    };
+
+    const canApplyAiSearchUpdate = useCallback((field: AiSearchWritableField) => {
+        const currentValue = getValues(field);
+        const currentSerialized = serializeVoiceValue(currentValue);
+        const lastAiSearchValue = aiSearchFieldValuesRef.current[field];
+
+        if (lastAiSearchValue !== undefined) {
+            return currentSerialized === lastAiSearchValue;
+        }
+
+        if (isEmptyVoiceValue(currentValue)) {
+            return true;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(aiSearchReplaceableDefaults, field)) {
+            return currentSerialized === serializeVoiceValue(aiSearchReplaceableDefaults[field]);
+        }
+
+        return false;
+    }, [getValues]);
+
+    const applyAiSearchUpdates = useCallback((updates: Record<string, unknown>) => {
+        for (const [key, rawValue] of Object.entries(updates)) {
+            if (!aiSearchWritableFields.includes(key as AiSearchWritableField)) continue;
+
+            const field = key as AiSearchWritableField;
+            if (!canApplyAiSearchUpdate(field)) continue;
+
+            let value = rawValue;
+            if (field === 'aromas' && Array.isArray(rawValue)) {
+                value = Array.from(new Set(rawValue.filter((item): item is string => typeof item === 'string' && item.trim() !== '')));
+            }
+
+            if (field === 'wineType' && (typeof value !== 'string' || !wineTypes.includes(value as (typeof wineTypes)[number]))) continue;
+            if (field === 'country' && (typeof value !== 'string' || !countries.includes(value as (typeof countries)[number]))) continue;
+            if (field === 'mainVariety' && (typeof value !== 'string' || !mainVarieties.includes(value as (typeof mainVarieties)[number]))) continue;
+
+            setValue(field, value as never, { shouldDirty: true });
+            aiSearchFieldValuesRef.current[field] = serializeVoiceValue(value);
+        }
+    }, [canApplyAiSearchUpdate, setValue]);
+
+
+    const handleAiSearch = async (options?: { silentIfMissingName?: boolean; revealOnSuccess?: boolean }): Promise<boolean> => {
         const name = getValues('wineName');
         const producer = getValues('producer');
         const vintage = getValues('vintage');
@@ -687,8 +1122,10 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         const referenceUrl = getValues('referenceUrl');
 
         if (!name) {
-            alert('ワイン名を入力してください');
-            return;
+            if (!options?.silentIfMissingName) {
+                alert('ワイン名を入力してください');
+            }
+            return false;
         }
 
         setIsAiLoading(true);
@@ -708,17 +1145,607 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             setValue('technical_details', result.technical_details, { shouldDirty: true });
             setValue('vintage_analysis', result.vintage_analysis, { shouldDirty: true });
             setValue('search_result_tasting_note', result.search_result_tasting_note, { shouldDirty: true });
+            if (simpleMode && result.form_updates) {
+                applyAiSearchUpdates(result.form_updates as Record<string, unknown>);
+            }
+            if (options?.revealOnSuccess) {
+                window.setTimeout(() => {
+                    document.getElementById('ai-deep-dive')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 0);
+            }
+            return true;
         } catch (e) {
             console.error(e);
             alert('AI検索に失敗しました');
+            return false;
         } finally {
             setIsAiLoading(false);
         }
     };
 
+    const runSimpleImageAiFlow = async (targetImageUrl?: string) => {
+        let aiTargetImageUrl = targetImageUrl;
+
+        if (effectiveSimpleAiAutomation.imageOptimize) {
+            const optimizedUrl = await handleImageOptimize(aiTargetImageUrl, { showProgress: true });
+            if (!optimizedUrl) return;
+            aiTargetImageUrl = optimizedUrl;
+        }
+
+        if (effectiveSimpleAiAutomation.wineNameSearch) {
+            const searched = await handleWineNameSearch(aiTargetImageUrl, { showProgress: true });
+            if (!searched) return;
+        }
+
+        if (effectiveSimpleAiAutomation.aiInfo) {
+            if (!getValues('wineName')) {
+                setImageAiProgressPhase('complete');
+                return;
+            }
+
+            setImageAiProgressPhase('wineInfoAnalyzing');
+            const searched = await handleAiSearch({ silentIfMissingName: true, revealOnSuccess: true });
+            setImageAiProgressPhase(searched ? 'complete' : 'error');
+            return;
+        }
+
+        setImageAiProgressPhase('complete');
+    };
+
+    const handleManualImageOptimize = async () => {
+        await handleImageOptimize();
+    };
+
+    const handleAiJump = () => {
+        setIsAiExpanded(true);
+        window.setTimeout(() => {
+            document.getElementById('ai-deep-dive')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 0);
+    };
+
+    const getVoiceCurrentValues = useCallback(() => {
+        const values = getValues();
+        return voiceWritableFields.reduce((acc, field) => {
+            acc[field] = values[field];
+            return acc;
+        }, {} as Record<string, unknown>);
+    }, [getValues]);
+
+    const canApplyVoiceUpdate = useCallback((field: VoiceWritableField) => {
+        const currentValue = getValues(field);
+        const currentSerialized = serializeVoiceValue(currentValue);
+        const lastVoiceValue = voiceFieldValuesRef.current[field];
+
+        if (lastVoiceValue !== undefined) {
+            return currentSerialized === lastVoiceValue;
+        }
+
+        if (isEmptyVoiceValue(currentValue)) {
+            return true;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(voiceReplaceableDefaults, field)) {
+            return currentSerialized === serializeVoiceValue(voiceReplaceableDefaults[field]);
+        }
+
+        return false;
+    }, [getValues]);
+
+    const applyVoiceUpdates = useCallback((updates: Record<string, unknown>) => {
+        for (const [key, rawValue] of Object.entries(updates)) {
+            if (!voiceWritableFields.includes(key as VoiceWritableField)) continue;
+
+            const field = key as VoiceWritableField;
+            if (!canApplyVoiceUpdate(field)) continue;
+
+            let value = rawValue;
+            if (field === 'aromas' && Array.isArray(rawValue)) {
+                const currentAromas = getValues('aromas') || [];
+                value = Array.from(new Set([...currentAromas, ...rawValue.filter((item): item is string => typeof item === 'string')]));
+            }
+
+            setValue(field, value as never, { shouldDirty: true });
+            voiceFieldValuesRef.current[field] = serializeVoiceValue(value);
+        }
+    }, [canApplyVoiceUpdate, getValues, setValue]);
+
+    const interpretVoiceTranscript = useCallback(async (transcript: string, recentText: string) => {
+        if (!transcript.trim()) return;
+
+        setIsInterpretingTranscript(true);
+        try {
+            const result = await interpretTastingTranscript({
+                transcript,
+                recentText,
+                currentValues: getVoiceCurrentValues(),
+            });
+
+            applyVoiceUpdates(result.updates as Record<string, unknown>);
+        } catch (error) {
+            console.error('Transcript interpretation failed:', error);
+        } finally {
+            setIsInterpretingTranscript(false);
+        }
+    }, [applyVoiceUpdates, getVoiceCurrentValues]);
+
+    const handleTranscriptChunk = useCallback((text: string) => {
+        const cleaned = text.trim();
+        if (!cleaned) return;
+
+        const next = voiceTranscriptRef.current
+            ? `${voiceTranscriptRef.current}\n${cleaned}`
+            : cleaned;
+
+        voiceTranscriptRef.current = next;
+        setVoiceTranscript(next);
+        void interpretVoiceTranscript(next, cleaned);
+    }, [interpretVoiceTranscript]);
+
+    const handleClearVoiceTranscript = useCallback(() => {
+        voiceTranscriptRef.current = '';
+        setVoiceTranscript('');
+        voiceFieldValuesRef.current = {};
+    }, []);
+
+    const handleImageDragEvent = (event: React.DragEvent<HTMLLabelElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
+    const handleImageDrop = (event: React.DragEvent<HTMLLabelElement>) => {
+        handleImageDragEvent(event);
+        setIsImageDragActive(false);
+        void handleFilesSelect(event.dataTransfer.files, { autoAi: simpleMode });
+    };
+
+    const imageUploadFields = (
+        <>
+            <label
+                className={`flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border bg-[var(--input-bg)] px-4 py-3 text-left transition-colors sm:min-h-40 sm:flex-col sm:justify-center sm:border-2 sm:border-dashed sm:px-6 sm:py-8 sm:text-center ${isImageDragActive
+                    ? 'border-[var(--primary)] bg-[var(--surface-2)]'
+                    : 'border-[var(--input-border)] hover:border-[var(--primary)] hover:bg-[var(--surface-2)]'
+                }`}
+                onDragEnter={(event) => {
+                    handleImageDragEvent(event);
+                    setIsImageDragActive(true);
+                }}
+                onDragOver={(event) => {
+                    handleImageDragEvent(event);
+                    event.dataTransfer.dropEffect = 'copy';
+                    setIsImageDragActive(true);
+                }}
+                onDragLeave={(event) => {
+                    handleImageDragEvent(event);
+                    setIsImageDragActive(false);
+                }}
+                onDrop={handleImageDrop}
+            >
+                <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="sr-only"
+                    onChange={(e) => {
+                        const selectedFiles = Array.from(e.currentTarget.files ?? []);
+                        void handleFilesSelect(selectedFiles, { autoAi: simpleMode });
+                        e.target.value = '';
+                    }}
+                />
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] sm:h-14 sm:w-14">
+                    {isAnalyzing || imageAiProgressPhase === 'uploading' ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                        <UploadCloud className="h-5 w-5 sm:h-6 sm:w-6" />
+                    )}
+                </span>
+                <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-[var(--text)]">写真を選択</span>
+                    <span className="mt-0.5 block text-xs leading-5 text-[var(--text-muted)] sm:hidden">{uploadAiNotice}</span>
+                    <span className="mt-1 hidden text-sm leading-6 text-[var(--text-muted)] sm:block">
+                        クリック、または画像をここへドラッグ&ドロップ
+                    </span>
+                    <span className="mt-1 hidden text-xs text-[var(--text-muted)] sm:block">
+                        {uploadAiNotice}
+                    </span>
+                </span>
+            </label>
+
+            {showImageAiProgress && (
+                <div className={`mt-4 rounded-xl border p-3 ${imageAiProgressPhase === 'error'
+                    ? 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--text)]'
+                    : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--text)]'
+                }`}>
+                    <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold">{imageAiProgressStatusText}</p>
+                        {(isAnalyzing || isAiLoading || imageAiProgressPhase === 'uploading') && (
+                            <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[var(--text-muted)]" />
+                        )}
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                        {visibleImageAiProgressSteps.map((step, index) => {
+                            const isComplete = imageAiProgressPhase === 'complete' || (imageAiProgressActiveIndex > index && imageAiProgressPhase !== 'error');
+                            const isActive = imageAiProgressActiveIndex === index && imageAiProgressPhase !== 'complete' && imageAiProgressPhase !== 'error';
+
+                            return (
+                                <div
+                                    key={step.phase}
+                                    className={`flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-xs ${isComplete
+                                        ? 'border-[var(--border)] bg-[var(--card-bg)] text-[var(--text-muted)]'
+                                        : isActive
+                                            ? 'border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--text)]'
+                                            : 'border-[var(--border)] bg-[var(--card-bg)] text-[var(--text-muted)]'
+                                    }`}
+                                >
+                                    {isComplete ? (
+                                        <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                    ) : isActive ? (
+                                        <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                                    ) : (
+                                        <Circle className="h-4 w-4 shrink-0" />
+                                    )}
+                                    <span className="truncate">{step.label}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {(watch('images')?.length ?? 0) > 0 && (
+                <div className="sm:col-span-3 mt-4 grid grid-cols-3 sm:grid-cols-4 gap-4">
+                    {watch('images')?.map((img, idx) => (
+                        <div key={idx} className="relative group aspect-square bg-[var(--app-bg)] rounded-lg overflow-hidden border border-[var(--border)]">
+                            <img
+                                src={img.thumbnail_url || img.url}
+                                alt={`upload-${idx}`}
+                                className="w-full h-full object-cover"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => removeImage(idx)}
+                                className="absolute top-1 right-1 bg-[var(--card-bg)]/80 p-1 rounded-full text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                aria-label="写真を削除"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {(watch('imageUrl') || watch('images')?.[0]?.url) && (
+                <div className="sm:col-span-3 mt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs text-gray-500">AI解析用メイン画像:</span>
+                        {!watch('images') || watch('images')?.length === 0 ? (
+                            <img src={watch('imageUrl')!} alt="main" className="h-10 w-10 object-cover rounded border border-[var(--border)]" />
+                        ) : null}
+                    </div>
+
+                    <div className="mt-2">
+                        <button
+                            type="button"
+                            onClick={() => void handleManualImageOptimize()}
+                            disabled={isAnalyzing}
+                            className={aiActionButtonClass}
+                        >
+                            {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                            AI画像補正
+                        </button>
+                        {simpleMode && (isAnalyzing || isAiLoading) ? (
+                            <p className="text-[10px] text-[var(--text-muted)] mt-1">写真から自動入力しています</p>
+                        ) : (
+                            <p className="text-[10px] text-[var(--text-muted)] mt-1">※一枚目を補正し、元画像は二枚目に残します</p>
+                        )}
+                    </div>
+                </div>
+            )}
+        </>
+    );
+
+    const wineInfoBackFields = (
+        <>
+            <div className="pt-2 border-t border-dashed border-[var(--border)]">
+                <h4 className="text-sm font-semibold text-[var(--text)] mb-4">生産地</h4>
+                <div className="grid sm:grid-cols-2 gap-6">
+                    <FieldRow label="国">
+                        <select className={FORM_CONTROL_BASE} {...register('country')}>
+                            <option value="">未選択</option>
+                            {countries.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                    </FieldRow>
+                    <FieldRow label="地名（地域/村/畑など）">
+                        <Controller
+                            control={control}
+                            name="locality"
+                            render={({ field }) => (
+                                <LocalityCombobox
+                                    value={field.value ?? ''}
+                                    onChange={field.onChange}
+                                    countryJa={watch('country')}
+                                    onSelectId={(id) => setValue('locality_vocab_id', id, { shouldDirty: true })}
+                                    placeholder="例: ブルゴーニュ／ニュイ＝サン＝ジョルジュ／レ・ダモード"
+                                    disabled={isSubmitting}
+                                />
+                            )}
+                        />
+                    </FieldRow>
+                </div>
+            </div>
+
+            <div className="pt-2 border-t border-dashed border-[var(--border)]">
+                <h4 className="text-sm font-semibold text-[var(--text)] mb-4">品種</h4>
+                <div className="grid sm:grid-cols-2 gap-6">
+                    <FieldRow label="主体の品種">
+                        <select className={FORM_CONTROL_BASE} {...register('mainVariety')}>
+                            <option value="">未選択</option>
+                            {mainVarieties.map(v => <option key={v} value={v}>{v}</option>)}
+                        </select>
+                    </FieldRow>
+                    <FieldRow label="その他（補助品種・ブレンド等）">
+                        <input className={FORM_CONTROL_BASE} placeholder="例: プティ・ヴェルド 5% など"
+                            {...register('otherVarieties')} />
+                    </FieldRow>
+                </div>
+            </div>
+
+            <div className="pt-2">
+                <FieldRow label="参考URL">
+                    <input
+                        className={FORM_CONTROL_BASE}
+                        type="url"
+                        placeholder="公式URL等を記載"
+                        {...register('referenceUrl')}
+                    />
+                </FieldRow>
+            </div>
+
+            <div className="pt-2">
+                <FieldRow label="補足情報（自由入力）">
+                    <textarea
+                        className={`${FORM_CONTROL_BASE} h-28`}
+                        placeholder="例: 畑情報、区画、樹齢、醸造メモ、輸入元メモ、保存環境 など自由に"
+                        {...register('additionalInfo')}
+                    />
+                </FieldRow>
+            </div>
+        </>
+    );
+
+    const personalRatingField = (
+        <FieldRow label="個人的な好み (Rating)">
+            <Controller
+                control={control}
+                name="rating"
+                render={({ field }) => (
+                    <>
+                        <div className="relative inline-block select-none" aria-label={`Rating ${round1(field.value)} of 5`}>
+                            <div className="text-2xl tracking-tight text-neutral-300">★★★★★</div>
+                            <div
+                                className="absolute top-0 left-0 overflow-hidden text-2xl tracking-tight text-yellow-500 pointer-events-none"
+                                style={{ width: `${(Math.max(0, Math.min(5, Number(field.value))) / 5) * 100}%` }}
+                            >
+                                ★★★★★
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1">
+                            <input
+                                type="range"
+                                min={0}
+                                max={5}
+                                step={0.1}
+                                value={field.value}
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                                className="w-full accent-[var(--text)]"
+                            />
+                            <span className="w-12 text-right text-lg font-medium text-yellow-600">{round1(field.value).toFixed(1)}</span>
+                        </div>
+                    </>
+                )}
+            />
+        </FieldRow>
+    );
+
+    const personalNotesField = (
+        <FieldRow label="寸評 (Notes)">
+            <textarea className={`${FORM_CONTROL_BASE} h-28`} {...register('notes')} placeholder="自由記述" />
+        </FieldRow>
+    );
+
+    const aiInfoTextareaClass = `${FORM_CONTROL_BASE} text-sm`;
+
+    const aiInfoSection = (
+        <section id="ai-deep-dive" className="rounded-2xl bg-[var(--card-bg)] p-4 border border-[var(--border)]">
+            <div className="flex items-start justify-between gap-3">
+                <button
+                    type="button"
+                    onClick={() => setIsAiExpanded(!isAiExpanded)}
+                    className="group flex min-w-0 flex-1 items-center gap-2 text-left"
+                >
+                    <div className="bg-[var(--surface-2)] p-2 rounded-full border border-[var(--border)]">
+                        <Sparkles className="w-5 h-5 text-[var(--text-muted)]" />
+                    </div>
+                    <div className="min-w-0">
+                        <h2 className="font-bold text-[var(--text)]">AI情報</h2>
+                        <p className="text-xs text-[var(--text-muted)]">
+                            {isAiLoading ? 'Web上の専門情報を検索中' : hasAiFormData ? '取得済みの参考情報を確認' : 'AI情報パネル右上から取得'}
+                        </p>
+                    </div>
+                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => void handleAiSearch({ revealOnSuccess: simpleMode })}
+                        disabled={isAiLoading || !hasWineName}
+                        title={hasWineName ? 'AI情報を取得' : 'ワイン名を入力してください'}
+                        className={aiActionButtonClass}
+                    >
+                        {isAiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        <span>AI情報取得</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setIsAiExpanded(!isAiExpanded)}
+                        aria-label={isAiExpanded ? 'AI情報を閉じる' : 'AI情報を開く'}
+                        className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                    >
+                        {isAiExpanded ? (
+                            <ChevronUp className="w-5 h-5" />
+                        ) : (
+                            <ChevronDown className="w-5 h-5" />
+                        )}
+                    </button>
+                </div>
+            </div>
+
+            {isAiExpanded && (
+                <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <p className="text-sm text-[var(--text-muted)] bg-[var(--surface-2)] p-3 rounded-lg border border-[var(--border)]">
+                        ワイン名・生産者・ヴィンテージを元に、Web上の専門情報を検索します。
+                        <br />
+                        <span className="text-xs text-[var(--text-muted)] block mt-1">国名・地域名・参考URLが入力されている場合は、それらの情報も検索に活用されます。参考URLがある場合は必ず参照します。</span>
+                        <span className="text-xs text-[var(--text-muted)] block mt-1">※ 既に情報が入力されている場合は上書きされます。</span>
+                    </p>
+
+                    {isAiLoading && (
+                        <div className="flex items-center gap-2 rounded-lg border border-purple-100 bg-purple-50 px-3 py-2 text-sm text-purple-700">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            AI情報を取得しています
+                        </div>
+                    )}
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
+                                <BookOpen className="w-4 h-4 text-emerald-600" /> テロワール
+                            </label>
+                            <Controller
+                                control={control}
+                                name="terroir_info"
+                                render={({ field }) => (
+                                    <AutoGrowingTextarea
+                                        className={aiInfoTextareaClass}
+                                        value={field.value ?? ''}
+                                        onChange={field.onChange}
+                                        onBlur={field.onBlur}
+                                        name={field.name}
+                                        placeholder="AI検索結果がここに表示されます"
+                                    />
+                                )}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
+                                <User className="w-4 h-4 text-blue-600" /> 生産者・哲学
+                            </label>
+                            <Controller
+                                control={control}
+                                name="producer_philosophy"
+                                render={({ field }) => (
+                                    <AutoGrowingTextarea
+                                        className={aiInfoTextareaClass}
+                                        value={field.value ?? ''}
+                                        onChange={field.onChange}
+                                        onBlur={field.onBlur}
+                                        name={field.name}
+                                    />
+                                )}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
+                                <Settings className="w-4 h-4 text-gray-600" /> 技術詳細
+                            </label>
+                            <Controller
+                                control={control}
+                                name="technical_details"
+                                render={({ field }) => (
+                                    <AutoGrowingTextarea
+                                        className={aiInfoTextareaClass}
+                                        value={field.value ?? ''}
+                                        onChange={field.onChange}
+                                        onBlur={field.onBlur}
+                                        name={field.name}
+                                    />
+                                )}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-orange-600" /> ヴィンテージ分析
+                            </label>
+                            <Controller
+                                control={control}
+                                name="vintage_analysis"
+                                render={({ field }) => (
+                                    <AutoGrowingTextarea
+                                        className={aiInfoTextareaClass}
+                                        value={field.value ?? ''}
+                                        onChange={field.onChange}
+                                        onBlur={field.onBlur}
+                                        name={field.name}
+                                    />
+                                )}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-red-600" /> 参考テイスティングノート
+                            </label>
+                            <Controller
+                                control={control}
+                                name="search_result_tasting_note"
+                                render={({ field }) => (
+                                    <AutoGrowingTextarea
+                                        className={aiInfoTextareaClass}
+                                        value={field.value ?? ''}
+                                        onChange={field.onChange}
+                                        onBlur={field.onBlur}
+                                        name={field.name}
+                                    />
+                                )}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-[var(--border)] mt-4 text-center">
+                        <p className="text-xs text-[var(--text-muted)]">
+                            ※本情報は参考情報です。実際の評価はご自身の感覚を優先してください。
+                        </p>
+                    </div>
+                </div>
+            )}
+        </section>
+    );
+
     return (
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="w-full pb-24 space-y-8">
+        <form
+            onSubmit={handleSubmit(handleFormSubmit)}
+            className={`w-full space-y-8 ${simpleMode && transcriptPanelOpen ? 'pb-[calc(25vh+10rem+env(safe-area-inset-bottom))]' : 'pb-[calc(8rem+env(safe-area-inset-bottom))]'}`}
+        >
             <input type="hidden" {...register('aiExplanationId')} />
+
+            <SimpleRecordingControls
+                enabled={simpleMode}
+                transcript={voiceTranscript}
+                isInterpreting={isInterpretingTranscript}
+                panelOpen={transcriptPanelOpen}
+                onPanelOpenChange={setTranscriptPanelOpen}
+                onTranscriptChunk={handleTranscriptChunk}
+                onClearTranscript={handleClearVoiceTranscript}
+            />
+
+            {!simpleMode && (
+                <button
+                    type="button"
+                    onClick={handleAiJump}
+                    title="AI情報へ移動"
+                    aria-label="AI情報へ移動"
+                    className="fixed right-4 bottom-32 z-40 hidden h-12 w-12 items-center justify-center rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg transition-transform hover:scale-105 active:scale-95 sm:flex"
+                >
+                    {isAiLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Bot className="h-6 w-6" />}
+                </button>
+            )}
 
             {/* タブ：ワインタイプ */}
             <section className="mb-4">
@@ -740,113 +1767,66 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 <input type="hidden" {...register('wineType')} />
             </section>
 
+            {simpleMode && (
+                <SectionCard title="画像アップロード" icon={<ImageIcon size={18} />} tone="neutral">
+                    {imageUploadFields}
+                </SectionCard>
+            )}
+
             {/* 基本情報 */}
             <SectionCard title="基本情報" icon={<Calendar size={18} />} tone="neutral">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <FieldRow label="日付">
-                        <input type="date" className={FORM_CONTROL_BASE} {...register('date')} />
+                        <input
+                            type="date"
+                            className={FORM_CONTROL_BASE}
+                            {...register('date', {
+                                onChange: () => {
+                                    dateValueOriginRef.current = 'user';
+                                },
+                            })}
+                        />
                     </FieldRow>
                     <FieldRow label="飲んだ/購入した場所">
-                        <input className={FORM_CONTROL_BASE} placeholder="例: 自宅 / ○○レストラン / △△ワインショップ"
+                        <input
+                            className={FORM_CONTROL_BASE}
+                            placeholder="例: 自宅 / ○○レストラン / △△ワインショップ"
+                            list="place-suggestions"
                             {...register('place')} />
+                        <datalist id="place-suggestions">
+                            {placeSuggestions.map((place) => (
+                                <option key={place} value={place} />
+                            ))}
+                        </datalist>
                     </FieldRow>
                 </div>
-                <div className="mt-6">
-                    <label className="block text-sm font-medium text-[var(--text)] mb-2">写真（複数選択可）</label>
-                    <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="block w-full text-sm text-[var(--text-muted)] rounded-full border border-[var(--border)] p-2 bg-[var(--input-bg)]"
-                        onChange={(e) => {
-                            handleFilesSelect(e.target.files);
-                            // Clear input so same files can be selected again if needed? 
-                            // e.target.value = ''; // Be careful with this in react
-                        }}
-                    />
-                </div>
-
-                {/* Image Preview Grid */}
-                {(watch('images')?.length ?? 0) > 0 && (
-                    <div className="sm:col-span-3 mt-2 grid grid-cols-3 sm:grid-cols-4 gap-4">
-                        {watch('images')?.map((img, idx) => (
-                            <div key={idx} className="relative group aspect-square bg-[var(--app-bg)] rounded-lg overflow-hidden border border-[var(--border)]">
-                                <img
-                                    src={img.thumbnail_url || img.url}
-                                    alt={`upload-${idx}`}
-                                    className="w-full h-full object-cover"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => removeImage(idx)}
-                                    className="absolute top-1 right-1 bg-[var(--card-bg)]/80 p-1 rounded-full text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
-                        ))}
+                {!simpleMode && (
+                    <div className="mt-6">
+                        {imageUploadFields}
                     </div>
                 )}
-
-
-                {/* Legacy/Main Image Preview for AI Search (kept hidden or separate?)
-                    Let's allow selecting one image for AI search from the uploaded list
-                */}
-
-                {watch('imageUrl') && (
-                    <div className="sm:col-span-3 mt-2">
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="text-xs text-gray-500">AI解析用メイン画像:</span>
-                            {!watch('images') || watch('images')?.length === 0 ? (
-                                <img src={watch('imageUrl')!} alt="main" className="h-10 w-10 object-cover rounded border border-[var(--border)]" />
-                            ) : null}
-                        </div>
-
-                        <div className="mt-2">
-                            <button
-                                type="button"
-                                onClick={async () => {
-                                    const url = getValues('imageUrl');
-                                    if (!url) return;
-
-                                    try {
-                                        setIsAnalyzing(true);
-                                        const result = await analyzeWineImage(url);
-                                        if (result) {
-                                            if (result.wineName) setValue('wineName', result.wineName, { shouldDirty: true });
-                                            if (result.producer) setValue('producer', result.producer, { shouldDirty: true });
-                                            if (result.vintage) setValue('vintage', result.vintage, { shouldDirty: true });
-                                            if (result.country) setValue('country', result.country, { shouldDirty: true });
-                                            if (result.locality) {
-                                                setValue('locality', result.locality, { shouldDirty: true });
-                                                setValue('locality_vocab_id', result.locality_vocab_id ?? null, { shouldDirty: true });
-                                            }
-                                            if (result.price) setValue('price', String(result.price), { shouldDirty: true });
-                                        }
-                                    } catch (e) {
-                                        console.error(e);
-                                        alert('画像解析に失敗しました');
-                                    } finally {
-                                        setIsAnalyzing(false);
-                                    }
-                                }}
-                                disabled={isAnalyzing}
-                                className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold rounded-md shadow-sm hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 flex items-center gap-2"
-                            >
-                                {isAnalyzing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                AI銘柄検索
-                            </button>
-                            <p className="text-[10px] text-[var(--text-muted)] mt-1">※画像からワイン情報を自動推定します</p>
-                        </div>
-                    </div>
-                )}
-
 
             </SectionCard>
 
 
             {/* ワイン情報 */}
-            <SectionCard title="ワイン情報" icon={<FileText size={18} />} tone="neutral">
+            <SectionCard
+                title="ワイン情報"
+                icon={<FileText size={18} />}
+                tone="neutral"
+                right={
+                    <button
+                        type="button"
+                        onClick={() => void handleWineNameSearch()}
+                        disabled={isWineNameSearching || !hasSearchableImage}
+                        title={hasSearchableImage ? '画像から銘柄を検索' : '画像をアップロードしてください'}
+                        className={aiActionButtonClass}
+                    >
+                        {isWineNameSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        AI銘柄検索
+                    </button>
+                }
+            >
                 <div className='grid grid-cols-1 gap-6'>
                     <FieldRow label="ワイン名*">
                         <input className={FORM_CONTROL_BASE} placeholder="例: Bourgogne Rouge" {...register('wineName')} />
@@ -912,73 +1892,28 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         <div />
                     </div>
 
-                    <div className="pt-2 border-t border-dashed border-[var(--border)]">
-                        <h4 className="text-sm font-semibold text-[var(--text)] mb-4">生産地</h4>
-                        <div className="grid sm:grid-cols-2 gap-6">
-                            <FieldRow label="国">
-                                <select className={FORM_CONTROL_BASE} {...register('country')}>
-                                    <option value="">未選択</option>
-                                    {countries.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                            </FieldRow>
-                            <FieldRow label="地名（地域/村/畑など）">
-                                <Controller
-                                    control={control}
-                                    name="locality"
-                                    render={({ field }) => (
-                                        <LocalityCombobox
-                                            value={field.value ?? ''}
-                                            onChange={field.onChange}
-                                            countryJa={watch('country')}
-                                            onSelectId={(id) => setValue('locality_vocab_id', id, { shouldDirty: true })}
-                                            placeholder="例: ブルゴーニュ／ニュイ＝サン＝ジョルジュ／レ・ダモード"
-                                            disabled={isSubmitting}
-                                        />
-                                    )}
-                                />
-                            </FieldRow>
-                        </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-dashed border-[var(--border)]">
-                        <h4 className="text-sm font-semibold text-[var(--text)] mb-4">品種</h4>
-                        <div className="grid sm:grid-cols-2 gap-6">
-                            <FieldRow label="主体の品種">
-                                <select className={FORM_CONTROL_BASE} {...register('mainVariety')}>
-                                    <option value="">未選択</option>
-                                    {mainVarieties.map(v => <option key={v} value={v}>{v}</option>)}
-                                </select>
-                            </FieldRow>
-                            <FieldRow label="その他（補助品種・ブレンド等）">
-                                <input className={FORM_CONTROL_BASE} placeholder="例: プティ・ヴェルド 5% など"
-                                    {...register('otherVarieties')} />
-                            </FieldRow>
-                        </div>
-                    </div>
-
-                    <div className="pt-2">
-                        <FieldRow label="参考URL">
-                            <input
-                                className={FORM_CONTROL_BASE}
-                                type="url"
-                                placeholder="公式URL等を記載"
-                                {...register('referenceUrl')}
-                            />
-                        </FieldRow>
-                    </div>
-
-                    <div className="pt-2">
-                        <FieldRow label="補足情報（自由入力）">
-                            <textarea
-                                className={`${FORM_CONTROL_BASE} h-28`}
-                                placeholder="例: 畑情報、区画、樹齢、醸造メモ、輸入元メモ、保存環境 など自由に"
-                                {...register('additionalInfo')}
-                            />
-                        </FieldRow>
-                    </div>
+                    {!simpleMode && wineInfoBackFields}
                 </div>
             </SectionCard>
 
+            {simpleMode && (
+                <SectionCard title="個人的な好み" icon={<Award size={18} />} tone="focus">
+                    <div className="space-y-6">
+                        {personalRatingField}
+                        {personalNotesField}
+                    </div>
+                </SectionCard>
+            )}
+
+            {simpleMode && aiInfoSection}
+
+            {simpleMode && (
+                <SectionCard title="ワイン情報（生産地以降）" icon={<FileText size={18} />} tone="neutral">
+                    <div className="grid grid-cols-1 gap-6">
+                        {wineInfoBackFields}
+                    </div>
+                </SectionCard>
+            )}
 
 
             {/* 外観 */}
@@ -1279,7 +2214,6 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                 step="0.1"
                                 className={`${FORM_CONTROL_BASE} text-right`}
                                 {...register('alcoholABV', { valueAsNumber: true })}
-                                placeholder="12.5"
                             />
                             <span className="text-sm">%</span>
                         </div>
@@ -1338,7 +2272,6 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
 
             {/* 総合評価 */}
-            {/* 総合評価 */}
             <SectionCard
                 title="総合評価"
                 description="品質、熟成の可能性、全体の感想"
@@ -1373,47 +2306,19 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         </FieldRow>
                     </div>
 
-                    <FieldRow label="寸評 (Notes)">
-                        <textarea className={`${FORM_CONTROL_BASE} h-28`} {...register('notes')} placeholder="自由記述" />
-                    </FieldRow>
+                    {!simpleMode && personalNotesField}
 
-                    <div className="pt-6 border-t border-gray-100">
-                        <FieldRow label="個人的な好み (Rating)">
-                            <Controller
-                                control={control}
-                                name="rating"
-                                render={({ field }) => (
-                                    <>
-                                        <div className="relative inline-block select-none" aria-label={`Rating ${round1(field.value)} of 5`}>
-                                            <div className="text-2xl tracking-tight text-neutral-300">★★★★★</div>
-                                            <div
-                                                className="absolute top-0 left-0 overflow-hidden text-2xl tracking-tight text-yellow-500 pointer-events-none"
-                                                style={{ width: `${(Math.max(0, Math.min(5, Number(field.value))) / 5) * 100}%` }}
-                                            >
-                                                ★★★★★
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3 mt-1">
-                                            <input
-                                                type="range"
-                                                min={0}
-                                                max={5}
-                                                step={0.1}
-                                                value={field.value}
-                                                onChange={(e) => field.onChange(Number(e.target.value))}
-                                                className="w-full accent-[var(--text)]"
-                                            />
-                                            <span className="w-12 text-right text-lg font-medium text-yellow-600">{round1(field.value).toFixed(1)}</span>
-                                        </div>
-                                    </>
-                                )}
-                            />
-                        </FieldRow>
-                    </div>
+                    {!simpleMode && (
+                        <div className="pt-6 border-t border-gray-100">
+                            {personalRatingField}
+                        </div>
+                    )}
                 </div>
             </SectionCard>
 
-            <section className="sticky bottom-18 z-20 rounded-2xl bg-[var(--card-bg)]/90 backdrop-blur-sm p-4 shadow-lg border border-[var(--border)] mt-8 space-y-2">
+            {!simpleMode && aiInfoSection}
+
+            <section className={`z-20 mt-8 space-y-2 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]/95 p-2 shadow-lg backdrop-blur-sm sm:sticky sm:rounded-2xl sm:p-4 ${simpleMode && transcriptPanelOpen ? 'sm:bottom-[calc(25vh+5.5rem+env(safe-area-inset-bottom))]' : 'sm:bottom-[calc(4rem+1rem+env(safe-area-inset-bottom))]'}`}>
                 {Object.keys(errors).length > 0 && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 mb-2">
                         <p className="font-bold">入力内容に不備があります。</p>
@@ -1426,23 +2331,23 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         </ul>
                     </div>
                 )}
-                <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-                    <div className="w-full sm:w-auto">
+                <div className="flex flex-row items-center justify-between gap-2 sm:gap-3">
+                    <div className="w-[38%] sm:w-auto">
                         <button
                             type="button"
                             onClick={handleSaveDraft}
                             disabled={isSubmitting}
-                            className="w-full sm:w-auto px-6 py-3 bg-[var(--app-bg)] text-[var(--text-muted)] font-bold rounded-xl shadow-sm hover:bg-[var(--border)] transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-[var(--border)]"
+                            className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--app-bg)] px-3 text-sm font-bold text-[var(--text-muted)] shadow-sm transition-all hover:bg-[var(--border)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-auto sm:w-auto sm:rounded-xl sm:px-6 sm:py-3 sm:text-base"
                         >
                             {isSubmitting ? '保存中...' : '一時保存'}
                         </button>
                     </div>
-                    <div className="w-full sm:w-2/3">
+                    <div className="flex-1 sm:w-2/3 sm:flex-none">
                         <button
                             type="submit"
                             onClick={handlePublish}
                             disabled={isSubmitting}
-                            className="w-full px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 border border-blue-500/20"
+                            className="h-11 w-full rounded-lg border border-blue-500/20 bg-gradient-to-r from-blue-600 to-indigo-600 px-5 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 sm:h-auto sm:rounded-xl sm:px-8 sm:py-3 sm:text-base sm:hover:scale-[1.02]"
                         >
                             {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : submitLabel}
                         </button>
@@ -1450,132 +2355,13 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 </div>
             </section>
 
-            {/* AI Search Section (Deep Dive) - Moved to bottom */}
-            <section id="ai-deep-dive" className="rounded-2xl bg-[var(--card-bg)] p-4 border border-[var(--border)]">
-                <button
-                    type="button"
-                    onClick={() => setIsAiExpanded(!isAiExpanded)}
-                    className="w-full flex items-center justify-between group"
-                >
-                    <div className="flex items-center gap-2">
-                        <div className="bg-purple-100 p-2 rounded-full">
-                            <Sparkles className="w-5 h-5 text-purple-600" />
-                        </div>
-                        <div className="text-left">
-                            <h2 className="font-bold text-[var(--text)]">AI Deep Dive</h2>
-                            <p className="text-xs text-[var(--text-muted)]">Web上の専門情報を検索・参照</p>
-                        </div>
-                    </div>
-                    {isAiExpanded ? (
-                        <ChevronUp className="w-5 h-5 text-gray-400" />
-                    ) : (
-                        <ChevronDown className="w-5 h-5 text-[var(--text-muted)] group-hover:text-[var(--text)]" />
-                    )}
-                </button>
-
-                {isAiExpanded && (
-                    <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <div className="flex justify-end">
-                            <button
-                                type="button"
-                                onClick={handleAiSearch}
-                                disabled={isAiLoading}
-                                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-md disabled:opacity-50 flex items-center gap-2"
-                            >
-                                {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                                {isAiLoading ? '検索中...' : '情報を取得する'}
-                            </button>
-                        </div>
-
-                        <p className="text-sm text-[var(--text-muted)] bg-[var(--card-bg)] p-3 rounded-lg border border-[var(--border)]">
-                            ワイン名・生産者・ヴィンテージを元に、Web上の専門情報を検索します。
-                            <br />
-                            <span className="text-xs text-[var(--text-muted)] block mt-1">国名・地域名・参考URLが入力されている場合は、それらの情報も検索に活用されます。参考URLがある場合は必ず参照します。</span>
-                            <span className="text-xs text-[var(--text-muted)] block mt-1">※ 既に情報が入力されている場合は上書きされます。</span>
-                        </p>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
-                                    <BookOpen className="w-4 h-4 text-emerald-600" /> テロワール
-                                </label>
-                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('terroir_info')} placeholder="AI検索結果がここに表示されます" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
-                                    <User className="w-4 h-4 text-blue-600" /> 生産者・哲学
-                                </label>
-                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('producer_philosophy')} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
-                                    <Settings className="w-4 h-4 text-gray-600" /> 技術詳細
-                                </label>
-                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('technical_details')} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
-                                    <Calendar className="w-4 h-4 text-orange-600" /> ヴィンテージ分析
-                                </label>
-                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('vintage_analysis')} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-2">
-                                    <FileText className="w-4 h-4 text-red-600" /> 参考テイスティングノート
-                                </label>
-                                <textarea className={`${FORM_CONTROL_BASE} h-24 text-sm`} {...register('search_result_tasting_note')} />
-                            </div>
-                        </div>
-
-                        <div className="pt-4 border-t border-gray-200 mt-4 text-center">
-                            <p className="text-xs text-gray-500">
-                                ※本情報は参考情報です。実際の評価はご自身の感覚を優先してください。
-                            </p>
-                        </div>
-                    </div>
-                )}
-            </section>
-
-            {/* Floating Navigation Icon */}
-            <div className="fixed bottom-40 right-4 z-50 flex flex-col items-end gap-2 text-right pointer-events-none">
-                {/* Tooltip Wrapper */}
-                <div className={`transition-all duration-300 transform ${showTooltip ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} pointer-events-auto`}>
-                    <div className="bg-[var(--card-bg)] text-[var(--text)] text-xs px-3 py-2 rounded-lg shadow-lg mb-1 max-w-[150px] border border-[var(--border)]">
-                        ワイン名を記入するとAI検索ができます
-                    </div>
-                </div>
-
-                <button
-                    type="button"
-                    onMouseEnter={() => !hasWineName && setShowTooltip(true)}
-                    onMouseLeave={() => setShowTooltip(false)}
-                    onClick={() => {
-                        if (!hasWineName) {
-                            setShowTooltip(true);
-                            setTimeout(() => setShowTooltip(false), 3000);
-                            return;
-                        }
-                        const el = document.getElementById('ai-deep-dive');
-                        if (el) {
-                            el.scrollIntoView({ behavior: 'smooth' });
-                            setIsAiExpanded(true);
-                        }
-                    }}
-                    className={`pointer-events-auto shadow-lg border border-[var(--border)] p-3 rounded-full transition-all active:scale-95 flex items-center justify-center ${hasWineName
-                        ? 'bg-[var(--card-bg)] text-[var(--text-muted)] hover:bg-[var(--app-bg)]'
-                        : 'bg-[var(--app-bg)] text-[var(--text-muted)]'
-                        }`}
-                    aria-label="Goto AI Deep Dive"
-                >
-                    <Bot size={24} />
-                </button>
-            </div>
-
             <style jsx global>{`
             .btn-primary { @apply rounded-xl bg-neutral-900 px-4 py-2 text-white shadow-sm hover:opacity-90 disabled:opacity-50; }
         `}</style>
         </form >
     );
 });
+
+WineForm.displayName = 'WineForm';
 
 export default WineForm;

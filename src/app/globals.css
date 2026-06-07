@@ -115,6 +115,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+html {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100%;
+}
+
 /* === Layout Utilities === */
 .content-container {
   width: 100%;
@@ -141,4 +149,39 @@ body {
 
 .border-theme {
   border-color: var(--border);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.bottom-nav-progress {
+  animation: bottom-nav-progress 1s ease-in-out infinite;
+}
+
+@keyframes bottom-nav-progress {
+  0% {
+    transform: translateX(-100%) scaleX(0.45);
+  }
+
+  50% {
+    transform: translateX(110%) scaleX(1);
+  }
+
+  100% {
+    transform: translateX(300%) scaleX(0.45);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav-progress {
+    animation: none;
+    opacity: 0.65;
+    transform: none;
+    width: 100%;
+  }
 }

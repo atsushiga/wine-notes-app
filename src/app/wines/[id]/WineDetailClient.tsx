@@ -2,16 +2,29 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { TastingNote } from '@/types/custom';
+import { TastingNote, WineImage } from '@/types/custom';
 import WineDetailView from '@/components/WineDetailView';
-import WineForm, { WineFormValues } from '@/components/WineForm';
-import { updateWine, deleteWine } from '@/app/actions/wine';
+import WineForm, { WineFormValues, wineTypes } from '@/components/WineForm';
+import { updateWine, deleteWine, updateWineImages } from '@/app/actions/wine';
+import { optimizeWineImage } from '@/app/actions/gemini';
+
+type WineType = WineFormValues['wineType'];
+type NoseCondition = NonNullable<WineFormValues['noseCondition']>;
+type Development = NonNullable<WineFormValues['development']>;
+
+const noseConditionOptions = ['不快 (Unclean)', '良好 (Clean)'] as const satisfies readonly NoseCondition[];
+const developmentOptions = ['若い', '熟成中', '熟成した', 'ピークを過ぎた/疲れている'] as const satisfies readonly Development[];
+
+function oneOf<T extends string>(value: unknown, options: readonly T[], fallback: T): T {
+    return typeof value === 'string' && options.includes(value as T) ? value as T : fallback;
+}
 
 export default function WineDetailClient({ wine }: { wine: TastingNote }) {
     const router = useRouter();
     const [isEditing, setIsEditing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isOptimizingImage, setIsOptimizingImage] = useState(false);
 
     const handleUpdate = async (values: WineFormValues) => {
         setIsSubmitting(true);
@@ -41,6 +54,45 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
         }
     };
 
+    const handleOptimizeImage = async () => {
+        const sortedImages = [...(wine.images || [])].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+        const targetUrl = sortedImages[0]?.url || wine.image_url;
+        if (!targetUrl) return;
+
+        setIsOptimizingImage(true);
+        try {
+            const result = await optimizeWineImage(targetUrl);
+            const optimized = result.optimizedImage;
+            const sourceImage: Partial<WineImage> = sortedImages[0] ?? {
+                url: targetUrl,
+                thumbnail_url: null,
+                storage_path: null,
+                display_order: 1,
+            };
+            const optimizedImage = {
+                url: optimized.url,
+                thumbnail_url: optimized.thumbnail_url,
+                storage_path: optimized.storage_path,
+                display_order: 0,
+            };
+            const remainingImages = sortedImages.slice(1).filter((image) => image.url !== sourceImage.url);
+            const nextImages = [optimizedImage, sourceImage, ...remainingImages].map((image, index) => ({
+                url: image.url!,
+                thumbnail_url: image.thumbnail_url ?? null,
+                storage_path: image.storage_path ?? null,
+                display_order: index,
+            }));
+
+            await updateWineImages(wine.id, optimized.url, nextImages);
+            router.refresh();
+        } catch (e) {
+            console.error(e);
+            alert(`画像補正に失敗しました: ${String(e)}`);
+        } finally {
+            setIsOptimizingImage(false);
+        }
+    };
+
     // Mapping TastingNote (snake_case) -> WineFormValues (camelCase)
     // Convert date to YYYY-MM-DD format if it's a timestamp
     const formatDateForInput = (dateStr: string | undefined): string => {
@@ -64,7 +116,7 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
         images: wine.images || [],
 
         // Cast strict enums if data exists, otherwise default or let form handle validation
-        wineType: (wine.wine_type as any) || '赤',
+        wineType: oneOf<WineType>(wine.wine_type, wineTypes, '赤'),
 
         wineName: wine.wine_name || '',
         producer: wine.producer || '',
@@ -87,8 +139,8 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
         appearanceOther: wine.appearance_other || '',
 
         noseIntensity: wine.nose_intensity,
-        noseCondition: (wine.nose_condition as any) || '良好 (Clean)',
-        development: (wine.development as any) || '若い',
+        noseCondition: oneOf<NoseCondition>(wine.nose_condition, noseConditionOptions, '良好 (Clean)'),
+        development: oneOf<Development>(wine.development, developmentOptions, '若い'),
         oldNewWorld: wine.old_new_world,
         aromaNeutrality: wine.aroma_neutrality,
         fruitsMaturity: wine.fruits_maturity,
@@ -148,6 +200,8 @@ export default function WineDetailClient({ wine }: { wine: TastingNote }) {
             onEdit={() => setIsEditing(true)}
             onDelete={handleDelete}
             isDeleting={isDeleting}
+            onOptimizeImage={handleOptimizeImage}
+            isOptimizingImage={isOptimizingImage}
         />
     );
 }

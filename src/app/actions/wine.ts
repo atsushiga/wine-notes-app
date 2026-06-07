@@ -5,6 +5,13 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { WineFormValues } from '@/components/WineForm';
 
+interface WineImageInput {
+    url: string;
+    thumbnail_url?: string | null;
+    storage_path?: string | null;
+    display_order?: number | null;
+}
+
 
 
 // Helper to convert camelCase to snake_case for Supabase
@@ -64,7 +71,7 @@ export async function updateWine(id: number, data: WineFormValues) {
     const newStatus = data.status || 'published';
 
     const supabaseData: Record<string, unknown> = {};
-    const imagesData = (data.images as any[]) || [];
+    const imagesData = data.images ?? [];
 
     for (const [key, value] of Object.entries(data)) {
         if (key === 'images') continue; // Don't add 'images' to tasting_notes update
@@ -126,6 +133,60 @@ export async function updateWine(id: number, data: WineFormValues) {
 
     revalidatePath(`/wines/${id}`);
     revalidatePath('/tasting-notes');
+}
+
+export async function updateWineImages(id: number, imageUrl: string, images: WineImageInput[]) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error('Not authenticated');
+    }
+
+    const { error: noteError } = await supabase
+        .from('tasting_notes')
+        .update({ image_url: imageUrl || null })
+        .eq('id', id);
+
+    if (noteError) {
+        console.error('Image URL update error:', noteError);
+        throw new Error(`Image update failed: ${noteError.message}`);
+    }
+
+    const { error: deleteError } = await supabase
+        .from('wine_images')
+        .delete()
+        .eq('tasting_note_id', id);
+
+    if (deleteError) {
+        console.error('Error clearing old images:', deleteError);
+        throw new Error(`Image update failed: ${deleteError.message}`);
+    }
+
+    const imagesToInsert = images
+        .filter((img) => img.url)
+        .map((img, index) => ({
+            tasting_note_id: id,
+            url: img.url,
+            thumbnail_url: img.thumbnail_url ?? null,
+            storage_path: img.storage_path ?? null,
+            display_order: img.display_order ?? index,
+        }));
+
+    if (imagesToInsert.length > 0) {
+        const { error: insertError } = await supabase
+            .from('wine_images')
+            .insert(imagesToInsert);
+
+        if (insertError) {
+            console.error('Error inserting wine images:', insertError);
+            throw new Error(`Image update failed: ${insertError.message}`);
+        }
+    }
+
+    revalidatePath(`/wines/${id}`);
+    revalidatePath('/tasting-notes');
+    return { success: true };
 }
 
 export async function deleteWine(id: number) {

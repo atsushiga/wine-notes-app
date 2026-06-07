@@ -1,3 +1,55 @@
+import { parse } from 'exifr';
+
+interface ExifCaptureDateTags {
+    DateTimeOriginal?: unknown;
+    CreateDate?: unknown;
+    ModifyDate?: unknown;
+}
+
+function formatDateParts(year: number, month: number, day: number): string | null {
+    const parsed = new Date(year, month - 1, day);
+    if (
+        parsed.getFullYear() !== year ||
+        parsed.getMonth() !== month - 1 ||
+        parsed.getDate() !== day
+    ) {
+        return null;
+    }
+
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function formatExifDateForInput(value: unknown): string | null {
+    if (value instanceof Date && Number.isFinite(value.getTime())) {
+        return formatDateParts(value.getFullYear(), value.getMonth() + 1, value.getDate());
+    }
+
+    if (typeof value !== 'string') return null;
+
+    const match = value.trim().match(/^(\d{4})[:/-](\d{2})[:/-](\d{2})/);
+    if (!match) return null;
+
+    return formatDateParts(Number(match[1]), Number(match[2]), Number(match[3]));
+}
+
+export async function extractExifCaptureDate(file: File): Promise<string | null> {
+    try {
+        const tags = await parse(file, {
+            pick: ['DateTimeOriginal', 'CreateDate', 'ModifyDate'],
+            reviveValues: false,
+        }) as ExifCaptureDateTags | undefined;
+
+        return (
+            formatExifDateForInput(tags?.DateTimeOriginal) ||
+            formatExifDateForInput(tags?.CreateDate) ||
+            formatExifDateForInput(tags?.ModifyDate)
+        );
+    } catch (error) {
+        console.warn('Failed to read EXIF capture date:', error);
+        return null;
+    }
+}
+
 /**
  * Generates a thumbnail from a given File object.
  * Resizes the image so that the longest side is at most `maxWidth` (default 300px).
