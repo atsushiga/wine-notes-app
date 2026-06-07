@@ -15,7 +15,8 @@ const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 const openaiApiKey = process.env.OPENAI_API_KEY;
 const GEMINI_MODEL = process.env.GOOGLE_GENERATIVE_AI_MODEL || "gemini-2.5-flash";
 const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
-const OPENAI_IMAGE_QUALITY = (process.env.OPENAI_IMAGE_QUALITY || "high") as "low" | "medium" | "high" | "auto";
+type OpenAIImageQuality = "low" | "medium" | "high" | "auto";
+const OPENAI_IMAGE_QUALITY = (process.env.OPENAI_IMAGE_QUALITY || "high") as OpenAIImageQuality;
 const ENABLE_VISUAL_IMAGE_GENERATION = process.env.GENERATE_VISUAL_WINE_IMAGES !== "false";
 
 export interface WineImageAnalysis {
@@ -391,8 +392,13 @@ function extractGroundingSources(response: any): { title: string; url?: string }
 }
 
 type VisualImageStyle = "editorial" | "photo";
+type VisualImageGenerationOptions = {
+    allowText?: boolean;
+    style?: VisualImageStyle;
+    quality?: OpenAIImageQuality;
+};
 
-function imagePromptBase(prompt: string, options: { allowText?: boolean; style?: VisualImageStyle } = {}) {
+function imagePromptBase(prompt: string, options: VisualImageGenerationOptions = {}) {
     const textRule = options.allowText
         ? "short, readable Japanese map labels and callout captions are allowed only for terrain features"
         : "no readable text and no labels";
@@ -425,7 +431,7 @@ async function generateCompressedOpenAIImageBuffer(
     prompt: string,
     width = 1200,
     height = 760,
-    options: { allowText?: boolean; style?: VisualImageStyle } = {}
+    options: VisualImageGenerationOptions = {}
 ): Promise<Buffer | null> {
     if (!openaiApiKey || !ENABLE_VISUAL_IMAGE_GENERATION) return null;
 
@@ -434,7 +440,7 @@ async function generateCompressedOpenAIImageBuffer(
         const result = await openai.images.generate({
             model: OPENAI_IMAGE_MODEL,
             prompt: imagePromptBase(prompt, options),
-            quality: OPENAI_IMAGE_QUALITY,
+            quality: options.quality || OPENAI_IMAGE_QUALITY,
             size: openAIImageSize(width, height),
             output_format: "webp",
             output_compression: 86,
@@ -482,7 +488,7 @@ async function generateCompressedOpenAIImageStorageUrl(
     prompt: string,
     width = 1200,
     height = 760,
-    options: { allowText?: boolean; style?: VisualImageStyle; storagePrefix?: string } = {}
+    options: VisualImageGenerationOptions & { storagePrefix?: string } = {}
 ): Promise<string | null> {
     const compressed = await generateCompressedOpenAIImageBuffer(prompt, width, height, options);
     if (!compressed) return null;
@@ -506,7 +512,7 @@ async function generateOrReuseStorageImage(
     prompt: string,
     width: number,
     height: number,
-    options: { allowText?: boolean; style?: VisualImageStyle } = {}
+    options: VisualImageGenerationOptions = {}
 ): Promise<string | null> {
     const objectKey = `ai-explanations/generated/${subdir}/${key}.webp`;
     const publicPath = `/api/images/${objectKey}`;
@@ -649,7 +655,7 @@ async function attachAromaPresetImages(data: VisualWineExplanation) {
         aromas.map(async (aroma) => {
             const key = generatedCacheKey(`aroma-${aroma.family || "other"}`, `${aroma.family}:${aroma.label}:${aroma.description}`);
             const prompt = buildAromaPresetPrompt(aroma);
-            const url = await generateOrReuseStorageImage("aromas", key, prompt, 640, 520, { style: "photo" });
+            const url = await generateOrReuseStorageImage("aromas", key, prompt, 640, 520, { style: "photo", quality: "medium" });
 
             return {
                 ...aroma,
@@ -676,7 +682,7 @@ async function attachPairingImage(query: VisualWineExplanationRequest, data: Vis
     data.serving.featuredPairing = pairing;
     const prompt = buildPairingImagePrompt(query, data, pairing);
     const key = generatedCacheKey("pairing", `${wineLabelForPrompt(query)}:${pairing}`);
-    const url = await generateOrReuseStorageImage("pairings", key, prompt, 980, 720, { style: "photo" });
+    const url = await generateOrReuseStorageImage("pairings", key, prompt, 980, 720, { style: "photo", quality: "medium" });
 
     if (data.visualAssets.pairing) {
         data.visualAssets.pairing.prompt = prompt;
@@ -1081,7 +1087,7 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
                 aromaBoardPrompt,
                 1200,
                 620,
-                { style: "photo", storagePrefix: "aroma" }
+                { style: "photo", quality: "medium", storagePrefix: "aroma" }
             ),
         ]);
         const cachedVisualsPromise = Promise.all([
