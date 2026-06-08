@@ -511,7 +511,7 @@ export function saveRecordDraftFromVisualExplanation(data: StoredVisualExplanati
     const defaults = createWineFormDefaultsFromVisualExplanation(data);
     const serialized = JSON.stringify(defaults);
     sessionStorage.setItem(AI_EXPLAINER_RECORD_DRAFT_KEY, serialized);
-    sessionStorage.setItem(WINE_FORM_NEW_DRAFT_KEY, serialized);
+    sessionStorage.removeItem(WINE_FORM_NEW_DRAFT_KEY);
 }
 
 function readJson<T>(key: string): T | null {
@@ -532,6 +532,7 @@ export function consumeRecordDraftFromVisualExplanation(): Partial<WineFormValue
     const draft = readJson<Partial<WineFormValues>>(AI_EXPLAINER_RECORD_DRAFT_KEY);
     if (isBrowser()) {
         sessionStorage.removeItem(AI_EXPLAINER_RECORD_DRAFT_KEY);
+        sessionStorage.removeItem(WINE_FORM_NEW_DRAFT_KEY);
     }
     return draft;
 }

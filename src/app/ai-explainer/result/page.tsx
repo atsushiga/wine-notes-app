@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { AromaVisual, TerroirMapCallout, VisualImageAsset, VisualScale, VisualWineExplanation } from "@/app/actions/gemini";
-import { getAiExplanation } from "@/app/actions/aiExplainer";
+import {
+    generateVisualWineExplanationImages,
+    type AromaVisual,
+    type TerroirMapCallout,
+    type VisualImageAsset,
+    type VisualScale,
+    type VisualWineExplanation,
+    type VisualWineExplanationRequest,
+} from "@/app/actions/gemini";
+import { getAiExplanation, saveAiExplanation } from "@/app/actions/aiExplainer";
 import {
     getAiExplainerClientKey,
     readCurrentAiExplanationId,
@@ -30,6 +38,7 @@ import {
     Grape,
     Layers3,
     Leaf,
+    Loader2,
     Mountain,
     MapPin,
     NotebookPen,
@@ -103,6 +112,33 @@ function assetKindLabel(asset?: VisualImageAsset) {
     if (asset.kind === "source-backed-generated") return "出典情報をもとにAI生成";
     if (asset.kind === "generated") return "AI生成画像";
     return "";
+}
+
+function needsVisualImageGeneration(explanation: VisualWineExplanation) {
+    const assets = explanation.visualAssets || {};
+    const missingMainAsset =
+        !assetUrl(assets.map) ||
+        !assetUrl(assets.producer) ||
+        !assetUrl(assets.aromaBoard) ||
+        !assetUrl(assets.pairing);
+    const missingAromaTile = asList(explanation.tasting?.aromaVisuals)
+        .slice(0, 6)
+        .some((aroma) => !assetUrl(aroma.image));
+
+    return missingMainAsset || missingAromaTile;
+}
+
+function createVisualImageQuery(data: StoredVisualExplanation): VisualWineExplanationRequest {
+    const wine = data.explanation.wine;
+
+    return {
+        name: data.input.wineName || wine.name || "Wine",
+        producer: data.input.producer || wine.producer || undefined,
+        vintage: data.input.vintage || wine.vintage || undefined,
+        country: data.input.country || wine.country || undefined,
+        locality: data.input.locality || wine.region || undefined,
+        price: data.input.price || wine.marketPriceJpy || undefined,
+    };
 }
 
 function formatPriceDisplay(value: string | number | null | undefined) {
@@ -215,6 +251,8 @@ function AromaIcon({ family, size = 18 }: { family: AromaVisual["family"]; size?
 export default function AiExplainerResultPage() {
     const [data, setData] = useState<StoredVisualExplanation | null>(null);
     const [hasLoaded, setHasLoaded] = useState(false);
+    const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
+    const visualGenerationPromisesRef = useRef<Map<string, Promise<StoredVisualExplanation>>>(new Map());
 
     useEffect(() => {
         let isMounted = true;
@@ -252,6 +290,52 @@ export default function AiExplainerResultPage() {
         };
     }, []);
 
+    useEffect(() => {
+        if (!data || !needsVisualImageGeneration(data.explanation)) return;
+
+        let isMounted = true;
+        let visualGenerationPromise = visualGenerationPromisesRef.current.get(data.id);
+
+        if (!visualGenerationPromise) {
+            visualGenerationPromise = generateVisualWineExplanationImages(createVisualImageQuery(data), data.explanation)
+                .then((explanation) => saveAiExplanation({
+                    id: data.id,
+                    generatedAt: data.generatedAt,
+                    imageUrl: data.imageUrl,
+                    input: data.input,
+                    explanation,
+                }, getAiExplainerClientKey()));
+            visualGenerationPromisesRef.current.set(data.id, visualGenerationPromise);
+        }
+
+        const generatingStateTimeoutId = window.setTimeout(() => {
+            if (!isMounted) return;
+            setIsGeneratingVisuals(true);
+        }, 0);
+
+        visualGenerationPromise
+            .then((stored) => {
+                if (!isMounted) return;
+                setData(stored);
+            })
+            .catch((error) => {
+                console.error("Failed to generate deferred visual assets", error);
+            })
+            .finally(() => {
+                window.clearTimeout(generatingStateTimeoutId);
+                if (visualGenerationPromisesRef.current.get(data.id) === visualGenerationPromise) {
+                    visualGenerationPromisesRef.current.delete(data.id);
+                }
+                if (!isMounted) return;
+                setIsGeneratingVisuals(false);
+            });
+
+        return () => {
+            isMounted = false;
+            window.clearTimeout(generatingStateTimeoutId);
+        };
+    }, [data]);
+
     if (!hasLoaded) {
         return null;
     }
@@ -277,10 +361,10 @@ export default function AiExplainerResultPage() {
         );
     }
 
-    return <VisualWinePage data={data} />;
+    return <VisualWinePage data={data} isGeneratingVisuals={isGeneratingVisuals} />;
 }
 
-function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
+function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExplanation; isGeneratingVisuals: boolean }) {
     const router = useRouter();
     const [expandedImage, setExpandedImage] = useState<ExpandedImage | null>(null);
     const explanation = data.explanation;
@@ -333,6 +417,12 @@ function VisualWinePage({ data }: { data: StoredVisualExplanation }) {
                             <NotebookPen size={16} />
                             記録ページに反映
                         </button>
+                        {isGeneratingVisuals ? (
+                            <span className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--app-bg)] px-3 py-2 text-xs font-semibold text-[var(--text-muted)]">
+                                <Loader2 size={14} className="animate-spin" />
+                                画像を生成中
+                            </span>
+                        ) : null}
                     </div>
 
                     <div className="mt-6 grid gap-7 lg:grid-cols-[minmax(0,0.95fr)_minmax(340px,1.05fr)]">

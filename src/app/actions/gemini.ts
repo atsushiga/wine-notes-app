@@ -127,6 +127,22 @@ interface GeminiGenerateContentResponse {
     }>;
 }
 
+interface GroundingWebChunk {
+    web?: {
+        uri?: string;
+        url?: string;
+        title?: string;
+    };
+}
+
+interface GroundingCapableResponse {
+    candidates?: Array<{
+        groundingMetadata?: {
+            groundingChunks?: GroundingWebChunk[];
+        };
+    }>;
+}
+
 const LABEL_WORKING_MAX_SIDE = 2200;
 const LABEL_MIN_SHORT_SIDE = 600;
 const LABEL_THUMB_MAX_SIDE = 400;
@@ -1507,7 +1523,7 @@ ${jsonText}
     }
 }
 
-function extractGroundingSources(response: any): { title: string; url?: string }[] {
+function extractGroundingSources(response: GroundingCapableResponse): { title: string; url?: string }[] {
     const chunks = response?.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (!Array.isArray(chunks)) return [];
 
@@ -1876,6 +1892,95 @@ async function attachPairingImage(query: VisualWineExplanationRequest, data: Vis
     }
 }
 
+function attachVisualPrompts(query: VisualWineExplanationRequest, data: VisualWineExplanation) {
+    data.visualAssets = data.visualAssets || {};
+
+    const producerAsset = data.visualAssets.producer;
+    const terroirMapPrompt = buildTerroirMapPrompt(query, data);
+    const producerImagePrompt = buildProducerImagePrompt(query, data, producerAsset);
+    const aromaBoardPrompt = buildAromaBoardPrompt(query, data);
+
+    data.visualAssets.map = {
+        ...data.visualAssets.map,
+        prompt: terroirMapPrompt,
+        caption: data.visualAssets.map?.caption || "AI生成による実在地域ベースのテロワールマップ",
+    };
+
+    data.visualAssets.producer = {
+        ...producerAsset,
+        prompt: producerImagePrompt,
+        caption: producerAsset?.caption || "公開情報をもとにしたAI生成の生産者イメージ",
+    };
+
+    data.visualAssets.aromaBoard = {
+        ...data.visualAssets.aromaBoard,
+        prompt: aromaBoardPrompt,
+        caption: data.visualAssets.aromaBoard?.caption || "AI生成による代表的な香りのイメージボード",
+    };
+
+    return {
+        terroirMapPrompt,
+        producerImagePrompt,
+        aromaBoardPrompt,
+    };
+}
+
+async function attachVisualImages(query: VisualWineExplanationRequest, data: VisualWineExplanation) {
+    const {
+        terroirMapPrompt,
+        producerImagePrompt,
+        aromaBoardPrompt,
+    } = attachVisualPrompts(query, data);
+
+    data.visualAssets = data.visualAssets || {};
+
+    const mainVisualsPromise = Promise.all([
+        generateCompressedOpenAIImageStorageUrl(
+            terroirMapPrompt,
+            1200,
+            760,
+            { allowText: true, style: "editorial", storagePrefix: "map" }
+        ),
+        generateCompressedOpenAIImageStorageUrl(
+            producerImagePrompt,
+            1200,
+            760,
+            { style: "editorial", storagePrefix: "producer" }
+        ),
+        generateCompressedOpenAIImageStorageUrl(
+            aromaBoardPrompt,
+            1200,
+            620,
+            { style: "photo", quality: "medium", storagePrefix: "aroma" }
+        ),
+    ]);
+    const cachedVisualsPromise = Promise.all([
+        attachAromaPresetImages(data),
+        attachPairingImage(query, data),
+    ]);
+    const [mapImage, producerGeneratedImage, aromaBoardImage] = await mainVisualsPromise;
+    await cachedVisualsPromise;
+
+    if (data.visualAssets.map) {
+        data.visualAssets.map.url = mapImage || data.visualAssets.map.url;
+        data.visualAssets.map.kind = mapImage ? "generated" : data.visualAssets.map.kind;
+    }
+
+    if (data.visualAssets.producer) {
+        if (producerGeneratedImage) {
+            data.visualAssets.producer.url = producerGeneratedImage;
+            data.visualAssets.producer.kind = "source-backed-generated";
+        }
+    }
+
+    if (data.visualAssets.aromaBoard) {
+        data.visualAssets.aromaBoard.url = aromaBoardImage || data.visualAssets.aromaBoard.url;
+        data.visualAssets.aromaBoard.kind = aromaBoardImage ? "generated" : data.visualAssets.aromaBoard.kind;
+    }
+
+    return data;
+}
+
 export async function searchWineDetails(wineId: number, query: { name: string; winery?: string; vintage?: string; country?: string; locality?: string; referenceUrl?: string }) {
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
@@ -2136,7 +2241,7 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
         tools: [
             {
                 googleSearch: {},
-            } as any,
+            } as unknown as Tool,
         ],
     });
 
@@ -2303,84 +2408,26 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
             data.sources = groundedSources;
         }
 
-        data.visualAssets = data.visualAssets || {};
-
-        const producerAsset = data.visualAssets.producer;
-        const terroirMapPrompt = buildTerroirMapPrompt(query, data);
-        const producerImagePrompt = buildProducerImagePrompt(query, data, producerAsset);
-        const aromaBoardPrompt = buildAromaBoardPrompt(query, data);
-        const mainVisualsPromise = Promise.all([
-            generateCompressedOpenAIImageStorageUrl(
-                terroirMapPrompt,
-                1200,
-                760,
-                { allowText: true, style: "editorial", storagePrefix: "map" }
-            ),
-            generateCompressedOpenAIImageStorageUrl(
-                producerImagePrompt,
-                1200,
-                760,
-                { style: "editorial", storagePrefix: "producer" }
-            ),
-            generateCompressedOpenAIImageStorageUrl(
-                aromaBoardPrompt,
-                1200,
-                620,
-                { style: "photo", quality: "medium", storagePrefix: "aroma" }
-            ),
-        ]);
-        const cachedVisualsPromise = Promise.all([
-            attachAromaPresetImages(data),
-            attachPairingImage(query, data),
-        ]);
-        const [mapImage, producerGeneratedImage, aromaBoardImage] = await mainVisualsPromise;
-        await cachedVisualsPromise;
-
-        if (data.visualAssets.map) {
-            data.visualAssets.map.prompt = terroirMapPrompt;
-            data.visualAssets.map.url = mapImage || data.visualAssets.map.url;
-            data.visualAssets.map.kind = mapImage ? "generated" : data.visualAssets.map.kind;
-        } else if (mapImage) {
-            data.visualAssets.map = {
-                url: mapImage,
-                prompt: terroirMapPrompt,
-                caption: "AI生成による実在地域ベースのテロワールマップ",
-                kind: "generated",
-            };
-        }
-
-        if (producerAsset) {
-            producerAsset.prompt = producerImagePrompt;
-            if (producerGeneratedImage) {
-                producerAsset.url = producerGeneratedImage;
-                producerAsset.kind = "source-backed-generated";
-            }
-        } else if (producerGeneratedImage) {
-            data.visualAssets.producer = {
-                url: producerGeneratedImage,
-                prompt: producerImagePrompt,
-                caption: "公開情報をもとにしたAI生成の生産者イメージ",
-                kind: "source-backed-generated",
-            };
-        }
-
-        if (data.visualAssets.aromaBoard) {
-            data.visualAssets.aromaBoard.prompt = aromaBoardPrompt;
-            data.visualAssets.aromaBoard.url = aromaBoardImage || data.visualAssets.aromaBoard.url;
-            data.visualAssets.aromaBoard.kind = aromaBoardImage ? "generated" : data.visualAssets.aromaBoard.kind;
-        } else if (aromaBoardImage) {
-            data.visualAssets.aromaBoard = {
-                url: aromaBoardImage,
-                prompt: aromaBoardPrompt,
-                caption: "AI生成による代表的な香りのイメージボード",
-                kind: "generated",
-            };
-        }
+        attachVisualPrompts(query, data);
 
         return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Gemini Visual Explanation Error Full:", error);
-        throw new Error(`Failed to generate visual wine explanation: ${error.message || String(error)}`);
+        throw new Error(`Failed to generate visual wine explanation: ${getErrorMessage(error)}`);
+    }
+}
+
+export async function generateVisualWineExplanationImages(
+    query: VisualWineExplanationRequest,
+    explanation: VisualWineExplanation
+): Promise<VisualWineExplanation> {
+    const data = structuredClone(explanation);
+
+    try {
+        return await attachVisualImages(query, data);
+    } catch (error: unknown) {
+        console.error("Visual wine image generation error:", error);
+        throw new Error(`Failed to generate visual wine images: ${getErrorMessage(error)}`);
     }
 }
 
