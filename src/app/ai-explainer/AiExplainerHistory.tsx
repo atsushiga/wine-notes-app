@@ -5,10 +5,7 @@ import Link from "next/link";
 import { Clock3, History, Sparkles, Wine } from "lucide-react";
 import { SectionCard } from "@/components/ui/section-card";
 import { listAiExplanations } from "@/app/actions/aiExplainer";
-import {
-    type AiExplainerHistoryItem,
-    getAiExplainerClientKey,
-} from "@/lib/aiExplainerStorage";
+import type { AiExplainerHistoryItem } from "@/lib/aiExplainerStorage";
 
 export default function AiExplainerHistory() {
     const [items, setItems] = useState<AiExplainerHistoryItem[]>([]);
@@ -18,7 +15,7 @@ export default function AiExplainerHistory() {
     useEffect(() => {
         let isMounted = true;
 
-        listAiExplanations(getAiExplainerClientKey())
+        listAiExplanations()
             .then((nextItems) => {
                 if (!isMounted) return;
                 setItems(nextItems);

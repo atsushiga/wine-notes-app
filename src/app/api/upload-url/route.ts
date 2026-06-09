@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { storage, BUCKET } from '@/lib/gcs';
+import { isAuthenticationRequiredError, requireAuthenticatedUser } from '@/lib/serverAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,7 @@ interface UploadUrlResponse {
 
 export async function POST(req: NextRequest) {
   try {
+    await requireAuthenticatedUser();
     const body = (await req.json()) as UploadBody;
     const originalName = body?.filename ?? 'image.jpg';
     const ext = originalName.split('.').pop() || 'bin';
@@ -45,6 +47,10 @@ export async function POST(req: NextRequest) {
     const payload: UploadUrlResponse = { putUrl, getUrl, key };
     return NextResponse.json(payload, { status: 200 });
   } catch (err: unknown) {
+    if (isAuthenticationRequiredError(err)) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('upload-url error', err);
     return NextResponse.json({ error: msg }, { status: 500 });

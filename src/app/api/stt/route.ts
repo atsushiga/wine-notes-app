@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI, { toFile } from 'openai';
+import { isAuthenticationRequiredError, requireAuthenticatedUser } from '@/lib/serverAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+        await requireAuthenticatedUser();
         const formData = await req.formData();
         const audio = formData.get('audio');
 
@@ -50,6 +52,10 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ text: transcription.text?.trim() || '' }, { status: 200 });
     } catch (error) {
+        if (isAuthenticationRequiredError(error)) {
+            return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+        }
+
         console.error('STT error:', error);
         const message = error instanceof Error ? error.message : 'Transcription failed';
         return NextResponse.json({ error: message }, { status: 500 });

@@ -1,6 +1,6 @@
 
 import { createClient } from "@/utils/supabase/server";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { TastingNote } from "@/types/custom";
 import WineDetailClient from "./WineDetailClient";
 
@@ -13,11 +13,19 @@ interface Props {
 export default async function WineDetailPage({ params }: Props) {
     const { id } = await params;
     const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        redirect("/login");
+    }
 
     const { data, error } = await supabase
         .from("tasting_notes")
         .select("*, images:wine_images(*)")
         .eq("id", id)
+        .eq("user_id", user.id)
         .single();
 
     if (error || !data) {

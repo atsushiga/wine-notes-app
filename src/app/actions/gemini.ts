@@ -10,6 +10,7 @@ import sharp from "sharp";
 import { storage, BUCKET } from "@/lib/gcs";
 import { COUNTRY_MAP } from "@/lib/geoUtils";
 import { getSupabaseClient } from "@/lib/supabase";
+import { requireAuthenticatedUser } from "@/lib/serverAuth";
 import { SAT_AROMA_DEFINITIONS } from "@/constants/sat_aromas";
 import { countries, mainVarieties, wineTypes } from "@/constants/wine";
 
@@ -869,6 +870,8 @@ async function resolveLocality(countryJa: string, localityText: string): Promise
 }
 
 export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnalysis> {
+    await requireAuthenticatedUser();
+
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
     }
@@ -957,6 +960,8 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
 }
 
 export async function optimizeWineImage(imageUrl: string): Promise<{ optimizedImage: OptimizedWineImage }> {
+    await requireAuthenticatedUser();
+
     const originalBuffer = await downloadImageFromGcs(imageUrl);
     const [normalized, imageEditInput] = await Promise.all([
         normalizeImageForVision(originalBuffer),
@@ -996,6 +1001,8 @@ export async function optimizeWineImage(imageUrl: string): Promise<{ optimizedIm
 }
 
 export async function optimizeAndAnalyzeWineImage(imageUrl: string): Promise<WineImageOptimizationAndAnalysis> {
+    await requireAuthenticatedUser();
+
     const optimizedResult = await optimizeWineImage(imageUrl);
     const analysis = await analyzeWineImage(optimizedResult.optimizedImage.url);
 
@@ -1291,6 +1298,8 @@ export async function interpretTastingTranscript(input: {
     recentText?: string;
     currentValues?: Record<string, unknown>;
 }): Promise<TastingTranscriptInterpretation> {
+    await requireAuthenticatedUser();
+
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
     }
@@ -1982,6 +1991,8 @@ async function attachVisualImages(query: VisualWineExplanationRequest, data: Vis
 }
 
 export async function searchWineDetails(wineId: number, query: { name: string; winery?: string; vintage?: string; country?: string; locality?: string; referenceUrl?: string }) {
+    await requireAuthenticatedUser();
+
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
     }
@@ -2227,6 +2238,8 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
 }
 
 export async function generateVisualWineExplanation(query: VisualWineExplanationRequest): Promise<VisualWineExplanation> {
+    await requireAuthenticatedUser();
+
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
     }
@@ -2421,6 +2434,8 @@ export async function generateVisualWineExplanationImages(
     query: VisualWineExplanationRequest,
     explanation: VisualWineExplanation
 ): Promise<VisualWineExplanation> {
+    await requireAuthenticatedUser();
+
     const data = structuredClone(explanation);
 
     try {
@@ -2442,6 +2457,7 @@ function wineLabelForPrompt(query: VisualWineExplanationRequest) {
 }
 
 export async function saveGeminiData(wineId: number, data: GroundingData) {
+    const user = await requireAuthenticatedUser();
     const supabase = await createClient();
 
     const { error } = await supabase
@@ -2453,7 +2469,8 @@ export async function saveGeminiData(wineId: number, data: GroundingData) {
             vintage_analysis: data.vintage_analysis,
             search_result_tasting_note: data.search_result_tasting_note,
         })
-        .eq("id", wineId);
+        .eq("id", wineId)
+        .eq("user_id", user.id);
 
     if (error) {
         console.error("Supabase Save Error:", error);

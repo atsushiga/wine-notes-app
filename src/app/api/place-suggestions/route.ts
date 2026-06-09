@@ -1,25 +1,23 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { isAuthenticationRequiredError, requireAuthenticatedUser } from '@/lib/serverAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
+        const user = await requireAuthenticatedUser();
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
 
-        let query = supabase
+        const query = supabase
             .from('tasting_notes')
             .select('place, created_at')
             .not('place', 'is', null)
             .neq('place', '')
             .order('created_at', { ascending: false })
-            .limit(500);
-
-        if (user) {
-            query = query.eq('user_id', user.id);
-        }
+            .limit(500)
+            .eq('user_id', user.id);
 
         const { data, error } = await query;
 
@@ -43,6 +41,10 @@ export async function GET() {
 
         return NextResponse.json({ suggestions }, { status: 200 });
     } catch (error) {
+        if (isAuthenticationRequiredError(error)) {
+            return NextResponse.json({ suggestions: [] }, { status: 401 });
+        }
+
         console.error('Place suggestions unexpected error:', error);
         return NextResponse.json({ suggestions: [] }, { status: 200 });
     }

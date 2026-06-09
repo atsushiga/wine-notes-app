@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/supabase';
-import { createClient } from '@/utils/supabase/server';
+import { isAuthenticationRequiredError, requireAuthenticatedUser } from '@/lib/serverAuth';
 // import { appendToSheet, appendToNotion, UnknownRecord } from '@/app/actions/sync';
 
 type UnknownRecord = Record<string, unknown>;
@@ -31,7 +31,7 @@ function normalizeUuid(value: unknown) {
 }
 
 // Supabaseに保存する関数（camelCaseをsnake_caseに変換）
-async function appendToSupabase(data: UnknownRecord, userId?: string, status?: string): Promise<{ id: string }> {
+async function appendToSupabase(data: UnknownRecord, userId: string, status?: string): Promise<{ id: string }> {
   // camelCaseをsnake_caseに変換するヘルパー
   const toSnakeCase = (str: string): string => {
     // sat_で始まる項目は既にsnake_caseなので変換不要
@@ -93,10 +93,7 @@ async function appendToSupabase(data: UnknownRecord, userId?: string, status?: s
     }
   }
 
-  // user_idがあれば追加
-  if (userId) {
-    supabaseData['user_id'] = userId;
-  }
+  supabaseData['user_id'] = userId;
 
   // Status Handling
   if (status) {
@@ -163,17 +160,13 @@ async function appendToSupabase(data: UnknownRecord, userId?: string, status?: s
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await requireAuthenticatedUser();
     const data = (await req.json()) as UnknownRecord;
-
-    // 0. ユーザー情報の取得
-    const supabaseClient = await createClient();
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    const userId = user?.id;
 
     const status = (data.status as string) || 'published';
 
     // 1. まずSupabaseに保存
-    const supabaseResult = await appendToSupabase(data, userId, status);
+    const supabaseResult = await appendToSupabase(data, user.id, status);
 
     // 2. その後、既存のNotion/Sheets連携を実行 (下書き以外の場合のみ)
     // Notion/Sheets sync removed.
@@ -181,6 +174,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, id: supabaseResult.id }, { status: 200 });
   } catch (err: unknown) {
+    if (isAuthenticationRequiredError(err)) {
+      return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
+    }
+
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('Submit Error:', err);
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });

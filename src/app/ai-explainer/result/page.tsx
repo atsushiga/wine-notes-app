@@ -270,7 +270,7 @@ export default function AiExplainerResultPage() {
             };
         }
 
-        getAiExplanation(historyId, getAiExplainerClientKey())
+        getAiExplanation(historyId)
             .then((stored) => {
                 if (!isMounted) return;
                 setData(stored || readLegacyStoredVisualExplanation());
