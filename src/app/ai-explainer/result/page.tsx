@@ -60,6 +60,8 @@ type ExpandedImage = {
     alt: string;
     caption?: string;
     label?: string;
+    sourceTitle?: string;
+    sourceUrl?: string;
 };
 
 type ImageOpenHandler = (image: ExpandedImage) => void;
@@ -514,11 +516,14 @@ function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExpla
                                 label={explanation.terroir.mapHint || wine.region || "産地"}
                                 onImageOpen={openImage}
                             />
-                            {visualAssets.map?.caption && (
-                                <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
-                                    {assetKindLabel(visualAssets.map)}: {visualAssets.map.caption}
-                                </p>
-                            )}
+                            <div className="mt-2 space-y-2">
+                                {visualAssets.map?.caption && (
+                                    <p className="text-xs leading-5 text-[var(--text-muted)]">
+                                        <HighlightText text={visualAssets.map.caption} />
+                                    </p>
+                                )}
+                                <AssetDisclosure asset={visualAssets.map} />
+                            </div>
                         </div>
                         <p className="mt-4 text-sm leading-7 text-[var(--text)]">
                             <HighlightText text={explanation.terroir.summary} />
@@ -705,12 +710,39 @@ function FactTile({ label, value, className = "" }: { label: string; value: stri
 
 function ImageCreditOverlay({ asset }: { asset?: VisualImageAsset }) {
     const label = assetKindLabel(asset);
-    if (!label || asset?.kind === "source") return null;
+    if (!label) return null;
 
     return (
-        <span className="pointer-events-none absolute bottom-2 right-2 z-10 text-[10px] font-semibold leading-none text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.85)]">
+        <span className="pointer-events-none absolute bottom-2 right-2 z-10 rounded-full bg-black/62 px-2 py-1 text-[10px] font-semibold leading-none text-white shadow-sm">
             {label}
         </span>
+    );
+}
+
+function AssetDisclosure({ asset, compact = false }: { asset?: VisualImageAsset; compact?: boolean }) {
+    const label = assetKindLabel(asset);
+    const hasSource = Boolean(asset?.sourceUrl);
+    if (!label && !hasSource) return null;
+
+    return (
+        <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 leading-5 text-[var(--text-muted)] ${compact ? "text-[10px]" : "text-xs"}`}>
+            {label && (
+                <span className="rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2 py-0.5 font-semibold text-[var(--text)]">
+                    {label}
+                </span>
+            )}
+            {asset?.sourceUrl && (
+                <a
+                    href={asset.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-w-0 items-center gap-1 break-all font-semibold text-[var(--primary)]"
+                >
+                    <ExternalLink size={compact ? 11 : 13} className="shrink-0" />
+                    <span>出典: {asset.sourceTitle || asset.sourceUrl}</span>
+                </a>
+            )}
+        </div>
     );
 }
 
@@ -734,7 +766,14 @@ function ImageButton({
     return (
         <button
             type="button"
-            onClick={() => onOpen?.({ src, alt, caption: caption || asset?.caption, label: assetKindLabel(asset) })}
+            onClick={() => onOpen?.({
+                src,
+                alt,
+                caption: caption || asset?.caption,
+                label: assetKindLabel(asset),
+                sourceTitle: asset?.sourceTitle,
+                sourceUrl: asset?.sourceUrl,
+            })}
             className={`group relative block overflow-hidden text-left ${className || ""}`}
             aria-label={`${alt}を拡大`}
         >
@@ -767,11 +806,26 @@ function ImageLightbox({ image, onClose }: { image: ExpandedImage | null; onClos
             </button>
             <figure className="flex max-h-full max-w-6xl flex-col items-center gap-3" onClick={(event) => event.stopPropagation()}>
                 <img src={image.src} alt={image.alt} className="max-h-[82vh] max-w-full rounded-xl object-contain shadow-2xl" />
-                {(image.label || image.caption) && (
-                    <figcaption className="max-w-3xl text-center text-xs leading-5 text-white/82">
-                        {image.label && <span className="font-semibold text-white">{image.label}</span>}
-                        {image.label && image.caption ? " / " : ""}
-                        {image.caption}
+                {(image.label || image.caption || image.sourceUrl) && (
+                    <figcaption className="flex max-w-3xl flex-col items-center gap-2 text-center text-xs leading-5 text-white/82">
+                        {(image.label || image.caption) && (
+                            <span>
+                                {image.label && <span className="font-semibold text-white">{image.label}</span>}
+                                {image.label && image.caption ? " / " : ""}
+                                {image.caption}
+                            </span>
+                        )}
+                        {image.sourceUrl && (
+                            <a
+                                href={image.sourceUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex max-w-full items-center gap-1 break-all font-semibold text-white"
+                            >
+                                <ExternalLink size={13} className="shrink-0" />
+                                <span>出典: {image.sourceTitle || image.sourceUrl}</span>
+                            </a>
+                        )}
                     </figcaption>
                 )}
             </figure>
@@ -811,17 +865,7 @@ function ProducerVisual({ asset, producer, onImageOpen }: { asset?: VisualImageA
                 {asset?.caption && (
                     <p className="text-xs leading-5 text-[var(--text)]"><HighlightText text={asset.caption} /></p>
                 )}
-                {asset?.sourceUrl && (
-                    <a
-                        href={asset.sourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--primary)]"
-                    >
-                        <ExternalLink size={13} />
-                        出典: {asset.sourceTitle || asset.sourceUrl}
-                    </a>
-                )}
+                <AssetDisclosure asset={asset} />
             </div>
         </div>
     );
@@ -1071,11 +1115,14 @@ function AromaImageBoard({ asset, onImageOpen }: { asset?: VisualImageAsset; onI
                     imgClassName="h-full w-full object-cover"
                 />
             </div>
-            {asset?.caption && (
-                <p className="px-3 py-2 text-xs leading-5 text-[var(--text-muted)]">
-                    <HighlightText text={asset.caption} />
-                </p>
-            )}
+            <div className="space-y-2 px-3 py-2">
+                {asset?.caption && (
+                    <p className="text-xs leading-5 text-[var(--text-muted)]">
+                        <HighlightText text={asset.caption} />
+                    </p>
+                )}
+                <AssetDisclosure asset={asset} />
+            </div>
         </div>
     );
 }
@@ -1100,11 +1147,14 @@ function PairingVisual({ asset, pairing, onImageOpen }: { asset?: VisualImageAss
                     {pairing || "ペアリング"}
                 </div>
             </div>
-            {asset?.caption && (
-                <p className="px-3 py-2 text-xs leading-5 text-[var(--text-muted)]">
-                    <HighlightText text={asset.caption} />
-                </p>
-            )}
+            <div className="space-y-2 px-3 py-2">
+                {asset?.caption && (
+                    <p className="text-xs leading-5 text-[var(--text-muted)]">
+                        <HighlightText text={asset.caption} />
+                    </p>
+                )}
+                <AssetDisclosure asset={asset} />
+            </div>
         </div>
     );
 }
@@ -1149,6 +1199,9 @@ function AromaVisualGrid({ aromas, onImageOpen }: { aromas: AromaVisual[]; onIma
                         <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
                             <HighlightText text={aroma.description} />
                         </p>
+                        <div className="mt-2">
+                            <AssetDisclosure asset={aroma.image} compact />
+                        </div>
                     </div>
                 </div>
             ))}
