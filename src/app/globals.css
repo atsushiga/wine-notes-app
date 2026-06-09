@@ -123,6 +123,15 @@ body {
   min-height: 100%;
 }
 
+#main-content {
+  scroll-margin-top: 1rem;
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 /* === Layout Utilities === */
 .content-container {
   width: 100%;
