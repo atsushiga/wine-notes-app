@@ -11,10 +11,10 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
   title: {
-    default: "Wine tasting notes",
+    default: "Wine Notes",
     template: "%s | Wine Notes",
   },
-  description: "Wine tasting notes",
+  description: "ワインのテイスティング記録、画像管理、AI参考情報生成をまとめる個人向けノートアプリ。",
   applicationName: "Wine Notes",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

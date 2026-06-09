@@ -1,8 +1,10 @@
 "use server";
 
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
+import { storage, BUCKET } from "@/lib/gcs";
 
 export async function signOut() {
     const supabase = await createClient();
@@ -83,4 +85,157 @@ export async function updateProfile(formData: FormData) {
     }
 
     return { message: "設定を更新しました。" };
+}
+
+function imageUrlToKey(value: string) {
+    const marker = "/api/images/";
+    const markerIndex = value.indexOf(marker);
+    if (markerIndex === -1) return null;
+    return decodeURIComponent(value.slice(markerIndex + marker.length).split(/[?#]/)[0]);
+}
+
+function collectImageKeys(value: unknown, keys = new Set<string>()) {
+    if (typeof value === "string") {
+        const key = imageUrlToKey(value);
+        if (key) keys.add(key);
+        return keys;
+    }
+
+    if (Array.isArray(value)) {
+        value.forEach((item) => collectImageKeys(item, keys));
+        return keys;
+    }
+
+    if (value && typeof value === "object") {
+        Object.values(value as Record<string, unknown>).forEach((item) => collectImageKeys(item, keys));
+    }
+
+    return keys;
+}
+
+async function deleteGcsObject(key: string) {
+    try {
+        await storage.bucket(BUCKET).file(key).delete({ ignoreNotFound: true });
+    } catch (error) {
+        console.error("Failed to delete GCS object during account deletion:", { key, error });
+    }
+}
+
+export async function deleteAccount() {
+    const supabase = await createClient();
+    const {
+        data: { user },
+        error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+        return { error: "ログインが必要です。" };
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceRoleKey) {
+        return { error: "退会処理の環境変数が不足しています。" };
+    }
+
+    const admin = createAdminClient(supabaseUrl, serviceRoleKey, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+        },
+    });
+
+    const imageKeys = new Set<string>();
+    const { data: notes, error: notesError } = await admin
+        .from("tasting_notes")
+        .select("id,image_url")
+        .eq("user_id", user.id);
+
+    if (notesError) {
+        return { error: notesError.message };
+    }
+
+    const noteIds = (notes || []).map((note) => note.id).filter((id) => id != null);
+    for (const note of notes || []) {
+        collectImageKeys(note.image_url, imageKeys);
+    }
+
+    if (noteIds.length > 0) {
+        const { data: wineImages, error: imagesError } = await admin
+            .from("wine_images")
+            .select("url,thumbnail_url,storage_path")
+            .in("tasting_note_id", noteIds);
+
+        if (imagesError) {
+            return { error: imagesError.message };
+        }
+
+        for (const image of wineImages || []) {
+            collectImageKeys(image.url, imageKeys);
+            collectImageKeys(image.thumbnail_url, imageKeys);
+            if (image.storage_path) imageKeys.add(image.storage_path);
+        }
+    }
+
+    const { data: aiExplanations, error: aiError } = await admin
+        .from("ai_explanations")
+        .select("image_url,input,explanation")
+        .eq("user_id", user.id);
+
+    if (aiError) {
+        return { error: aiError.message };
+    }
+
+    for (const explanation of aiExplanations || []) {
+        collectImageKeys(explanation, imageKeys);
+    }
+
+    await Promise.all(Array.from(imageKeys).map(deleteGcsObject));
+
+    if (noteIds.length > 0) {
+        const { error: wineImageDeleteError } = await admin
+            .from("wine_images")
+            .delete()
+            .in("tasting_note_id", noteIds);
+
+        if (wineImageDeleteError) {
+            return { error: wineImageDeleteError.message };
+        }
+    }
+
+    const { error: aiDeleteError } = await admin
+        .from("ai_explanations")
+        .delete()
+        .eq("user_id", user.id);
+
+    if (aiDeleteError) {
+        return { error: aiDeleteError.message };
+    }
+
+    const { error: notesDeleteError } = await admin
+        .from("tasting_notes")
+        .delete()
+        .eq("user_id", user.id);
+
+    if (notesDeleteError) {
+        return { error: notesDeleteError.message };
+    }
+
+    const { error: profileDeleteError } = await admin
+        .from("profiles")
+        .delete()
+        .eq("id", user.id);
+
+    if (profileDeleteError) {
+        return { error: profileDeleteError.message };
+    }
+
+    const { error: deleteUserError } = await admin.auth.admin.deleteUser(user.id);
+    if (deleteUserError) {
+        return { error: deleteUserError.message };
+    }
+
+    await supabase.auth.signOut();
+    revalidatePath("/", "layout");
+    redirect("/login?deleted=1");
 }

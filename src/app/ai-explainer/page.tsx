@@ -18,6 +18,9 @@ export default function AiExplainerPage() {
                 }
             />
             <AiExplainerClient />
+            <p className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-xs leading-6 text-[var(--text-muted)]">
+                AIが生成する解説、価格推定、画像は参考情報です。公式情報や実際のテイスティング内容と照合して利用してください。
+            </p>
             <AiExplainerHistory />
         </ContentContainer>
     );

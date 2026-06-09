@@ -40,6 +40,9 @@ export default function BottomNav() {
         pathname === "/login" ||
         pathname === "/signup" ||
         pathname === "/set-password" ||
+        pathname === "/terms" ||
+        pathname === "/privacy" ||
+        pathname === "/contact" ||
         pathname === "/ai-explainer/result" ||
         pathname.startsWith("/ai-explainer/result/") ||
         pathname.startsWith("/auth/");

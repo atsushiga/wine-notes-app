@@ -10,6 +10,9 @@ const PUBLIC_PATHS = new Set([
   "/favicon.ico",
   "/icon.png",
   "/apple-icon.png",
+  "/terms",
+  "/privacy",
+  "/contact",
 ]);
 
 const PUBLIC_PREFIXES = [
