@@ -31,6 +31,7 @@ Run these checks against the production URL after deployment.
 - Review server errors in the hosting provider logs.
 - Review Supabase Auth signups and failed login spikes.
 - Review `usage_events` for unusually high AI, STT, image upload, or signup email usage.
+- Review `/api/admin/usage?days=7` with an `ADMIN_EMAILS` account for a quick production summary.
 - Review GCS storage growth and unexpected object prefixes.
 - Check support inbox for deletion, privacy, and billing/cost reports.
 
@@ -90,6 +91,7 @@ Use the smallest data scope needed to answer a support request.
 
 - Check provider status and application logs.
 - Review `usage_events` by action and subject using `docs/usage-monitoring.sql`.
+- Check `/api/admin/usage?days=1` for recent action totals and top users.
 - Lower limits in `src/lib/usageLimits.ts` if usage is legitimate but too expensive.
 - Restrict invites or disable signup if usage appears abusive.
 

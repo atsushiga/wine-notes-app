@@ -43,6 +43,7 @@ OPENAI_IMAGE_MODEL=gpt-image-2
 OPENAI_IMAGE_QUALITY=high
 
 NEXT_PUBLIC_SITE_URL=https://www.wine-note.jp
+ADMIN_EMAILS=admin@example.com,ops@example.com
 ```
 
 ## Development
@@ -106,6 +107,10 @@ Uploaded images are served through `/api/images/...` with authentication and own
 - Beta runbook: `docs/beta-runbook.md`
 - Usage monitoring SQL: `docs/usage-monitoring.sql`
 - Security audit notes: `docs/security-audit.md`
+
+Admin usage summary is available to signed-in users whose email is listed in `ADMIN_EMAILS`:
+
+Open `/api/admin/usage?days=7` in an authenticated browser session.
 
 ## Legal Pages
 
