@@ -43,6 +43,8 @@ export default function BottomNav() {
         pathname === "/terms" ||
         pathname === "/privacy" ||
         pathname === "/contact" ||
+        pathname === "/reset-password" ||
+        pathname.startsWith("/reset-password/") ||
         pathname === "/ai-explainer/result" ||
         pathname.startsWith("/ai-explainer/result/") ||
         pathname.startsWith("/auth/");

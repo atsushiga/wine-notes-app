@@ -13,6 +13,7 @@ const PUBLIC_PATHS = new Set([
   "/terms",
   "/privacy",
   "/contact",
+  "/reset-password",
 ]);
 
 const PUBLIC_PREFIXES = [

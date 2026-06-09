@@ -80,6 +80,7 @@ function getCallbackHtml(): string {
   var params = new URLSearchParams(hash);
   var access_token = params.get('access_token');
   var refresh_token = params.get('refresh_token');
+  var type = params.get('type');
   if (!access_token || !refresh_token) { window.location.replace('/login?error=invalid_callback'); return; }
   fetch('/api/auth/session', {
     method: 'POST',
@@ -87,7 +88,7 @@ function getCallbackHtml(): string {
     body: JSON.stringify({ access_token: access_token, refresh_token: refresh_token }),
     credentials: 'same-origin'
   }).then(function(r) {
-    if (r.ok) { window.location.replace('/set-password'); }
+    if (r.ok) { window.location.replace(type === 'recovery' ? '/reset-password/update' : '/set-password'); }
     else { window.location.replace('/login?error=exchange_failed'); }
   }).catch(function() { window.location.replace('/login?error=exchange_failed'); });
 })();
