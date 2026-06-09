@@ -53,6 +53,7 @@ export default function ProfileForm({ user, defaultInputMode, simpleAiAutomation
 
     const selectedInputMode = useWatch({ control, name: "defaultInputMode" });
     const simpleAutoWineNameSearch = useWatch({ control, name: "simpleAutoWineNameSearch" });
+    const pendingEmail = user.new_email && user.new_email !== user.email ? user.new_email : "";
 
     useEffect(() => {
         if (!simpleAutoWineNameSearch) {
@@ -122,12 +123,22 @@ export default function ProfileForm({ user, defaultInputMode, simpleAiAutomation
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">メールアドレス</label>
+                    <label htmlFor="settings-email" className="block text-sm font-medium text-gray-700 mb-1">メールアドレス</label>
                     <input
+                        id="settings-email"
                         type="email"
                         {...register("email")}
+                        aria-describedby="settings-email-help"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent text-gray-900"
                     />
+                    <p id="settings-email-help" className="mt-1 text-xs leading-5 text-gray-500">
+                        変更すると新しいメールアドレス宛に確認メールが送信されます。メール内のリンクを開くまで、現在のメールアドレスでログインできます。
+                    </p>
+                    {pendingEmail && (
+                        <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800" role="status">
+                            {pendingEmail} への変更確認が未完了です。確認メールのリンクを開くと変更が反映されます。
+                        </p>
+                    )}
                     {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
                 </div>
 
@@ -143,6 +154,7 @@ export default function ProfileForm({ user, defaultInputMode, simpleAiAutomation
                         <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
+                            aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示"}
                             className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
                         >
                             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}

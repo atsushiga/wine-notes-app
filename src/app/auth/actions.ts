@@ -2,6 +2,7 @@
 
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { storage, BUCKET } from "@/lib/gcs";
@@ -51,7 +52,12 @@ export async function updateProfile(formData: FormData) {
     if (password) updates.password = password;
 
     if (Object.keys(updates).length > 0) {
-        const { error } = await supabase.auth.updateUser(updates);
+        const requestHeaders = await headers();
+        const origin = requestHeaders.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "";
+        const { error } = await supabase.auth.updateUser(
+            updates,
+            updates.email && origin ? { emailRedirectTo: `${origin}/auth/callback?next=/settings` } : undefined,
+        );
 
         if (error) {
             return { error: error.message };
@@ -80,8 +86,8 @@ export async function updateProfile(formData: FormData) {
     revalidatePath("/settings");
     revalidatePath("/");
 
-    if (updates.email && !updates.password) {
-        return { message: "確認メールを送信しました。メール内のリンクをクリックして変更を完了してください。" };
+    if (updates.email) {
+        return { message: `確認メールを ${updates.email} に送信しました。メール内のリンクをクリックして変更を完了してください。` };
     }
 
     return { message: "設定を更新しました。" };
