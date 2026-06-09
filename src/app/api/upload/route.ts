@@ -33,7 +33,7 @@ function extensionFor(filename: string, contentType: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    await requireAuthenticatedUser();
+    const user = await requireAuthenticatedUser();
     const formData = await req.formData();
     const file = formData.get('file');
     const requestedFilename = String(formData.get('filename') ?? 'image.jpg');
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const extension = extensionFor(requestedFilename, contentType);
     const safeFilename = `${Date.now()}_${randomUUID()}.${extension}`;
     const now = new Date();
-    const key = `uploads/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${safeFilename}`;
+    const key = `uploads/${user.id}/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${safeFilename}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
     await storage.bucket(BUCKET).file(key).save(buffer, {

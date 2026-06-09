@@ -20,7 +20,7 @@ interface UploadUrlResponse {
 
 export async function POST(req: NextRequest) {
   try {
-    await requireAuthenticatedUser();
+    const user = await requireAuthenticatedUser();
     const body = (await req.json()) as UploadBody;
     const originalName = body?.filename ?? 'image.jpg';
     const ext = originalName.split('.').pop() || 'bin';
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const contentType = body?.contentType ?? 'application/octet-stream';
 
     const now = new Date();
-    const key = `uploads/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${safeFilename}`;
+    const key = `uploads/${user.id}/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${safeFilename}`;
 
     const file = storage.bucket(BUCKET).file(key);
 
