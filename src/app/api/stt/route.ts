@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI, { toFile } from 'openai';
 import { isAuthenticationRequiredError, requireAuthenticatedUser } from '@/lib/serverAuth';
+import { checkAndRecordUserUsage, isUsageLimitError, usageLimitResponseMessage } from '@/lib/usageLimits';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const transcriptionModel = process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-mini-transcribe';
+const MAX_AUDIO_UPLOAD_BYTES = 25 * 1024 * 1024;
+const ALLOWED_AUDIO_TYPES = new Set([
+    'audio/mp4',
+    'audio/mpeg',
+    'audio/mp3',
+    'audio/ogg',
+    'audio/wav',
+    'audio/webm',
+    'audio/x-wav',
+]);
 
 function extensionFromMimeType(mimeType: string) {
     if (mimeType.includes('mp4')) return 'mp4';
@@ -22,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        await requireAuthenticatedUser();
+        const user = await requireAuthenticatedUser();
         const formData = await req.formData();
         const audio = formData.get('audio');
 
@@ -35,6 +46,18 @@ export async function POST(req: NextRequest) {
         }
 
         const mimeType = audio.type || 'audio/webm';
+        if (!ALLOWED_AUDIO_TYPES.has(mimeType)) {
+            return NextResponse.json({ error: 'Unsupported audio type' }, { status: 400 });
+        }
+
+        if (audio.size > MAX_AUDIO_UPLOAD_BYTES) {
+            return NextResponse.json({ error: 'Audio size exceeds the upload limit' }, { status: 413 });
+        }
+
+        await checkAndRecordUserUsage(user.id, 'stt', {
+            metadata: { size: audio.size, mimeType },
+        });
+
         const buffer = Buffer.from(await audio.arrayBuffer());
         const file = await toFile(
             buffer,
@@ -54,6 +77,10 @@ export async function POST(req: NextRequest) {
     } catch (error) {
         if (isAuthenticationRequiredError(error)) {
             return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+        }
+
+        if (isUsageLimitError(error)) {
+            return NextResponse.json({ error: usageLimitResponseMessage(error) }, { status: 429 });
         }
 
         console.error('STT error:', error);

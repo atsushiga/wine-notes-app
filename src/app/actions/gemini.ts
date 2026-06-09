@@ -12,6 +12,7 @@ import { COUNTRY_MAP } from "@/lib/geoUtils";
 import { assertUserCanAccessImageKey } from "@/lib/imageAccess";
 import { getSupabaseClient } from "@/lib/supabase";
 import { requireAuthenticatedUser } from "@/lib/serverAuth";
+import { checkAndRecordUserUsage } from "@/lib/usageLimits";
 import { SAT_AROMA_DEFINITIONS } from "@/constants/sat_aromas";
 import { countries, mainVarieties, wineTypes } from "@/constants/wine";
 
@@ -873,6 +874,9 @@ async function resolveLocality(countryJa: string, localityText: string): Promise
 
 export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnalysis> {
     const user = await requireAuthenticatedUser();
+    await checkAndRecordUserUsage(user.id, "ai_label_analysis", {
+        metadata: { imageUrl },
+    });
 
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
@@ -959,6 +963,9 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
 
 export async function optimizeWineImage(imageUrl: string): Promise<{ optimizedImage: OptimizedWineImage }> {
     const user = await requireAuthenticatedUser();
+    await checkAndRecordUserUsage(user.id, "ai_image_optimize", {
+        metadata: { imageUrl },
+    });
 
     const originalBuffer = await downloadImageFromGcs(imageUrl, user.id);
     const [normalized, imageEditInput] = await Promise.all([
@@ -1296,7 +1303,10 @@ export async function interpretTastingTranscript(input: {
     recentText?: string;
     currentValues?: Record<string, unknown>;
 }): Promise<TastingTranscriptInterpretation> {
-    await requireAuthenticatedUser();
+    const user = await requireAuthenticatedUser();
+    await checkAndRecordUserUsage(user.id, "ai_transcript_interpretation", {
+        metadata: { transcriptLength: input.transcript.length },
+    });
 
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
@@ -1995,7 +2005,10 @@ async function attachVisualImages(query: VisualWineExplanationRequest, data: Vis
 }
 
 export async function searchWineDetails(wineId: number, query: { name: string; winery?: string; vintage?: string; country?: string; locality?: string; referenceUrl?: string }) {
-    await requireAuthenticatedUser();
+    const user = await requireAuthenticatedUser();
+    await checkAndRecordUserUsage(user.id, "ai_deep_search", {
+        metadata: { wineId, name: query.name },
+    });
 
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
@@ -2242,7 +2255,10 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
 }
 
 export async function generateVisualWineExplanation(query: VisualWineExplanationRequest): Promise<VisualWineExplanation> {
-    await requireAuthenticatedUser();
+    const user = await requireAuthenticatedUser();
+    await checkAndRecordUserUsage(user.id, "ai_visual_explanation", {
+        metadata: { name: query.name },
+    });
 
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
@@ -2439,6 +2455,9 @@ export async function generateVisualWineExplanationImages(
     explanation: VisualWineExplanation
 ): Promise<VisualWineExplanation> {
     const user = await requireAuthenticatedUser();
+    await checkAndRecordUserUsage(user.id, "ai_visual_images", {
+        metadata: { name: query.name },
+    });
 
     const data = structuredClone(explanation);
 

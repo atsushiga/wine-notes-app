@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  checkAndRecordSubjectUsage,
+  createUsageSubjectKey,
+  isUsageLimitError,
+} from '@/lib/usageLimits';
 
 const COMPLETED = 'completed';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -21,6 +26,14 @@ function logEmailLinkError(error: AuthErrorLike) {
     status: error.status,
     message: error.message,
   });
+}
+
+function requestIp(request: NextRequest) {
+  return (
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'unknown'
+  );
 }
 
 async function findUserByEmail(
@@ -61,6 +74,20 @@ export async function POST(request: NextRequest) {
   const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : null;
   if (!email || !EMAIL_PATTERN.test(email)) {
     return NextResponse.json({ ok: false, error: 'invalid_email' }, { status: 400 });
+  }
+
+  try {
+    await Promise.all([
+      checkAndRecordSubjectUsage(createUsageSubjectKey('signup-email', email), 'signup_email'),
+      checkAndRecordSubjectUsage(createUsageSubjectKey('signup-ip', requestIp(request)), 'signup_email'),
+    ]);
+  } catch (error) {
+    if (isUsageLimitError(error)) {
+      return NextResponse.json({ ok: false, error: 'over_request_rate_limit' }, { status: 429 });
+    }
+
+    logEmailLinkError(error instanceof Error ? error : { message: String(error) });
+    return NextResponse.json({ ok: false, error: 'email_link_failed' }, { status: 502 });
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

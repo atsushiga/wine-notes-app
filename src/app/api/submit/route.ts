@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/supabase';
 import { isAuthenticationRequiredError, requireAuthenticatedUser } from '@/lib/serverAuth';
+import { checkAndRecordUserUsage, isUsageLimitError, usageLimitResponseMessage } from '@/lib/usageLimits';
 // import { appendToSheet, appendToNotion, UnknownRecord } from '@/app/actions/sync';
 
 type UnknownRecord = Record<string, unknown>;
@@ -164,6 +165,9 @@ export async function POST(req: NextRequest) {
     const data = (await req.json()) as UnknownRecord;
 
     const status = (data.status as string) || 'published';
+    await checkAndRecordUserUsage(user.id, 'wine_submit', {
+      metadata: { status },
+    });
 
     // 1. まずSupabaseに保存
     const supabaseResult = await appendToSupabase(data, user.id, status);
@@ -176,6 +180,10 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     if (isAuthenticationRequiredError(err)) {
       return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
+    }
+
+    if (isUsageLimitError(err)) {
+      return NextResponse.json({ ok: false, error: usageLimitResponseMessage(err) }, { status: 429 });
     }
 
     const msg = err instanceof Error ? err.message : 'Unknown error';
