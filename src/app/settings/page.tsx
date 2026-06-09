@@ -4,6 +4,7 @@ import Link from "next/link";
 import ProfileForm from "@/components/settings/profile-form";
 import LogoutButton from "@/components/settings/logout-button";
 import DeleteAccountSection from "@/components/settings/delete-account-section";
+import DataExportSection from "@/components/settings/data-export-section";
 import { defaultSimpleAiAutomationSettings, type SimpleAiAutomationSettings } from "@/lib/simpleAiAutomation";
 
 export default async function SettingsPage() {
@@ -41,6 +42,8 @@ export default async function SettingsPage() {
 
             <div className="space-y-6">
                 <ProfileForm user={user} defaultInputMode={defaultInputMode} simpleAiAutomation={simpleAiAutomation} />
+
+                <DataExportSection />
 
                 <div className="rounded-lg border border-gray-100 bg-white p-5 shadow-sm">
                     <h2 className="text-base font-semibold text-gray-900">サポートとポリシー</h2>
