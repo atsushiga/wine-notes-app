@@ -31,6 +31,7 @@ import {
     getAiExplainerClientKey,
     saveCurrentAiExplanationId,
 } from '@/lib/aiExplainerStorage';
+import { isProtectedImageUrl } from '@/lib/protectedImage';
 
 import { TastingNote } from '@/types/custom';
 
@@ -170,7 +171,13 @@ export default function WineDetailView({ wine, onEdit, onDelete, isDeleting, onO
                             // ... Image fallback same
                             <div className="relative aspect-[3/4] w-full">
                                 {wine.image_url ? (
-                                    <Image src={wine.image_url} alt={wine.wine_name || "Wine"} fill className="object-cover" />
+                                    <Image
+                                        src={wine.image_url}
+                                        alt={wine.wine_name || "Wine"}
+                                        fill
+                                        className="object-cover"
+                                        unoptimized={isProtectedImageUrl(wine.image_url)}
+                                    />
                                 ) : (
                                     <div className="flex items-center justify-center h-full text-[var(--text-muted)] opacity-30"><span className="text-6xl">🍷</span></div>
                                 )}

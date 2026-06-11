@@ -9,6 +9,7 @@ import { ContentContainer } from '@/components/layout/ContentContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { FORM_CONTROL_BASE } from '@/constants/styles';
+import { isProtectedImageUrl } from '@/lib/protectedImage';
 
 interface WineListProps {
     notes: TastingNote[];
@@ -206,17 +207,19 @@ function isSortOrder(value: string): value is SortOrder {
 
 function WineCardContent({ note }: { note: TastingNote }) {
     const displayDate = formatDate(note.date);
+    const imageSrc = note.images?.[0]?.thumbnail_url || note.images?.[0]?.url || note.image_url || '';
 
     return (
         <Card className="overflow-hidden flex flex-col h-full transition-transform duration-200 hover:-translate-y-1 hover:shadow-md">
             <div className="relative aspect-[3/3.2] w-full bg-[var(--surface-2)]">
-                {(note.images?.[0]?.thumbnail_url || note.images?.[0]?.url || note.image_url) ? (
+                {imageSrc ? (
                     <Image
-                        src={note.images?.[0]?.thumbnail_url || note.images?.[0]?.url || note.image_url || ''}
+                        src={imageSrc}
                         alt={note.wine_name || "Wine Image"}
                         fill
                         className="object-cover"
                         sizes="(max-width: 768px) 50vw, 33vw"
+                        unoptimized={isProtectedImageUrl(imageSrc)}
                     />
                 ) : (
                     <div className="flex items-center justify-center h-full text-[var(--text-muted)] opacity-30">
