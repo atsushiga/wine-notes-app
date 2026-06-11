@@ -15,6 +15,7 @@ import {
 import { FORM_CONTROL_BASE } from "@/constants/styles";
 import { SectionCard } from "@/components/ui/section-card";
 import { FieldRow } from "@/components/ui/field-row";
+import { uploadImageFile } from "@/lib/clientImageUpload";
 import {
     Bot,
     Camera,
@@ -32,35 +33,6 @@ type UploadedWineState = AiExplainerInput;
 function formatPriceInput(value: string) {
     const raw = value.replace(/[^\d]/g, "");
     return raw ? Number(raw).toLocaleString() : "";
-}
-
-async function uploadFile(file: File): Promise<string> {
-    const payload = {
-        filename: file.name,
-        contentType: file.type || "application/octet-stream",
-        size: file.size,
-    };
-
-    const uploadUrlResponse = await fetch("/api/upload-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-    });
-
-    const { putUrl, getUrl, error } = await uploadUrlResponse.json();
-    if (error) throw new Error(error);
-
-    const uploadResponse = await fetch(putUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: file,
-    });
-
-    if (!uploadResponse.ok) {
-        throw new Error("Upload failed");
-    }
-
-    return getUrl;
 }
 
 export default function AiExplainerClient() {
@@ -109,7 +81,7 @@ export default function AiExplainerClient() {
         setPreviewUrl(nextPreviewUrl);
 
         try {
-            const imageUrl = await uploadFile(file);
+            const imageUrl = await uploadImageFile(file, file.name);
             setForm((current) => ({ ...current, imageUrl }));
             setStatus("analyzing");
 

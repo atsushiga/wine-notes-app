@@ -30,6 +30,7 @@ import { FORM_CONTROL_BASE } from '@/constants/styles';
 import { SimpleRecordingControls } from '@/components/wine/form/SimpleRecordingControls';
 import { countries, mainVarieties, wineTypes } from '@/constants/wine';
 import { defaultSimpleAiAutomationSettings, type SimpleAiAutomationSettings } from '@/lib/simpleAiAutomation';
+import { uploadImageFile } from '@/lib/clientImageUpload';
 
 export { countries, mainVarieties, wineTypes } from '@/constants/wine';
 
@@ -771,58 +772,6 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
     // const filteredAromaGroups = ... (Removed legacy filtering logic)
 
-    const isLocalhostUpload = () => {
-        const { hostname } = window.location;
-        return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
-    };
-
-    const uploadFileViaApi = async (file: File | Blob, filename: string): Promise<string> => {
-        const formData = new FormData();
-        formData.append('file', file, filename);
-        formData.append('filename', filename);
-
-        const res = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData,
-        });
-
-        const { getUrl, error } = await res.json();
-        if (!res.ok || error) throw new Error(error || 'Upload failed');
-
-        return getUrl;
-    };
-
-    const uploadFileViaSignedUrl = async (file: File | Blob, filename: string): Promise<string> => {
-        const payload = {
-            filename: filename,
-            contentType: file.type || 'application/octet-stream',
-            size: file.size,
-        };
-        const r = await fetch('/api/upload-url', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-        const { putUrl, getUrl, error } = await r.json();
-        if (error) throw new Error(error);
-
-        const res = await fetch(putUrl, {
-            method: 'PUT',
-            headers: { 'Content-Type': file.type || 'application/octet-stream' },
-            body: file,
-        });
-        if (!res.ok) throw new Error('Upload failed');
-        return getUrl;
-    };
-
-    const uploadFile = async (file: File | Blob, filename: string): Promise<string> => {
-        if (isLocalhostUpload()) {
-            return uploadFileViaApi(file, filename);
-        }
-
-        return uploadFileViaSignedUrl(file, filename);
-    };
-
     const applyExifCaptureDateFromFirstPhoto = async (file: File) => {
         if (dateValueOriginRef.current !== 'empty' && dateValueOriginRef.current !== 'auto') return;
 
@@ -854,16 +803,17 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         for (let i = 0; i < selectedFiles.length; i++) {
             const file = selectedFiles[i];
             try {
-                // 1. Generate Thumbnail
-                const thumbnailBlob = await generateThumbnail(file, 400); // slightly larger max just in case
+                // Upload the original first so unsupported thumbnail decoding does not block saving the note.
+                const originalUrl = await uploadImageFile(file, file.name);
+                let thumbUrl: string | null = null;
 
-                // 2. Upload Original
-                const originalUrl = await uploadFile(file, file.name);
-
-                // 3. Upload Thumbnail
-                // naming hack for thumbnail: prefix or suffix
-                const thumbName = `thumb_${file.name}`;
-                const thumbUrl = await uploadFile(thumbnailBlob, thumbName);
+                try {
+                    const thumbnailBlob = await generateThumbnail(file, 400); // slightly larger max just in case
+                    const thumbName = `thumb_${file.name}`;
+                    thumbUrl = await uploadImageFile(thumbnailBlob, thumbName);
+                } catch (thumbnailError) {
+                    console.warn('Thumbnail generation failed; continuing with original image only.', thumbnailError);
+                }
 
                 newImages.push({
                     url: originalUrl,
