@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { storage, BUCKET } from '@/lib/gcs';
 import { isAuthenticationRequiredError, requireAuthenticatedUser } from '@/lib/serverAuth';
 import { checkAndRecordUserUsage, isUsageLimitError, usageLimitResponseMessage } from '@/lib/usageLimits';
+import {
+  extensionForImageUpload,
+  MAX_IMAGE_UPLOAD_BYTES,
+  normalizeImageUploadContentType,
+} from '@/lib/imageUploadValidation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,29 +15,6 @@ export const dynamic = 'force-dynamic';
 interface UploadResponse {
   getUrl: string;
   key: string;
-}
-
-const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
-const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-
-function extensionFor(filename: string, contentType: string): string {
-  const rawExtension = filename.split('.').pop();
-  if (rawExtension && rawExtension !== filename) {
-    return rawExtension.toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin';
-  }
-
-  switch (contentType) {
-    case 'image/jpeg':
-      return 'jpg';
-    case 'image/png':
-      return 'png';
-    case 'image/webp':
-      return 'webp';
-    case 'image/gif':
-      return 'gif';
-    default:
-      return 'bin';
-  }
 }
 
 export async function POST(req: NextRequest) {
@@ -46,8 +28,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing file' }, { status: 400 });
     }
 
-    const contentType = file.type || 'application/octet-stream';
-    if (!ALLOWED_IMAGE_TYPES.has(contentType)) {
+    const contentType = normalizeImageUploadContentType(requestedFilename, file.type);
+    if (!contentType) {
       return NextResponse.json({ error: 'Unsupported image type' }, { status: 400 });
     }
 
@@ -59,7 +41,7 @@ export async function POST(req: NextRequest) {
       metadata: { size: file.size, contentType },
     });
 
-    const extension = extensionFor(requestedFilename, contentType);
+    const extension = extensionForImageUpload(requestedFilename, contentType);
     const safeFilename = `${Date.now()}_${randomUUID()}.${extension}`;
     const now = new Date();
     const key = `uploads/${user.id}/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${safeFilename}`;

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { storage, BUCKET } from '@/lib/gcs';
 import { isAuthenticationRequiredError, requireAuthenticatedUser } from '@/lib/serverAuth';
 import { checkAndRecordUserUsage, isUsageLimitError, usageLimitResponseMessage } from '@/lib/usageLimits';
+import {
+  MAX_IMAGE_UPLOAD_BYTES,
+  normalizeImageUploadContentType,
+} from '@/lib/imageUploadValidation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,9 +24,6 @@ interface UploadUrlResponse {
   key: string;
 }
 
-const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
-const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-
 export async function POST(req: NextRequest) {
   try {
     const user = await requireAuthenticatedUser();
@@ -30,10 +31,10 @@ export async function POST(req: NextRequest) {
     const originalName = body?.filename ?? 'image.jpg';
     const ext = originalName.split('.').pop() || 'bin';
     const safeFilename = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
-    const contentType = body?.contentType ?? 'application/octet-stream';
+    const contentType = normalizeImageUploadContentType(originalName, body?.contentType);
     const size = Number(body?.size ?? 0);
 
-    if (!ALLOWED_IMAGE_TYPES.has(contentType)) {
+    if (!contentType) {
       return NextResponse.json({ error: 'Unsupported image type' }, { status: 400 });
     }
 
