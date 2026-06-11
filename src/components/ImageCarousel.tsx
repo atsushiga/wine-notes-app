@@ -5,6 +5,7 @@ import useEmblaCarousel from 'embla-carousel-react';
 import Image from 'next/image';
 import { WineImage } from '@/types/custom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { isProtectedImageUrl } from '@/lib/protectedImage';
 
 interface PropType {
     images: WineImage[];
@@ -52,6 +53,7 @@ const ImageCarousel: React.FC<PropType> = ({ images, wineName }) => {
                                 className="object-cover"
                                 sizes="(max-width: 768px) 100vw, 50vw"
                                 priority={index === 0}
+                                unoptimized={isProtectedImageUrl(img.url)}
                             />
                         </div>
                     ))}
