@@ -1,11 +1,8 @@
 'use client';
 
 import React from 'react';
-import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
 import { scaleQuantile } from 'd3-scale';
 import { Card } from '@/components/ui/Card';
-
-const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 interface RegionData {
     name: string;
@@ -58,19 +55,15 @@ const FLAG_MAPPING: Record<string, string> = {
 const getFlag = (countryName: string) => FLAG_MAPPING[countryName] || '🏳️';
 
 const RegionMap: React.FC<Props> = ({ data }) => {
-    const [tooltip, setTooltip] = React.useState<{ x: number; y: number; content: React.ReactNode; visible: boolean }>({
-        x: 0,
-        y: 0,
-        content: null,
-        visible: false,
-    });
-
-    // Translate data to English names for matching
     const mappedData = data.reduce((acc, curr) => {
         const engName = NAME_MAPPING[curr.name] || curr.name;
         acc[engName] = (acc[engName] || 0) + curr.value;
         return acc;
     }, {} as Record<string, number>);
+    const entries = Object.entries(mappedData)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+    const maxValue = Math.max(...entries.map((entry) => entry.value), 1);
 
     const colorScale = scaleQuantile<string>()
         .domain(Object.values(mappedData))
@@ -86,77 +79,38 @@ const RegionMap: React.FC<Props> = ({ data }) => {
 
     return (
         <Card className="p-4 sm:p-6 relative">
-            <h3 className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wider mb-4">産地マップ</h3>
-            <div
-                className="w-full h-[clamp(220px,45vw,420px)] bg-[var(--surface-2)] rounded border border-[var(--border)] overflow-hidden relative"
-                onMouseMove={(e) => {
-                    if (tooltip.visible) {
-                        setTooltip(prev => ({ ...prev, x: e.clientX, y: e.clientY }));
-                    }
-                }}
-            >
-                <ComposableMap
-                    projection="geoNaturalEarth1"
-                    projectionConfig={{ scale: 145, center: [0, 0] }}
-                    width={800}
-                    height={420}
-                    style={{ width: '100%', height: '100%' }}
-                >
-                    <Geographies geography={GEO_URL}>
-                        {({ geographies }) =>
-                            geographies.map((geo) => {
-                                const cur = mappedData[geo.properties.name];
-                                const flag = getFlag(geo.properties.name);
-                                return (
-                                    <Geography
-                                        key={geo.rsmKey}
-                                        geography={geo}
-                                        fill={cur ? colorScale(cur) : "var(--card-bg)"}
-                                        stroke="var(--border)"
-                                        strokeWidth={0.5}
-                                        style={{
-                                            default: { outline: "none" },
-                                            hover: { fill: "#F53", outline: "none", cursor: 'pointer' },
-                                            pressed: { outline: "none" },
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            const content = (
-                                                <div className="flex flex-col items-center">
-                                                    <span className="text-lg mb-1">{flag}</span>
-                                                    <span className="font-bold">{geo.properties.name}</span>
-                                                    <span>{cur || 0}本</span>
-                                                </div>
-                                            );
-                                            setTooltip({
-                                                x: e.clientX,
-                                                y: e.clientY,
-                                                content,
-                                                visible: true
-                                            });
-                                        }}
-                                        onMouseLeave={() => {
-                                            setTooltip(prev => ({ ...prev, visible: false }));
-                                        }}
-                                    />
-                                );
-                            })
-                        }
-                    </Geographies>
-                </ComposableMap>
-
-                {/* Tooltip Overlay */}
-                {tooltip.visible && (
-                    <div
-                        className="fixed z-[9999] bg-[var(--chip-bg)] border border-[var(--chip-border)] text-[var(--chip-text)] text-xs p-3 rounded-lg pointer-events-none transform -translate-x-1/2 -translate-y-full mt-[-10px] shadow-xl backdrop-blur-sm"
-                        style={{ left: tooltip.x, top: tooltip.y }}
-                    >
-                        {tooltip.content}
+            <h3 className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wider mb-4">産地分布</h3>
+            <div className="min-h-[clamp(220px,45vw,420px)] rounded border border-[var(--border)] bg-[var(--surface-2)] p-4">
+                {entries.length === 0 ? (
+                    <div className="flex h-48 items-center justify-center text-sm text-[var(--text-muted)]">
+                        産地データがありません
+                    </div>
+                ) : (
+                    <div className="grid gap-3">
+                        {entries.map((entry) => {
+                            const width = `${Math.max(8, Math.round((entry.value / maxValue) * 100))}%`;
+                            const color = colorScale(entry.value);
+                            return (
+                                <div key={entry.name} className="rounded-md border border-[var(--border)] bg-[var(--card-bg)] p-3">
+                                    <div className="mb-2 flex items-center justify-between gap-3">
+                                        <div className="flex min-w-0 items-center gap-2">
+                                            <span className="text-lg" aria-hidden="true">{getFlag(entry.name)}</span>
+                                            <span className="truncate text-sm font-semibold text-[var(--text)]">{entry.name}</span>
+                                        </div>
+                                        <span className="shrink-0 text-sm font-bold text-[var(--text)]">{entry.value}本</span>
+                                    </div>
+                                    <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
+                                        <div className="h-full rounded-full" style={{ width, backgroundColor: color }} />
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>
 
             {/* Legend */}
-            <div className="mt-3 sm:mt-0 sm:absolute sm:top-20 sm:right-8 bg-[var(--card-bg)]/90 p-3 rounded-lg shadow-sm border border-[var(--border)] text-xs backdrop-blur-sm">
+            <div className="mt-3 bg-[var(--card-bg)]/90 p-3 rounded-lg shadow-sm border border-[var(--border)] text-xs backdrop-blur-sm">
                 <div className="font-semibold mb-2 text-[var(--text-muted)]">本数</div>
                 <div className="flex flex-wrap sm:flex-col gap-x-4 gap-y-2 sm:gap-x-0 sm:gap-y-0 sm:space-y-2">
                     <div className="flex items-center">
@@ -173,7 +127,7 @@ const RegionMap: React.FC<Props> = ({ data }) => {
                     </div>
                 </div>
             </div>
-            <p className="text-xs text-right text-[var(--text-muted)] mt-2">※ 日本語の国名は自動変換してマッピングしています</p>
+            <p className="text-xs text-right text-[var(--text-muted)] mt-2">※ 日本語の国名は集計用に自動変換しています</p>
         </Card>
     );
 };

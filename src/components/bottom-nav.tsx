@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { BarChart2, List, LoaderCircle, NotebookPen, Settings, Sparkles, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -29,8 +29,8 @@ function shouldIgnoreNavigationClick(event: MouseEvent<HTMLAnchorElement>) {
         event.ctrlKey ||
         event.shiftKey ||
         event.altKey
-        );
-    }
+    );
+}
 
 export default function BottomNav() {
     const pathname = usePathname();
@@ -40,9 +40,24 @@ export default function BottomNav() {
         pathname === "/login" ||
         pathname === "/signup" ||
         pathname === "/set-password" ||
+        pathname === "/terms" ||
+        pathname === "/privacy" ||
+        pathname === "/contact" ||
+        pathname === "/reset-password" ||
+        pathname.startsWith("/reset-password/") ||
         pathname === "/ai-explainer/result" ||
         pathname.startsWith("/ai-explainer/result/") ||
         pathname.startsWith("/auth/");
+
+    useEffect(() => {
+        const timeoutId = window.setTimeout(() => {
+            setPendingNavigation(null);
+        }, 0);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
+    }, [pathname]);
 
     if (shouldHideNav) {
         return null;

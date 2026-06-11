@@ -5,7 +5,7 @@
 Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB）として使用しています。
 
 ## 2. 技術スタック
-- **Framework**: Next.js 16.1.1 (App Router)
+- **Framework**: Next.js 16.2.8 (App Router)
 - **Language**: TypeScript 5
 - **Styling**: Tailwind CSS 4
 - **State Management**: React Hooks
@@ -20,7 +20,7 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 - `src/components`: UIコンポーネント
 - `src/utils/supabase`: Supabase クライアント設定
 - `src/types`: TypeScript 型定義
-- `src/middleware.ts`: 認証ミドルウェア (保護されたルートのリダイレクト処理)
+- `src/proxy.ts`: 認証プロキシ (保護されたルートのリダイレクト処理)
 - `docs`: ドキュメント・タスク管理
 
 ## 4. データモデル
@@ -76,6 +76,27 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 | `storage_path` | string? | GCS上のパス |
 | `display_order` | number | 表示順 |
 
+### AiExplanation (AI解説履歴)
+| フィールド名 | 型 | 説明 |
+| --- | --- | --- |
+| `id` | uuid | PK |
+| `user_id` | uuid | 所有ユーザー |
+| `image_url` | string? | 入力画像URL |
+| `input` | jsonb | 生成時の入力 |
+| `explanation` | jsonb | AI解説本文、出典、視覚アセット |
+| `generated_at` | timestamptz | 生成日時 |
+
+### UsageEvent (利用量記録)
+| フィールド名 | 型 | 説明 |
+| --- | --- | --- |
+| `id` | uuid | PK |
+| `user_id` | uuid? | 対象ユーザー |
+| `subject_key` | string? | メール/IPなどユーザー外の制限対象 |
+| `action` | string | 利用アクション |
+| `quantity` | number | 利用量 |
+| `metadata` | jsonb | 付加情報 |
+| `created_at` | timestamptz | 記録日時 |
+
 ### GeoVocab (地名ボキャブラリー)
 | フィールド名 | 型 | 説明 |
 | --- | --- | --- |
@@ -92,7 +113,10 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 ## 5. 機能一覧
 ### 認証
 - Supabase Auth を利用
-- ミドルウェアでのセッション管理とリダイレクト
+- `src/proxy.ts` でのセッション管理とリダイレクト
+- ログイン、ユーザー登録、パスワードリセット
+- メールアドレス変更時は確認メールのリンクを開くまで旧メールアドレスが有効
+- API、Server Action、画像配信は認証ユーザーを前提に処理
 
 ### テイスティングノート登録
 - フォーム入力（バリデーション付き）
@@ -134,8 +158,12 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 - **設定ページ**: フッターナビゲーションから「設定」タブでアクセス
 - **機能**:
   - ログイン中のユーザーメールアドレスの表示
-  - メールアドレス変更機能
+  - メールアドレス変更機能（確認メール必須、未確認メール表示）
   - パスワード変更機能
+  - デフォルト入力モード設定
+  - 簡単記録時のAI自動実行設定
+  - データエクスポート
+  - アカウント削除
   - ログアウト機能
 
 ### 統計ダッシュボード
@@ -154,8 +182,23 @@ Next.js (App Router) を採用し、Supabase をバックエンド（認証・DB
 ### 画像管理
 - **ストレージ**: Google Cloud Storage (GCS)
 - **構成**:
-    - `uploads/YYYY/MM/filename`: オリジナル画像
-    - `uploads/YYYY/MM/thumb_v2_filename`: サムネイル画像 (400x400, rotate適用済み)
-- **アクセス**: `/api/images/[...path]` エンドポイントを経由して認証付きで配信（ただし一覧での表示用にはMiddlewareで除外）
+    - `uploads/{userId}/YYYY/MM/filename`: オリジナル画像
+    - `uploads/{userId}/YYYY/MM/thumb_v2_filename`: サムネイル画像 (400x400, rotate適用済み)
+    - `ai-explanations/{userId}/generated/...`: AI解説用生成画像
+- **アクセス**: `/api/images/[...path]` エンドポイントを経由して認証付きで配信
 - **複数画像**: `wine_images` テーブルによる 1:N 管理
 - **サムネイル**: アップロード時にクライアント(Canvas)でプレビュー用生成、サーバーサイド(Sharp)で保存用生成・回転補正
+
+### 公開ベータ運用
+- `/terms`, `/privacy`, `/contact` を公開ページとして提供
+- `/api/health` で疎通確認
+- `/api/export` で本人データをJSONエクスポート
+- `/api/admin/usage?days=7` で `ADMIN_EMAILS` に列挙された管理者が利用量サマリーを確認
+- `usage_events` でAI、STT、画像アップロード、サインアップメール等の利用量を日次制限
+- `docs/beta-runbook.md` に公開前後の運用手順を記載
+- `docs/ai-visual-disclosure.md` にAI生成画像と出典画像の表示ルールを記載
+
+### PWA / オフライン
+- `manifest.webmanifest` と各種アイコンを提供
+- `ServiceWorkerRegistration` でService Workerを登録
+- `/offline` でオフライン時の案内ページを表示

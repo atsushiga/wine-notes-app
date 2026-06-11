@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import type { AiExplainerHistoryItem, StoredVisualExplanation } from '@/lib/aiExplainerStorage';
 import { getSupabaseClient } from '@/lib/supabase';
-import { createClient } from '@/utils/supabase/server';
+import { requireAuthenticatedUser } from '@/lib/serverAuth';
 
 type SaveAiExplanationPayload = Omit<StoredVisualExplanation, 'id'> & {
     id?: string;
@@ -46,14 +46,12 @@ function normalizePrice(value: string | number | null | undefined) {
 }
 
 async function getCurrentUserId() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.id ?? null;
+    const user = await requireAuthenticatedUser();
+    return user.id;
 }
 
-function assertOwner(row: AiExplanationRow, userId: string | null, clientKey: string | null) {
-    if (userId && row.user_id === userId) return;
-    if (clientKey && row.client_key === clientKey) return;
+function assertOwner(row: AiExplanationRow, userId: string) {
+    if (row.user_id === userId) return;
     throw new Error('AI explanation not found.');
 }
 
@@ -103,7 +101,7 @@ function formatAiExplanationTableError(error: { code?: string; message?: string 
 async function linkSourceTastingNote(
     sourceWineId: number | undefined,
     aiExplanationId: string,
-    userId: string | null,
+    userId: string,
 ) {
     if (!sourceWineId) return;
 
@@ -113,9 +111,7 @@ async function linkSourceTastingNote(
         .update({ ai_explanation_id: aiExplanationId })
         .eq('id', sourceWineId);
 
-    if (userId) {
-        query = query.eq('user_id', userId);
-    }
+    query = query.eq('user_id', userId);
 
     const { error } = await query;
     if (error) {
@@ -130,13 +126,27 @@ export async function saveAiExplanation(
     const userId = await getCurrentUserId();
     const clientKey = normalizeClientKey(clientKeyValue);
 
-    if (!userId && !clientKey) {
-        throw new Error('AI explanation owner could not be identified.');
-    }
-
     const supabase = getSupabaseClient();
     const id = payload.id || crypto.randomUUID();
     const generatedAt = payload.generatedAt || new Date().toISOString();
+
+    if (payload.id) {
+        const { data: existing, error: existingError } = await supabase
+            .from('ai_explanations')
+            .select('id,user_id,client_key,source_tasting_note_id,generated_at,input,explanation')
+            .eq('id', payload.id)
+            .maybeSingle();
+
+        if (existingError) {
+            console.error('saveAiExplanation ownership check error:', existingError);
+            throw new Error(formatAiExplanationTableError(existingError));
+        }
+
+        if (existing) {
+            assertOwner(existing as AiExplanationRow, userId);
+        }
+    }
+
     const input = {
         ...payload.input,
         imageUrl: payload.imageUrl || payload.input.imageUrl || '',
@@ -184,25 +194,15 @@ export async function saveAiExplanation(
     return toStored(data as AiExplanationRow);
 }
 
-export async function listAiExplanations(clientKeyValue?: string | null): Promise<AiExplainerHistoryItem[]> {
+export async function listAiExplanations(): Promise<AiExplainerHistoryItem[]> {
     const userId = await getCurrentUserId();
-    const clientKey = normalizeClientKey(clientKeyValue);
-
-    if (!userId && !clientKey) return [];
 
     const supabase = getSupabaseClient();
-    let query = supabase
+    const query = supabase
         .from('ai_explanations')
         .select('id,user_id,client_key,source_tasting_note_id,generated_at,input,explanation,image_url,wine_name,producer,vintage,country,locality,headline,price')
+        .eq('user_id', userId)
         .order('generated_at', { ascending: false });
-
-    if (userId && clientKey) {
-        query = query.or(`user_id.eq.${userId},client_key.eq.${clientKey}`);
-    } else if (userId) {
-        query = query.eq('user_id', userId);
-    } else if (clientKey) {
-        query = query.eq('client_key', clientKey);
-    }
 
     const { data, error } = await query;
 
@@ -216,12 +216,10 @@ export async function listAiExplanations(clientKeyValue?: string | null): Promis
 
 export async function getAiExplanation(
     id: string,
-    clientKeyValue?: string | null,
 ): Promise<StoredVisualExplanation | null> {
     const userId = await getCurrentUserId();
-    const clientKey = normalizeClientKey(clientKeyValue);
 
-    if (!id || (!userId && !clientKey)) return null;
+    if (!id) return null;
 
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
@@ -238,6 +236,6 @@ export async function getAiExplanation(
     }
 
     const row = data as AiExplanationRow;
-    assertOwner(row, userId, clientKey);
+    assertOwner(row, userId);
     return toStored(row);
 }

@@ -119,6 +119,13 @@ function LoginPageContent() {
                             >
                                 アカウントを作成する
                             </Link>
+                            <span className="mx-2 text-sm text-slate-600">/</span>
+                            <Link
+                                href="/reset-password"
+                                className="text-sm font-medium text-red-300/80 transition-colors hover:text-red-200"
+                            >
+                                パスワードを忘れた
+                            </Link>
                         </div>
                     </form>
                 </Card>

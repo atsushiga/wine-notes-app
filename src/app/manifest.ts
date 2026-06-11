@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Wine tasting notes",
+    name: "Wine Notes",
     short_name: "Wine Notes",
-    description: "Wine tasting notes for mobile and desktop.",
+    description: "ワインのテイスティング記録、画像管理、AI参考情報生成をまとめる個人向けノートアプリ。",
     start_url: "/",
     scope: "/",
     display: "standalone",

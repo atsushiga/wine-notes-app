@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { TastingNote } from "@/types/custom";
 import WineList from "@/components/WineList";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -14,16 +15,17 @@ export default async function TastingNotesPage() {
         console.error("Auth error:", authError);
     }
 
+    if (!user) {
+        redirect("/login");
+    }
+
     // Build query
     let query = supabase
         .from("tasting_notes")
         .select("*, images:wine_images(*)")
         .order("date", { ascending: false });
 
-    // Filter by user_id if authenticated
-    if (user) {
-        query = query.eq("user_id", user.id);
-    }
+    query = query.eq("user_id", user.id);
 
     const { data, error } = await query;
 

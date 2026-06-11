@@ -9,7 +9,10 @@ import sharp from "sharp";
 
 import { storage, BUCKET } from "@/lib/gcs";
 import { COUNTRY_MAP } from "@/lib/geoUtils";
+import { assertUserCanAccessImageKey } from "@/lib/imageAccess";
 import { getSupabaseClient } from "@/lib/supabase";
+import { requireAuthenticatedUser } from "@/lib/serverAuth";
+import { checkAndRecordUserUsage } from "@/lib/usageLimits";
 import { SAT_AROMA_DEFINITIONS } from "@/constants/sat_aromas";
 import { countries, mainVarieties, wineTypes } from "@/constants/wine";
 
@@ -127,6 +130,22 @@ interface GeminiGenerateContentResponse {
     }>;
 }
 
+interface GroundingWebChunk {
+    web?: {
+        uri?: string;
+        url?: string;
+        title?: string;
+    };
+}
+
+interface GroundingCapableResponse {
+    candidates?: Array<{
+        groundingMetadata?: {
+            groundingChunks?: GroundingWebChunk[];
+        };
+    }>;
+}
+
 const LABEL_WORKING_MAX_SIDE = 2200;
 const LABEL_MIN_SHORT_SIDE = 600;
 const LABEL_THUMB_MAX_SIDE = 400;
@@ -167,8 +186,9 @@ function imageUrlToStorageKey(imageUrl: string): string {
     return decodeURIComponent(urlParts[1].split(/[?#]/)[0]);
 }
 
-async function downloadImageFromGcs(imageUrl: string): Promise<Buffer> {
+async function downloadImageFromGcs(imageUrl: string, userId: string): Promise<Buffer> {
     const key = imageUrlToStorageKey(imageUrl);
+    await assertUserCanAccessImageKey(userId, key);
     const file = storage.bucket(BUCKET).file(key);
     const [buffer] = await file.download();
     return buffer;
@@ -737,9 +757,9 @@ async function analyzeWineLabelWithGeometry(buffer: Buffer, width: number, heigh
     return JSON.parse(cleanJsonText(text)) as WineLabelVisionResult;
 }
 
-async function uploadJpegBuffer(buffer: Buffer, prefix: string): Promise<{ key: string; url: string }> {
+async function uploadJpegBuffer(buffer: Buffer, prefix: string, userId: string): Promise<{ key: string; url: string }> {
     const now = new Date();
-    const key = `uploads/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${Date.now()}_${randomUUID()}_${prefix}.jpg`;
+    const key = `uploads/${userId}/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${Date.now()}_${randomUUID()}_${prefix}.jpg`;
     const file = storage.bucket(BUCKET).file(key);
 
     await file.save(buffer, {
@@ -853,16 +873,17 @@ async function resolveLocality(countryJa: string, localityText: string): Promise
 }
 
 export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnalysis> {
+    const user = await requireAuthenticatedUser();
+    await checkAndRecordUserUsage(user.id, "ai_label_analysis", {
+        metadata: { imageUrl },
+    });
+
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
     }
 
-    // Extract key from URL
-    const urlParts = imageUrl.split('/api/images/');
-    if (urlParts.length < 2) {
-        throw new Error("Invalid image URL format.");
-    }
-    const key = decodeURIComponent(urlParts[1]);
+    const key = imageUrlToStorageKey(imageUrl);
+    await assertUserCanAccessImageKey(user.id, key);
 
     // Download image from GCS
     const file = storage.bucket(BUCKET).file(key);
@@ -941,7 +962,12 @@ export async function analyzeWineImage(imageUrl: string): Promise<WineImageAnaly
 }
 
 export async function optimizeWineImage(imageUrl: string): Promise<{ optimizedImage: OptimizedWineImage }> {
-    const originalBuffer = await downloadImageFromGcs(imageUrl);
+    const user = await requireAuthenticatedUser();
+    await checkAndRecordUserUsage(user.id, "ai_image_optimize", {
+        metadata: { imageUrl },
+    });
+
+    const originalBuffer = await downloadImageFromGcs(imageUrl, user.id);
     const [normalized, imageEditInput] = await Promise.all([
         normalizeImageForVision(originalBuffer),
         normalizeImageForImageEdit(originalBuffer),
@@ -959,8 +985,8 @@ export async function optimizeWineImage(imageUrl: string): Promise<{ optimizedIm
     const optimized = generativeOptimized ?? await optimizeLabelImage(normalized.buffer, corners);
     const thumbnailBuffer = await generateServerThumbnail(optimized.buffer);
     const [uploadedImage, uploadedThumbnail] = await Promise.all([
-        uploadJpegBuffer(optimized.buffer, "label_optimized"),
-        uploadJpegBuffer(thumbnailBuffer, "label_thumb"),
+        uploadJpegBuffer(optimized.buffer, "label_optimized", user.id),
+        uploadJpegBuffer(thumbnailBuffer, "label_thumb", user.id),
     ]);
 
     return {
@@ -980,6 +1006,8 @@ export async function optimizeWineImage(imageUrl: string): Promise<{ optimizedIm
 }
 
 export async function optimizeAndAnalyzeWineImage(imageUrl: string): Promise<WineImageOptimizationAndAnalysis> {
+    await requireAuthenticatedUser();
+
     const optimizedResult = await optimizeWineImage(imageUrl);
     const analysis = await analyzeWineImage(optimizedResult.optimizedImage.url);
 
@@ -1275,6 +1303,11 @@ export async function interpretTastingTranscript(input: {
     recentText?: string;
     currentValues?: Record<string, unknown>;
 }): Promise<TastingTranscriptInterpretation> {
+    const user = await requireAuthenticatedUser();
+    await checkAndRecordUserUsage(user.id, "ai_transcript_interpretation", {
+        metadata: { transcriptLength: input.transcript.length },
+    });
+
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
     }
@@ -1507,7 +1540,7 @@ ${jsonText}
     }
 }
 
-function extractGroundingSources(response: any): { title: string; url?: string }[] {
+function extractGroundingSources(response: GroundingCapableResponse): { title: string; url?: string }[] {
     const chunks = response?.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (!Array.isArray(chunks)) return [];
 
@@ -1601,10 +1634,11 @@ async function generateCompressedOpenAIImageBuffer(
     }
 }
 
-async function uploadAiGeneratedImage(buffer: Buffer, prefix: string): Promise<string> {
+async function uploadAiGeneratedImage(buffer: Buffer, prefix: string, userId: string): Promise<string> {
     const now = new Date();
     const key = [
         "ai-explanations",
+        userId,
         "visuals",
         String(now.getFullYear()),
         String(now.getMonth() + 1).padStart(2, "0"),
@@ -1623,6 +1657,7 @@ async function uploadAiGeneratedImage(buffer: Buffer, prefix: string): Promise<s
 }
 
 async function generateCompressedOpenAIImageStorageUrl(
+    userId: string,
     prompt: string,
     width = 1200,
     height = 760,
@@ -1632,7 +1667,7 @@ async function generateCompressedOpenAIImageStorageUrl(
     if (!compressed) return null;
 
     try {
-        return await uploadAiGeneratedImage(compressed, options.storagePrefix || "visual");
+        return await uploadAiGeneratedImage(compressed, options.storagePrefix || "visual", userId);
     } catch (error) {
         console.warn("Failed to upload generated AI explanation image:", error);
         return null;
@@ -1645,6 +1680,7 @@ function generatedCacheKey(prefix: string, text: string) {
 }
 
 async function generateOrReuseStorageImage(
+    userId: string,
     subdir: string,
     key: string,
     prompt: string,
@@ -1652,7 +1688,7 @@ async function generateOrReuseStorageImage(
     height: number,
     options: VisualImageGenerationOptions = {}
 ): Promise<string | null> {
-    const objectKey = `ai-explanations/generated/${subdir}/${key}.webp`;
+    const objectKey = `ai-explanations/${userId}/generated/${subdir}/${key}.webp`;
     const publicPath = `/api/images/${objectKey}`;
     const file = storage.bucket(BUCKET).file(objectKey);
 
@@ -1822,7 +1858,7 @@ Composition: premium restaurant table or natural tabletop, realistic dish presen
 The image should explain why this dish fits the wine's acidity, body, tannin, aroma, or texture without adding text.`;
 }
 
-async function attachAromaPresetImages(data: VisualWineExplanation) {
+async function attachAromaPresetImages(data: VisualWineExplanation, userId: string) {
     const aromas = Array.isArray(data.tasting?.aromaVisuals) ? data.tasting.aromaVisuals.slice(0, 6) : [];
     if (aromas.length === 0) return;
 
@@ -1830,7 +1866,7 @@ async function attachAromaPresetImages(data: VisualWineExplanation) {
         aromas.map(async (aroma) => {
             const key = generatedCacheKey(`aroma-${aroma.family || "other"}`, `${aroma.family}:${aroma.label}:${aroma.description}`);
             const prompt = buildAromaPresetPrompt(aroma);
-            const url = await generateOrReuseStorageImage("aromas", key, prompt, 640, 520, { style: "photo", quality: "medium" });
+            const url = await generateOrReuseStorageImage(userId, "aromas", key, prompt, 640, 520, { style: "photo", quality: "medium" });
 
             return {
                 ...aroma,
@@ -1849,7 +1885,7 @@ async function attachAromaPresetImages(data: VisualWineExplanation) {
     data.tasting.aromaVisuals = withImages;
 }
 
-async function attachPairingImage(query: VisualWineExplanationRequest, data: VisualWineExplanation) {
+async function attachPairingImage(query: VisualWineExplanationRequest, data: VisualWineExplanation, userId: string) {
     data.visualAssets = data.visualAssets || {};
     const pairing = data.serving?.featuredPairing || data.serving?.pairings?.[0];
     if (!pairing) return;
@@ -1857,7 +1893,7 @@ async function attachPairingImage(query: VisualWineExplanationRequest, data: Vis
     data.serving.featuredPairing = pairing;
     const prompt = buildPairingImagePrompt(query, data, pairing);
     const key = generatedCacheKey("pairing", `${wineLabelForPrompt(query)}:${pairing}`);
-    const url = await generateOrReuseStorageImage("pairings", key, prompt, 980, 720, { style: "photo", quality: "medium" });
+    const url = await generateOrReuseStorageImage(userId, "pairings", key, prompt, 980, 720, { style: "photo", quality: "medium" });
 
     if (data.visualAssets.pairing) {
         data.visualAssets.pairing.prompt = prompt;
@@ -1876,7 +1912,104 @@ async function attachPairingImage(query: VisualWineExplanationRequest, data: Vis
     }
 }
 
+function attachVisualPrompts(query: VisualWineExplanationRequest, data: VisualWineExplanation) {
+    data.visualAssets = data.visualAssets || {};
+
+    const producerAsset = data.visualAssets.producer;
+    const terroirMapPrompt = buildTerroirMapPrompt(query, data);
+    const producerImagePrompt = buildProducerImagePrompt(query, data, producerAsset);
+    const aromaBoardPrompt = buildAromaBoardPrompt(query, data);
+
+    data.visualAssets.map = {
+        ...data.visualAssets.map,
+        prompt: terroirMapPrompt,
+        caption: data.visualAssets.map?.caption || "AI生成による実在地域ベースのテロワールマップ",
+    };
+
+    data.visualAssets.producer = {
+        ...producerAsset,
+        prompt: producerImagePrompt,
+        caption: producerAsset?.caption || "公開情報をもとにしたAI生成の生産者イメージ",
+    };
+
+    data.visualAssets.aromaBoard = {
+        ...data.visualAssets.aromaBoard,
+        prompt: aromaBoardPrompt,
+        caption: data.visualAssets.aromaBoard?.caption || "AI生成による代表的な香りのイメージボード",
+    };
+
+    return {
+        terroirMapPrompt,
+        producerImagePrompt,
+        aromaBoardPrompt,
+    };
+}
+
+async function attachVisualImages(query: VisualWineExplanationRequest, data: VisualWineExplanation, userId: string) {
+    const {
+        terroirMapPrompt,
+        producerImagePrompt,
+        aromaBoardPrompt,
+    } = attachVisualPrompts(query, data);
+
+    data.visualAssets = data.visualAssets || {};
+
+    const mainVisualsPromise = Promise.all([
+        generateCompressedOpenAIImageStorageUrl(
+            userId,
+            terroirMapPrompt,
+            1200,
+            760,
+            { allowText: true, style: "editorial", storagePrefix: "map" }
+        ),
+        generateCompressedOpenAIImageStorageUrl(
+            userId,
+            producerImagePrompt,
+            1200,
+            760,
+            { style: "editorial", storagePrefix: "producer" }
+        ),
+        generateCompressedOpenAIImageStorageUrl(
+            userId,
+            aromaBoardPrompt,
+            1200,
+            620,
+            { style: "photo", quality: "medium", storagePrefix: "aroma" }
+        ),
+    ]);
+    const cachedVisualsPromise = Promise.all([
+        attachAromaPresetImages(data, userId),
+        attachPairingImage(query, data, userId),
+    ]);
+    const [mapImage, producerGeneratedImage, aromaBoardImage] = await mainVisualsPromise;
+    await cachedVisualsPromise;
+
+    if (data.visualAssets.map) {
+        data.visualAssets.map.url = mapImage || data.visualAssets.map.url;
+        data.visualAssets.map.kind = mapImage ? "generated" : data.visualAssets.map.kind;
+    }
+
+    if (data.visualAssets.producer) {
+        if (producerGeneratedImage) {
+            data.visualAssets.producer.url = producerGeneratedImage;
+            data.visualAssets.producer.kind = "source-backed-generated";
+        }
+    }
+
+    if (data.visualAssets.aromaBoard) {
+        data.visualAssets.aromaBoard.url = aromaBoardImage || data.visualAssets.aromaBoard.url;
+        data.visualAssets.aromaBoard.kind = aromaBoardImage ? "generated" : data.visualAssets.aromaBoard.kind;
+    }
+
+    return data;
+}
+
 export async function searchWineDetails(wineId: number, query: { name: string; winery?: string; vintage?: string; country?: string; locality?: string; referenceUrl?: string }) {
+    const user = await requireAuthenticatedUser();
+    await checkAndRecordUserUsage(user.id, "ai_deep_search", {
+        metadata: { wineId, name: query.name },
+    });
+
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
     }
@@ -2122,6 +2255,11 @@ export async function searchWineDetails(wineId: number, query: { name: string; w
 }
 
 export async function generateVisualWineExplanation(query: VisualWineExplanationRequest): Promise<VisualWineExplanation> {
+    const user = await requireAuthenticatedUser();
+    await checkAndRecordUserUsage(user.id, "ai_visual_explanation", {
+        metadata: { name: query.name },
+    });
+
     if (!apiKey) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
     }
@@ -2136,7 +2274,7 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
         tools: [
             {
                 googleSearch: {},
-            } as any,
+            } as unknown as Tool,
         ],
     });
 
@@ -2303,84 +2441,31 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
             data.sources = groundedSources;
         }
 
-        data.visualAssets = data.visualAssets || {};
-
-        const producerAsset = data.visualAssets.producer;
-        const terroirMapPrompt = buildTerroirMapPrompt(query, data);
-        const producerImagePrompt = buildProducerImagePrompt(query, data, producerAsset);
-        const aromaBoardPrompt = buildAromaBoardPrompt(query, data);
-        const mainVisualsPromise = Promise.all([
-            generateCompressedOpenAIImageStorageUrl(
-                terroirMapPrompt,
-                1200,
-                760,
-                { allowText: true, style: "editorial", storagePrefix: "map" }
-            ),
-            generateCompressedOpenAIImageStorageUrl(
-                producerImagePrompt,
-                1200,
-                760,
-                { style: "editorial", storagePrefix: "producer" }
-            ),
-            generateCompressedOpenAIImageStorageUrl(
-                aromaBoardPrompt,
-                1200,
-                620,
-                { style: "photo", quality: "medium", storagePrefix: "aroma" }
-            ),
-        ]);
-        const cachedVisualsPromise = Promise.all([
-            attachAromaPresetImages(data),
-            attachPairingImage(query, data),
-        ]);
-        const [mapImage, producerGeneratedImage, aromaBoardImage] = await mainVisualsPromise;
-        await cachedVisualsPromise;
-
-        if (data.visualAssets.map) {
-            data.visualAssets.map.prompt = terroirMapPrompt;
-            data.visualAssets.map.url = mapImage || data.visualAssets.map.url;
-            data.visualAssets.map.kind = mapImage ? "generated" : data.visualAssets.map.kind;
-        } else if (mapImage) {
-            data.visualAssets.map = {
-                url: mapImage,
-                prompt: terroirMapPrompt,
-                caption: "AI生成による実在地域ベースのテロワールマップ",
-                kind: "generated",
-            };
-        }
-
-        if (producerAsset) {
-            producerAsset.prompt = producerImagePrompt;
-            if (producerGeneratedImage) {
-                producerAsset.url = producerGeneratedImage;
-                producerAsset.kind = "source-backed-generated";
-            }
-        } else if (producerGeneratedImage) {
-            data.visualAssets.producer = {
-                url: producerGeneratedImage,
-                prompt: producerImagePrompt,
-                caption: "公開情報をもとにしたAI生成の生産者イメージ",
-                kind: "source-backed-generated",
-            };
-        }
-
-        if (data.visualAssets.aromaBoard) {
-            data.visualAssets.aromaBoard.prompt = aromaBoardPrompt;
-            data.visualAssets.aromaBoard.url = aromaBoardImage || data.visualAssets.aromaBoard.url;
-            data.visualAssets.aromaBoard.kind = aromaBoardImage ? "generated" : data.visualAssets.aromaBoard.kind;
-        } else if (aromaBoardImage) {
-            data.visualAssets.aromaBoard = {
-                url: aromaBoardImage,
-                prompt: aromaBoardPrompt,
-                caption: "AI生成による代表的な香りのイメージボード",
-                kind: "generated",
-            };
-        }
+        attachVisualPrompts(query, data);
 
         return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Gemini Visual Explanation Error Full:", error);
-        throw new Error(`Failed to generate visual wine explanation: ${error.message || String(error)}`);
+        throw new Error(`Failed to generate visual wine explanation: ${getErrorMessage(error)}`);
+    }
+}
+
+export async function generateVisualWineExplanationImages(
+    query: VisualWineExplanationRequest,
+    explanation: VisualWineExplanation
+): Promise<VisualWineExplanation> {
+    const user = await requireAuthenticatedUser();
+    await checkAndRecordUserUsage(user.id, "ai_visual_images", {
+        metadata: { name: query.name },
+    });
+
+    const data = structuredClone(explanation);
+
+    try {
+        return await attachVisualImages(query, data, user.id);
+    } catch (error: unknown) {
+        console.error("Visual wine image generation error:", error);
+        throw new Error(`Failed to generate visual wine images: ${getErrorMessage(error)}`);
     }
 }
 
@@ -2395,6 +2480,7 @@ function wineLabelForPrompt(query: VisualWineExplanationRequest) {
 }
 
 export async function saveGeminiData(wineId: number, data: GroundingData) {
+    const user = await requireAuthenticatedUser();
     const supabase = await createClient();
 
     const { error } = await supabase
@@ -2406,7 +2492,8 @@ export async function saveGeminiData(wineId: number, data: GroundingData) {
             vintage_analysis: data.vintage_analysis,
             search_result_tasting_note: data.search_result_tasting_note,
         })
-        .eq("id", wineId);
+        .eq("id", wineId)
+        .eq("user_id", user.id);
 
     if (error) {
         console.error("Supabase Save Error:", error);

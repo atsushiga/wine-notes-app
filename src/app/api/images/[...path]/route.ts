@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { storage, BUCKET } from '@/lib/gcs';
+import { canUserAccessImageKey } from '@/lib/imageAccess';
+import { isAuthenticationRequiredError, requireAuthenticatedUser } from '@/lib/serverAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,16 +22,20 @@ export async function GET(
   const resolvedParams = await context.params;
   const key = (resolvedParams.path ?? []).join('/'); // uploads/.../filename.jpg
 
-  console.log(`API Image Request: ${key}`);
-
   if (!key) {
     console.error("Missing file path");
     return NextResponse.json({ error: 'Missing file path' }, { status: 400 });
   }
 
-  const file = storage.bucket(BUCKET).file(key);
-
   try {
+    const user = await requireAuthenticatedUser();
+    const canAccess = await canUserAccessImageKey(user.id, key);
+    if (!canAccess) {
+      return NextResponse.json({ error: 'Image not found' }, { status: 404 });
+    }
+
+    const file = storage.bucket(BUCKET).file(key);
+
     // ✅ Content-Type取得（例外時はデフォルト値）
     let meta: GcsMeta = { contentType: 'application/octet-stream' };
     try {
@@ -51,6 +57,10 @@ export async function GET(
       },
     });
   } catch (err) {
+    if (isAuthenticationRequiredError(err)) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
     console.error('GCS proxy error:', err);
     return NextResponse.json({ error: 'Failed to fetch image' }, { status: 500 });
   }

@@ -38,6 +38,7 @@ async function uploadFile(file: File): Promise<string> {
     const payload = {
         filename: file.name,
         contentType: file.type || "application/octet-stream",
+        size: file.size,
     };
 
     const uploadUrlResponse = await fetch("/api/upload-url", {

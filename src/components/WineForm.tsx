@@ -796,6 +796,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         const payload = {
             filename: filename,
             contentType: file.type || 'application/octet-stream',
+            size: file.size,
         };
         const r = await fetch('/api/upload-url', {
             method: 'POST',

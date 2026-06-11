@@ -11,10 +11,10 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
   title: {
-    default: "Wine tasting notes",
+    default: "Wine Notes",
     template: "%s | Wine Notes",
   },
-  description: "Wine tasting notes",
+  description: "ワインのテイスティング記録、画像管理、AI参考情報生成をまとめる個人向けノートアプリ。",
   applicationName: "Wine Notes",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
@@ -50,8 +50,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ja" suppressHydrationWarning>
       <body className={inter.className}>
         <ServiceWorkerRegistration />
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[1000] focus:rounded-xl focus:bg-[var(--primary)] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-[var(--primary-foreground)] focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+        >
+          本文へスキップ
+        </a>
         <AppShell>
-          {children}
+          <div id="main-content" tabIndex={-1}>
+            {children}
+          </div>
           <PwaInstallPrompt />
           <BottomNav />
         </AppShell>

@@ -1,7 +1,10 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import ProfileForm from "@/components/settings/profile-form";
 import LogoutButton from "@/components/settings/logout-button";
+import DeleteAccountSection from "@/components/settings/delete-account-section";
+import DataExportSection from "@/components/settings/data-export-section";
 import { defaultSimpleAiAutomationSettings, type SimpleAiAutomationSettings } from "@/lib/simpleAiAutomation";
 
 export default async function SettingsPage() {
@@ -39,6 +42,25 @@ export default async function SettingsPage() {
 
             <div className="space-y-6">
                 <ProfileForm user={user} defaultInputMode={defaultInputMode} simpleAiAutomation={simpleAiAutomation} />
+
+                <DataExportSection />
+
+                <div className="rounded-lg border border-gray-100 bg-white p-5 shadow-sm">
+                    <h2 className="text-base font-semibold text-gray-900">サポートとポリシー</h2>
+                    <div className="mt-3 grid gap-2 text-sm">
+                        <Link href="/terms" className="text-gray-700 underline underline-offset-4 hover:text-rose-700">
+                            利用規約
+                        </Link>
+                        <Link href="/privacy" className="text-gray-700 underline underline-offset-4 hover:text-rose-700">
+                            プライバシーポリシー
+                        </Link>
+                        <Link href="/contact" className="text-gray-700 underline underline-offset-4 hover:text-rose-700">
+                            問い合わせ
+                        </Link>
+                    </div>
+                </div>
+
+                <DeleteAccountSection />
 
                 <div className="mt-8 pt-6 border-t border-gray-100">
                     <LogoutButton />
