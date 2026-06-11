@@ -22,6 +22,11 @@ type UsageRecordOptions = {
   metadata?: Record<string, unknown>;
 };
 
+type SupabaseUsageError = {
+  code?: string;
+  message?: string;
+};
+
 const USAGE_LIMITS: Record<UsageAction, UsageLimit> = {
   ai_deep_search: { dailyLimit: 20 },
   ai_image_optimize: { dailyLimit: 20 },
@@ -61,6 +66,29 @@ function normalizeQuantity(quantity?: number) {
   return Math.max(1, Math.ceil(quantity));
 }
 
+function isMissingUsageEventsTable(error: SupabaseUsageError | null | undefined) {
+  if (!error) return false;
+  const message = error.message || "";
+  return (
+    error.code === "PGRST205" ||
+    error.code === "42P01" ||
+    (message.includes("usage_events") && (
+      message.includes("schema cache") ||
+      message.includes("Could not find the table") ||
+      message.includes("does not exist")
+    ))
+  );
+}
+
+function warnUsageEventsUnavailable(action: UsageAction, phase: "lookup" | "insert", error: SupabaseUsageError) {
+  console.warn("Usage limits skipped because usage_events is unavailable.", {
+    action,
+    phase,
+    code: error.code,
+    message: error.message,
+  });
+}
+
 async function getCurrentUsageTotal(match: { userId?: string; subjectKey?: string }, action: UsageAction) {
   const supabase = getSupabaseClient();
   let query = supabase
@@ -80,6 +108,11 @@ async function getCurrentUsageTotal(match: { userId?: string; subjectKey?: strin
 
   const { data, error } = await query;
   if (error) {
+    if (isMissingUsageEventsTable(error)) {
+      warnUsageEventsUnavailable(action, "lookup", error);
+      return null;
+    }
+
     throw new Error(`Usage lookup failed: ${error.message}`);
   }
 
@@ -94,6 +127,10 @@ async function checkAndInsertUsage(
   const quantity = normalizeQuantity(options.quantity);
   const limit = USAGE_LIMITS[action].dailyLimit;
   const used = await getCurrentUsageTotal(match, action);
+
+  if (used === null) {
+    return;
+  }
 
   if (used + quantity > limit) {
     throw new UsageLimitError(action, limit);
@@ -111,6 +148,11 @@ async function checkAndInsertUsage(
     });
 
   if (error) {
+    if (isMissingUsageEventsTable(error)) {
+      warnUsageEventsUnavailable(action, "insert", error);
+      return;
+    }
+
     throw new Error(`Usage insert failed: ${error.message}`);
   }
 }
