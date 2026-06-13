@@ -390,7 +390,6 @@ function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExpla
     const featuredPairing = explanation.serving.featuredPairing || asList(explanation.serving.pairings)[0] || "";
     const priceLabel = formatPriceDisplay(data.input.price || wine.marketPriceJpy);
     const drinkingWindow = drinkingWindowLabel(wine.vintage || data.input.vintage);
-    const confidence = confidenceLabel(sources, explanation.sourceNotes);
 
     const handleCreateRecord = () => {
         saveRecordDraftFromVisualExplanation(data);
@@ -429,19 +428,21 @@ function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExpla
                         ) : null}
                     </div>
 
-                    <div className="mt-7 grid gap-5 xl:grid-cols-[minmax(260px,0.78fr)_minmax(0,1.08fr)_minmax(280px,0.78fr)]">
-                        <div className="relative min-h-96 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--input-bg)] xl:min-h-[560px]">
+                    <div className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(260px,360px)_minmax(0,1fr)]">
+                        <div className="relative overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--input-bg)] p-4">
                             {data.imageUrl ? (
-                                <ImageButton
-                                    src={data.imageUrl}
-                                    alt={`${wine.name} bottle or label`}
-                                    className="absolute inset-0 h-full w-full"
-                                    imgClassName="h-full w-full object-contain p-6 sm:p-8"
-                                    onOpen={openImage}
-                                    caption={wine.name || data.input.wineName}
-                                />
+                                <div className="flex aspect-[4/5] min-h-[320px] items-center justify-center overflow-hidden rounded-md bg-[var(--app-bg)] sm:min-h-[380px] lg:min-h-0">
+                                    <ImageButton
+                                        src={data.imageUrl}
+                                        alt={`${wine.name} bottle or label`}
+                                        className="flex h-full w-full items-center justify-center"
+                                        imgClassName="max-h-full max-w-full object-contain"
+                                        onOpen={openImage}
+                                        caption={wine.name || data.input.wineName}
+                                    />
+                                </div>
                             ) : (
-                                <div className="flex h-full items-center justify-center text-[var(--text-muted)]">
+                                <div className="flex aspect-[4/5] min-h-[320px] items-center justify-center rounded-md bg-[var(--app-bg)] text-[var(--text-muted)] sm:min-h-[380px] lg:min-h-0">
                                     <Wine size={56} />
                                 </div>
                             )}
@@ -450,53 +451,43 @@ function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExpla
                             </div>
                         </div>
 
-                        <div className="flex min-w-0 flex-col justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-5 md:p-6">
-                            <div>
+                        <div className="min-w-0">
+                            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-5 md:p-6">
                                 <div className="mb-4 flex flex-wrap gap-2">
-                                    <InsightChip label={wine.vintage || data.input.vintage || "Vintage unknown"} tone="gold" />
                                     <InsightChip label={wine.classification || wine.country || "AI researched"} />
                                     <InsightChip label={priceLabel} />
                                 </div>
                                 <h1 className="font-wine text-4xl font-semibold leading-tight tracking-normal text-[var(--text)] sm:text-5xl">
-                                {displayName.title || "名称未設定"}
+                                    {displayName.title || "名称未設定"}
                                 </h1>
                                 {displayName.subtitle && (
                                     <p className="mt-2 text-xl font-semibold leading-snug tracking-normal text-[var(--color-gold)] sm:text-2xl">
                                         {displayName.subtitle}
                                     </p>
                                 )}
-                                <p className="mt-4 max-w-3xl text-base leading-8 text-[var(--text-soft)]">
-                                    <HighlightText text={explanation.headline} />
-                                </p>
-                            </div>
 
-                            <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                                <FactTile label="生産者" value={wine.producer || data.input.producer || "不明"} />
-                                <FactTile label="ヴィンテージ" value={wine.vintage || data.input.vintage || "不明"} />
-                                <FactTile label="産地" value={[wine.country, wine.region].filter(Boolean).join(" / ") || "不明"} />
-                                <FactTile label="スタイル" value={wine.style || "検索結果を参照"} />
-                            </div>
+                                <div className="mt-6 grid gap-2.5">
+                                    <ProfileMeta label="生産者" value={wine.producer || data.input.producer || "不明"} />
+                                    <div className="grid gap-2.5 sm:grid-cols-2">
+                                        <ProfileMeta label="ヴィンテージ" value={wine.vintage || data.input.vintage || "不明"} />
+                                        <ProfileMeta label="スタイル" value={wine.style || "検索結果を参照"} />
+                                    </div>
+                                    <ProfileMeta label="産地" value={[wine.country, wine.region].filter(Boolean).join(" / ") || "不明"} />
+                                </div>
 
-                            <div className="mt-5 grid gap-2">
-                                <InsightChip label={`Best window: ${drinkingWindow}`} tone="gold" />
-                                <InsightChip label={`Style: ${wine.style || "AI researched"}`} />
-                                <InsightChip label={`Pairing: ${featuredPairing || "料理提案あり"}`} />
-                                <InsightChip label={`Confidence: ${confidence}`} tone="gold" />
-                            </div>
-
-                            <div className="mt-6 border-l-2 border-[var(--color-gold)] bg-[var(--input-bg)] px-4 py-3">
-                                <p className="text-sm leading-7 text-[var(--text-soft)]">
-                                    <HighlightText text={explanation.lead} />
-                                </p>
+                                <div className="mt-5 flex flex-wrap gap-2">
+                                    <InsightChip label={`飲み頃: ${drinkingWindow}`} tone="gold" />
+                                    <InsightChip label={`ペアリング: ${featuredPairing || "料理提案あり"}`} />
+                                </div>
                             </div>
                         </div>
 
-                        <AiVerdictPanel
-                            verdict={explanation.headline || explanation.lead}
-                            takeaways={takeaways}
-                            confidence={confidence}
-                            generatedAt={generatedAt}
-                        />
+                        <div className="lg:col-span-2">
+                            <AiVerdictPanel
+                                verdict={explanation.lead || explanation.headline}
+                                takeaways={takeaways}
+                            />
+                        </div>
                     </div>
                 </div>
             </section>
@@ -727,13 +718,9 @@ function InsightChip({ label, tone = "neutral" }: { label: string; tone?: "neutr
 function AiVerdictPanel({
     verdict,
     takeaways,
-    confidence,
-    generatedAt,
 }: {
     verdict?: string;
     takeaways: string[];
-    confidence: string;
-    generatedAt: string;
 }) {
     return (
         <aside className="rounded-lg border border-[var(--color-gold)]/35 bg-[var(--color-gold-soft)] p-5 md:p-6">
@@ -747,7 +734,7 @@ function AiVerdictPanel({
             <p className="mt-5 text-sm leading-7 text-[var(--text)]">
                 <HighlightText text={verdict || "AIが調査した情報をもとに、このワインの特徴を整理しました。"} />
             </p>
-            <div className="mt-5 space-y-3">
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {takeaways.length > 0 ? takeaways.map((takeaway, index) => (
                     <div key={`${takeaway}-${index}`} className="rounded-lg border border-[var(--color-gold)]/20 bg-[var(--card-bg)]/70 p-3">
                         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-gold)]">
@@ -763,25 +750,15 @@ function AiVerdictPanel({
                     </div>
                 )}
             </div>
-            <div className="mt-5 grid gap-2 text-xs text-[var(--text-muted)]">
-                <div className="flex items-center justify-between gap-3 border-t border-[var(--color-gold)]/20 pt-3">
-                    <span>Confidence</span>
-                    <span className="font-semibold text-[var(--text)]">{confidence}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                    <span>Generated</span>
-                    <span className="text-right font-semibold text-[var(--text)]">{generatedAt}</span>
-                </div>
-            </div>
         </aside>
     );
 }
 
-function FactTile({ label, value, className = "" }: { label: string; value: string; className?: string }) {
+function ProfileMeta({ label, value }: { label: string; value: string }) {
     return (
-        <div className={`rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4 ${className}`}>
+        <div className="rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2.5">
             <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
-            <p className="mt-2 break-words text-sm font-semibold leading-6 text-[var(--text)]">{value}</p>
+            <p className="mt-1 break-words text-sm font-semibold leading-6 text-[var(--text)]">{value}</p>
         </div>
     );
 }
@@ -792,13 +769,6 @@ function drinkingWindowLabel(vintage?: string) {
 
     const year = Number(match[0]);
     return `${year + 5}-${year + 14}`;
-}
-
-function confidenceLabel(sources?: { title: string; url?: string }[], sourceNotes?: string[]) {
-    const sourceCount = asList(sources).length + asList(sourceNotes).length;
-    if (sourceCount >= 4) return "High";
-    if (sourceCount >= 2) return "Medium";
-    return "Exploratory";
 }
 
 function ImageCreditOverlay({ asset }: { asset?: VisualImageAsset }) {

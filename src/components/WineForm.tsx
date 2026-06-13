@@ -142,14 +142,14 @@ type FormSectionId = 'photo' | 'appearance' | 'aroma' | 'taste' | 'summary';
 
 interface FormAccordionSectionProps {
     id: FormSectionId;
-    activeId: FormSectionId;
+    activeId: FormSectionId | null;
     index: number;
     title: string;
     description: string;
     icon: ReactNode;
     right?: ReactNode;
     hasError?: boolean;
-    onOpen: (id: FormSectionId) => void;
+    onToggle: (id: FormSectionId) => void;
     children: ReactNode;
 }
 
@@ -162,7 +162,7 @@ function FormAccordionSection({
     icon,
     right,
     hasError = false,
-    onOpen,
+    onToggle,
     children,
 }: FormAccordionSectionProps) {
     const isActive = id === activeId;
@@ -172,7 +172,7 @@ function FormAccordionSection({
             <div className="flex items-start justify-between gap-3 p-4 md:p-5">
                 <button
                     type="button"
-                    onClick={() => onOpen(id)}
+                    onClick={() => onToggle(id)}
                     className="group flex min-w-0 flex-1 items-start gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                     aria-expanded={isActive}
                     aria-controls={`wine-form-section-${id}`}
@@ -193,7 +193,7 @@ function FormAccordionSection({
                     {isActive && right}
                     <button
                         type="button"
-                        onClick={() => onOpen(id)}
+                        onClick={() => onToggle(id)}
                         aria-label={isActive ? `${title}を閉じる` : `${title}を開く`}
                         className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--input-bg)] hover:text-[var(--text)]"
                     >
@@ -460,7 +460,7 @@ function isEmptyVoiceValue(value: unknown) {
 
 const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onSubmit, isSubmitting, submitLabel = '記録を保存', onCancel, persistKey, onWineTypeChange, simpleMode = false, simpleAiAutomation = defaultSimpleAiAutomationSettings }, ref) => {
     const dateValueOriginRef = useRef<DateValueOrigin>(defaultValues?.date ? 'savedOrDefault' : 'empty');
-    const [activeSection, setActiveSection] = useState<FormSectionId>('photo');
+    const [activeSection, setActiveSection] = useState<FormSectionId | null>('photo');
     const { register, handleSubmit, control, watch, setValue, getValues, reset, formState: { errors } } = useForm<WineFormValues>({
         defaultValues: {
             date: '',
@@ -817,6 +817,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         watch('search_result_tasting_note')
     );
     const hasSectionError = useCallback((sectionId: FormSectionId) => SECTION_ERROR_KEYS[sectionId].some((key) => Boolean(errors[key])), [errors]);
+    const handleSectionToggle = useCallback((sectionId: FormSectionId) => {
+        setActiveSection((current) => current === sectionId ? null : sectionId);
+    }, []);
 
     useEffect(() => {
         const firstErrorSection = (Object.keys(SECTION_ERROR_KEYS) as FormSectionId[]).find((sectionId) => hasSectionError(sectionId));
@@ -1406,7 +1409,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                             <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[var(--text-muted)]" />
                         )}
                     </div>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                         {visibleImageAiProgressSteps.map((step, index) => {
                             const isComplete = imageAiProgressPhase === 'complete' || (imageAiProgressActiveIndex > index && imageAiProgressPhase !== 'error');
                             const isActive = imageAiProgressActiveIndex === index && imageAiProgressPhase !== 'complete' && imageAiProgressPhase !== 'error';
@@ -1414,7 +1417,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                             return (
                                 <div
                                     key={step.phase}
-                                    className={`flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-xs ${isComplete
+                                    className={`flex min-h-12 items-center gap-2 rounded-lg border px-3 py-2 text-xs leading-4 ${isComplete
                                         ? 'border-[var(--border)] bg-[var(--card-bg)] text-[var(--text-muted)]'
                                         : isActive
                                             ? 'border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--text)]'
@@ -1428,7 +1431,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                     ) : (
                                         <Circle className="h-4 w-4 shrink-0" />
                                     )}
-                                    <span className="truncate">{step.label}</span>
+                                    <span className="min-w-0 whitespace-normal break-keep">{step.label}</span>
                                 </div>
                             );
                         })}
@@ -1595,6 +1598,24 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         <FieldRow label="寸評 (Notes)">
             <textarea className={`${FORM_CONTROL_BASE} h-28`} {...register('notes')} placeholder="自由記述" />
         </FieldRow>
+    );
+
+    const simpleSummarySection = (
+        <section className="rounded-lg border border-[var(--color-gold)]/35 bg-[var(--surface-2)] p-4 shadow-[0_12px_36px_rgba(0,0,0,0.18)] md:p-5">
+            <div className="mb-5 flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--color-gold)]/35 bg-[var(--color-gold-soft)] text-[var(--color-gold)]">
+                    <Award size={18} />
+                </div>
+                <div>
+                    <h3 className="text-base font-semibold text-[var(--text)]">総評</h3>
+                    <p className="mt-1 text-sm leading-5 text-[var(--text-muted)]">まず好みとメモだけ残して、詳細はあとから補えます。</p>
+                </div>
+            </div>
+            <div className="space-y-6">
+                {personalRatingField}
+                {personalNotesField}
+            </div>
+        </section>
     );
 
     const aiInfoTextareaClass = `${FORM_CONTROL_BASE} text-sm`;
@@ -1801,7 +1822,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     description="ラベル写真、銘柄、価格、生産地をまとめて入力"
                     icon={<ImageIcon size={18} />}
                     hasError={hasSectionError('photo')}
-                    onOpen={setActiveSection}
+                    onToggle={handleSectionToggle}
                     right={
                         <button
                             type="button"
@@ -1927,6 +1948,8 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     </div>
                 </FormAccordionSection>
 
+                {simpleMode && simpleSummarySection}
+
                 <FormAccordionSection
                     id="appearance"
                     activeId={activeSection}
@@ -1935,7 +1958,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     description="清澄度、輝き、濃淡、色調を記録"
                     icon={<Eye size={18} />}
                     hasError={hasSectionError('appearance')}
-                    onOpen={setActiveSection}
+                    onToggle={handleSectionToggle}
                 >
                 <div className="grid sm:grid-cols-2 gap-6">
                     <FieldRow label="清澄度">
@@ -2027,7 +2050,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     description="強さ、質、特徴、アロマカテゴリを選択"
                     icon={<Wind size={18} />}
                     hasError={hasSectionError('aroma')}
-                    onOpen={setActiveSection}
+                    onToggle={handleSectionToggle}
                 >
 
                 <div className="grid sm:grid-cols-2 gap-6">
@@ -2173,7 +2196,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     description="甘味、酸味、タンニン、ボディ、アルコールを素早く調整"
                     icon={<Grape size={18} />}
                     hasError={hasSectionError('taste')}
-                    onOpen={setActiveSection}
+                    onToggle={handleSectionToggle}
                 >
 
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -2311,7 +2334,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     description="品質、熟成可能性、個人的な好み、AI補完"
                     icon={<Award size={18} />}
                     hasError={hasSectionError('summary')}
-                    onOpen={setActiveSection}
+                    onToggle={handleSectionToggle}
                     right={
                         <button
                             type="button"
@@ -2353,11 +2376,13 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         </FieldRow>
                     </div>
 
-                    {personalNotesField}
+                    {!simpleMode && personalNotesField}
 
+                    {!simpleMode && (
                     <div className="pt-6 border-t border-[var(--border-subtle)]">
                             {personalRatingField}
                     </div>
+                    )}
                 </div>
                 <div className="mt-6">
                     {aiInfoSection}

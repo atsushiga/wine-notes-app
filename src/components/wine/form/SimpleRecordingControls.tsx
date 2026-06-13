@@ -209,7 +209,7 @@ export function SimpleRecordingControls({
 
     return (
         <>
-            <div className="fixed right-4 top-[calc(env(safe-area-inset-top)+5rem)] z-50 hidden flex-col items-end gap-2 sm:flex">
+            <div className="fixed right-[max(1rem,calc((100vw-56rem)/2+2rem))] top-[calc(env(safe-area-inset-top)+5rem)] z-50 hidden flex-col items-end gap-2 sm:flex md:right-[max(2rem,calc((100vw-15rem-56rem)/2+2rem))]">
                 {error && (
                     <div className="max-w-[220px] rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 shadow-lg">
                         {error}

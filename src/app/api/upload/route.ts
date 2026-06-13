@@ -17,6 +17,9 @@ interface UploadResponse {
   key: string;
 }
 
+const RESUMABLE_UPLOAD_THRESHOLD_BYTES = 1024 * 1024;
+const MAX_STORAGE_UPLOAD_ATTEMPTS = 3;
+
 export async function POST(req: NextRequest) {
   try {
     const user = await requireAuthenticatedUser();
@@ -47,13 +50,7 @@ export async function POST(req: NextRequest) {
     const key = `uploads/${user.id}/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${safeFilename}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    await storage.bucket(BUCKET).file(key).save(buffer, {
-      resumable: false,
-      metadata: {
-        contentType,
-        cacheControl: 'public, max-age=31536000, immutable',
-      },
-    });
+    await saveImageBufferWithRetry(key, buffer, contentType);
 
     const payload: UploadResponse = {
       getUrl: `/api/images/${key}`,
@@ -74,4 +71,65 @@ export async function POST(req: NextRequest) {
     console.error('upload error', err);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
+}
+
+async function saveImageBufferWithRetry(key: string, buffer: Buffer, contentType: string) {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= MAX_STORAGE_UPLOAD_ATTEMPTS; attempt += 1) {
+    try {
+      await storage.bucket(BUCKET).file(key).save(buffer, {
+        resumable: shouldUseResumableUpload(buffer, attempt),
+        metadata: {
+          contentType,
+          cacheControl: 'public, max-age=31536000, immutable',
+        },
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= MAX_STORAGE_UPLOAD_ATTEMPTS || !isRetryableStorageUploadError(error)) {
+        throw error;
+      }
+
+      console.warn('GCS upload retrying after transient error', {
+        attempt,
+        key,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      await wait(250 * (2 ** (attempt - 1)));
+    }
+  }
+
+  throw lastError;
+}
+
+function shouldUseResumableUpload(buffer: Buffer, attempt: number) {
+  return buffer.byteLength >= RESUMABLE_UPLOAD_THRESHOLD_BYTES || attempt > 1;
+}
+
+function isRetryableStorageUploadError(error: unknown) {
+  const code = getErrorProperty(error, 'code');
+  const status = Number(getErrorProperty(error, 'status') ?? getErrorProperty(error, 'statusCode'));
+  const message = error instanceof Error ? error.message : String(error);
+
+  return (
+    code === 'EPIPE' ||
+    code === 'ECONNRESET' ||
+    code === 'ETIMEDOUT' ||
+    code === 'EAI_AGAIN' ||
+    status === 408 ||
+    status === 429 ||
+    (status >= 500 && status < 600) ||
+    /EPIPE|ECONNRESET|ETIMEDOUT|socket hang up|network timeout/i.test(message)
+  );
+}
+
+function getErrorProperty(error: unknown, key: string) {
+  if (!error || typeof error !== 'object' || !(key in error)) return undefined;
+  return (error as Record<string, unknown>)[key];
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
