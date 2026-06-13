@@ -20,13 +20,13 @@ export function NavigationFrame({ children }: NavigationFrameProps) {
             <div
                 className={cn(
                     "min-h-screen",
-                    showNavigation && "md:pl-60"
+                    showNavigation && "h-dvh overflow-hidden md:h-auto md:overflow-visible md:pl-60"
                 )}
             >
                 <main
                     id="main-content"
                     tabIndex={-1}
-                    className={cn(showNavigation && "pb-28 md:pb-0")}
+                    className={cn(showNavigation && "h-[calc(100dvh-5.75rem-env(safe-area-inset-bottom))] overflow-y-auto pb-6 md:h-auto md:overflow-visible md:pb-0")}
                 >
                     {children}
                 </main>

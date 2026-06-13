@@ -2,14 +2,16 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { TastingNote } from '@/types/custom';
 import { bulkDeleteWines } from '@/app/actions/wine';
 import { ContentContainer } from '@/components/layout/ContentContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card } from '@/components/ui/Card';
-import { FORM_CONTROL_BASE } from '@/constants/styles';
+import { Chip, WineImageFrame } from '@/components/ui/primitives';
+import { BUTTON_PRIMARY, BUTTON_SECONDARY, FORM_CONTROL_BASE } from '@/constants/styles';
 import { isProtectedImageUrl } from '@/lib/protectedImage';
+import { cn } from '@/lib/utils';
+import { Plus, Search, Trash2 } from 'lucide-react';
 
 interface WineListProps {
     notes: TastingNote[];
@@ -17,6 +19,17 @@ interface WineListProps {
 
 type SortKey = 'date' | 'price' | 'rating' | 'wine_name';
 type SortOrder = 'asc' | 'desc';
+type QuickFilter = 'all' | 'red' | 'white' | 'sparkling' | 'bourgogne' | 'france' | 'ai';
+
+const quickFilters: Array<{ key: QuickFilter; label: string }> = [
+    { key: 'all', label: 'すべて' },
+    { key: 'red', label: '赤' },
+    { key: 'white', label: '白' },
+    { key: 'sparkling', label: '泡' },
+    { key: 'bourgogne', label: 'ブルゴーニュ' },
+    { key: 'france', label: 'フランス' },
+    { key: 'ai', label: 'AI分析済み' },
+];
 
 export default function WineList({ notes }: WineListProps) {
     const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -29,6 +42,8 @@ export default function WineList({ notes }: WineListProps) {
 
     // Filter State
     const [filterStatus, setFilterStatus] = useState<'all' | 'draft'>('all');
+    const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
+    const [searchQuery, setSearchQuery] = useState('');
 
     const toggleSelectionMode = () => {
         setIsSelectionMode(!isSelectionMode);
@@ -63,11 +78,30 @@ export default function WineList({ notes }: WineListProps) {
 
     // Sort Logic
     // Create a copy before sorting to avoid mutating props directly if they were not readonly
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+
     const filteredNotes = notes.filter((note) => {
         if (filterStatus === 'draft') {
-            return note.status === 'draft';
+            if (note.status !== 'draft') return false;
         }
-        return true;
+
+        if (!matchesQuickFilter(note, quickFilter)) return false;
+        if (!normalizedSearch) return true;
+
+        return [
+            note.wine_name,
+            note.producer,
+            note.country,
+            note.region,
+            note.locality,
+            note.main_variety,
+            note.other_varieties,
+            note.vintage,
+        ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase()
+            .includes(normalizedSearch);
     });
 
     const sortedNotes = [...filteredNotes].sort((a, b) => {
@@ -105,51 +139,30 @@ export default function WineList({ notes }: WineListProps) {
     return (
         <ContentContainer size="wide" className="pb-24">
             <PageHeader
-                title="ワイン記録一覧"
-                subtitle="過去のテイスティングノートを振り返る"
+                title="ワイン一覧"
+                subtitle="ラベルと記憶から、過去のテイスティングを探す"
                 actions={
-                    <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-                        {/* Status Filter */}
-                        <select
-                            className={`${FORM_CONTROL_BASE} w-auto`}
-                            onChange={(e) => setFilterStatus(e.target.value as 'all' | 'draft')}
-                            value={filterStatus}
-                        >
-                            <option value="all">すべて表示</option>
-                            <option value="draft">下書き (編集中) のみ</option>
-                        </select>
-
-                        {/* Sort Dropdown */}
-                        <select
-                            className={`${FORM_CONTROL_BASE} w-auto`}
-                            onChange={handleSortChange}
-                            defaultValue="date-desc"
-                        >
-                            <option value="date-desc">日付 (新しい順)</option>
-                            <option value="date-asc">日付 (古い順)</option>
-                            <option value="rating-desc">評価 (高い順)</option>
-                            <option value="rating-asc">評価 (低い順)</option>
-                            <option value="price-desc">価格 (高い順)</option>
-                            <option value="price-asc">価格 (低い順)</option>
-                            <option value="wine_name-asc">名前 (昇順)</option>
-                            <option value="wine_name-desc">名前 (降順)</option>
-                        </select>
-
+                    <div className="flex w-full flex-wrap justify-end gap-2 md:w-auto">
+                        <Link href="/" className={BUTTON_PRIMARY}>
+                            <Plus size={16} />
+                            記録を追加
+                        </Link>
                         {isSelectionMode && selectedIds.length > 0 && (
                             <button
                                 onClick={handleBulkDelete}
                                 disabled={isDeleting}
-                                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50"
+                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--color-error)]/35 bg-[var(--color-error)]/10 px-4 py-2 text-sm font-semibold text-[var(--color-error)] transition-colors hover:bg-[var(--color-error)]/15 disabled:opacity-50"
                             >
+                                <Trash2 size={16} />
                                 {isDeleting ? '削除中...' : `${selectedIds.length}件を削除`}
                             </button>
                         )}
                         <button
                             onClick={toggleSelectionMode}
-                            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${isSelectionMode
-                                ? 'bg-[var(--chip-bg)] text-[var(--text)] border-[var(--chip-border)] hover:bg-[var(--border)]'
-                                : 'bg-[var(--card-bg)] text-[var(--text)] border-[var(--border)] hover:bg-[var(--surface-2)]'
-                                }`}
+                            className={cn(
+                                BUTTON_SECONDARY,
+                                isSelectionMode && 'border-[var(--primary)]/35 bg-[var(--color-wine-red-soft)] text-[var(--text)]'
+                            )}
                         >
                             {isSelectionMode ? 'キャンセル' : '選択'}
                         </button>
@@ -157,42 +170,110 @@ export default function WineList({ notes }: WineListProps) {
                 }
             />
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                {sortedNotes.map((note) => (
-                    <div key={note.id} className="relative group block h-full">
-                        {/* Selection Overlay / Checkbox */}
-                        {isSelectionMode && (
-                            <div
-                                onClick={() => toggleSelection(note.id)}
-                                className="absolute inset-0 z-10 cursor-pointer"
-                            >
-                                <div className={`absolute top-2 left-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${selectedIds.includes(note.id)
-                                    ? 'bg-blue-600 border-blue-600'
-                                    : 'bg-[var(--card-bg)]/80 border-[var(--border)]'
-                                    }`}>
-                                    {selectedIds.includes(note.id) && (
-                                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                        </svg>
-                                    )}
-                                </div>
-                            </div>
-                        )}
+            <div className="mb-6 space-y-4 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-3 md:p-4">
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto]">
+                    <label className="relative block">
+                        <span className="sr-only">ワインを検索</span>
+                        <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                        <input
+                            className={`${FORM_CONTROL_BASE} pl-10`}
+                            placeholder="ワイン名、生産者、産地、品種で検索"
+                            value={searchQuery}
+                            onChange={(event) => setSearchQuery(event.target.value)}
+                        />
+                    </label>
 
-                        <div className={`block h-full ${!isSelectionMode ? '' : 'pointer-events-none'}`}>
-                            {isSelectionMode ? (
-                                <div className="h-full">
-                                    <WineCardContent note={note} />
-                                </div>
-                            ) : (
-                                <Link href={`/wines/${note.id}`} className="block h-full">
-                                    <WineCardContent note={note} />
-                                </Link>
-                            )}
-                        </div>
-                    </div>
-                ))}
+                    <select
+                        className={`${FORM_CONTROL_BASE} lg:w-44`}
+                        onChange={(e) => setFilterStatus(e.target.value as 'all' | 'draft')}
+                        value={filterStatus}
+                    >
+                        <option value="all">すべて表示</option>
+                        <option value="draft">下書きのみ</option>
+                    </select>
+
+                    <select
+                        className={`${FORM_CONTROL_BASE} lg:w-48`}
+                        onChange={handleSortChange}
+                        defaultValue="date-desc"
+                    >
+                        <option value="date-desc">日付 (新しい順)</option>
+                        <option value="date-asc">日付 (古い順)</option>
+                        <option value="rating-desc">評価 (高い順)</option>
+                        <option value="rating-asc">評価 (低い順)</option>
+                        <option value="price-desc">価格 (高い順)</option>
+                        <option value="price-asc">価格 (低い順)</option>
+                        <option value="wine_name-asc">名前 (昇順)</option>
+                        <option value="wine_name-desc">名前 (降順)</option>
+                    </select>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                    {quickFilters.map((filter) => {
+                        const active = quickFilter === filter.key;
+                        return (
+                            <button
+                                key={filter.key}
+                                type="button"
+                                onClick={() => setQuickFilter(filter.key)}
+                                className={cn(
+                                    "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                                    active
+                                        ? "border-[var(--primary)]/35 bg-[var(--color-wine-red-soft)] text-[var(--text)]"
+                                        : "border-[var(--border)] bg-[var(--chip-bg)] text-[var(--chip-text)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                                )}
+                                aria-pressed={active}
+                            >
+                                {filter.label}
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
+
+            {sortedNotes.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--card-bg)] px-5 py-12 text-center">
+                    <p className="text-base font-semibold text-[var(--text)]">該当するワインがありません</p>
+                    <p className="mt-2 text-sm text-[var(--text-muted)]">検索条件やフィルターを変更してください。</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-4 2xl:grid-cols-5">
+                    {sortedNotes.map((note) => (
+                        <div key={note.id} className="relative group block h-full">
+                            {/* Selection Overlay / Checkbox */}
+                            {isSelectionMode && (
+                                <div
+                                    onClick={() => toggleSelection(note.id)}
+                                    className="absolute inset-0 z-10 cursor-pointer"
+                                >
+                                    <div className={`absolute top-3 left-3 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-colors ${selectedIds.includes(note.id)
+                                        ? 'bg-[var(--primary)] border-[var(--primary)]'
+                                        : 'bg-[var(--card-bg)]/80 border-[var(--border)]'
+                                        }`}>
+                                        {selectedIds.includes(note.id) && (
+                                            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className={`block h-full ${!isSelectionMode ? '' : 'pointer-events-none'}`}>
+                                {isSelectionMode ? (
+                                    <div className="h-full">
+                                        <WineCardContent note={note} />
+                                    </div>
+                                ) : (
+                                    <Link href={`/wines/${note.id}`} className="block h-full">
+                                        <WineCardContent note={note} />
+                                    </Link>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </ContentContainer>
     );
 }
@@ -208,27 +289,22 @@ function isSortOrder(value: string): value is SortOrder {
 function WineCardContent({ note }: { note: TastingNote }) {
     const displayDate = formatDate(note.date);
     const imageSrc = note.images?.[0]?.thumbnail_url || note.images?.[0]?.url || note.image_url || '';
+    const regionLine = [note.country, note.region || note.locality, note.main_variety].filter(Boolean).join(' · ');
+    const hasAi = Boolean(note.ai_explanation_id);
 
     return (
-        <Card className="overflow-hidden flex flex-col h-full transition-transform duration-200 hover:-translate-y-1 hover:shadow-md">
-            <div className="relative aspect-[3/3.2] w-full bg-[var(--surface-2)]">
-                {imageSrc ? (
-                    <Image
-                        src={imageSrc}
-                        alt={note.wine_name || "Wine Image"}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 50vw, 33vw"
-                        unoptimized={isProtectedImageUrl(imageSrc)}
-                    />
-                ) : (
-                    <div className="flex items-center justify-center h-full text-[var(--text-muted)] opacity-30">
-                        <span className="text-4xl">🍷</span>
-                    </div>
-                )}
+        <Card className="flex h-full flex-col overflow-hidden transition-transform duration-200 hover:-translate-y-1 hover:border-[var(--color-gold)]/45">
+            <div className="relative bg-[var(--input-bg)] p-3">
+                <WineImageFrame
+                    src={imageSrc}
+                    alt={note.wine_name || "ワインラベル"}
+                    className="aspect-[4/5] border-[var(--border-subtle)]"
+                    imageClassName="object-contain p-2"
+                    unoptimized={isProtectedImageUrl(imageSrc)}
+                />
                 {note.rating && (
-                    <div className="absolute top-2 right-2 bg-[var(--card-bg)]/90 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm flex items-center space-x-1 border border-[var(--border)]">
-                        <span className="text-yellow-500 text-xs">★</span>
+                    <div className="absolute top-5 right-5 flex items-center space-x-1 rounded-full border border-[var(--color-gold)]/35 bg-[var(--card-bg)]/90 px-2 py-1 shadow-sm backdrop-blur-sm">
+                        <span className="text-xs text-[var(--color-gold)]">★</span>
                         <span className="text-xs font-bold text-[var(--text)]">
                             {note.rating}
                         </span>
@@ -236,42 +312,37 @@ function WineCardContent({ note }: { note: TastingNote }) {
                 )}
                 {/* Draft Badge */}
                 {note.status === 'draft' && (
-                    <div className="absolute top-2 left-2 bg-yellow-100/90 dark:bg-yellow-900/50 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm flex items-center space-x-1 border border-yellow-200 dark:border-yellow-800">
-                        <span className="text-yellow-700 dark:text-yellow-200 text-xs font-bold">編集中</span>
-                    </div>
+                    <Chip tone="gold" className="absolute left-5 top-5 bg-[var(--card-bg)]/90 backdrop-blur-sm">編集中</Chip>
                 )}
             </div>
 
-            <div className="p-3 flex flex-col flex-grow bg-[var(--card-bg)]">
-                <h3 className="font-semibold text-[var(--text)] text-sm line-clamp-2 mb-1">
+            <div className="flex flex-grow flex-col bg-[var(--card-bg)] p-4">
+                <h3 className="font-wine mb-1 line-clamp-2 text-base font-semibold leading-snug text-[var(--text)] md:text-lg">
                     {note.wine_name || "名称未設定"}
                 </h3>
 
-                <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mb-1">
-                    {note.country && (
-                        <span title={note.country}>{getCountryFlag(note.country)}</span>
-                    )}
+                {note.producer && (
+                    <p className="mb-2 line-clamp-1 text-sm text-[var(--text-soft)]">{note.producer}</p>
+                )}
+
+                <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
                     {note.wine_type && (
-                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${getWineTypeStyle(note.wine_type)}`}>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${getWineTypeStyle(note.wine_type)}`}>
                             {note.wine_type}
                         </span>
                     )}
+                    {note.vintage && <span>{note.vintage}</span>}
                 </div>
 
-                {note.vintage && (
-                    <p className="text-xs text-[var(--text-muted)] mb-0.5">{note.vintage}</p>
-                )}
+                <p className="mb-3 line-clamp-2 min-h-9 text-xs leading-5 text-[var(--text-muted)]">
+                    {regionLine || "産地・品種未設定"}
+                </p>
 
-                {note.price && (
-                    <p className="text-xs text-[var(--text-muted)] mb-1">
-                        ¥{note.price.toLocaleString()}
-                    </p>
-                )}
-
-                <div className="mt-auto pt-2 border-t border-[var(--border)] flex justify-between items-center text-[10px] text-[var(--text-muted)]">
-                    <span suppressHydrationWarning>
-                        {displayDate || "-"}
-                    </span>
+                <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3 text-xs text-[var(--text-muted)]">
+                    {note.rating ? <span className="text-[var(--text-soft)]">★ {note.rating}</span> : null}
+                    {note.price ? <span>¥{note.price.toLocaleString()}</span> : null}
+                    {hasAi ? <Chip tone="gold" className="px-2 py-0.5">AI分析済み</Chip> : null}
+                    <span className="ml-auto" suppressHydrationWarning>{displayDate || "-"}</span>
                 </div>
             </div>
         </Card>
@@ -291,53 +362,41 @@ function formatDate(date?: string) {
     return parsed.toLocaleDateString("ja-JP");
 }
 
-function getCountryFlag(countryName: string): string {
-    const countryMap: { [key: string]: string } = {
-        "フランス": "🇫🇷",
-        "イタリア": "🇮🇹",
-        "スペイン": "🇪🇸",
-        "ドイツ": "🇩🇪",
-        "アメリカ": "🇺🇸",
-        "チリ": "🇨🇱",
-        "アルゼンチン": "🇦🇷",
-        "オーストラリア": "🇦🇺",
-        "ニュージーランド": "🇳🇿",
-        "南アフリカ": "🇿🇦",
-        "ポルトガル": "🇵🇹",
-        "日本": "🇯🇵",
-        "France": "🇫🇷",
-        "Italy": "🇮🇹",
-        "Spain": "🇪🇸",
-        "Germany": "🇩🇪",
-        "USA": "🇺🇸",
-        "Chile": "🇨🇱",
-        "Argentina": "🇦🇷",
-        "Australia": "🇦🇺",
-        "New Zealand": "🇳🇿",
-        "South Africa": "🇿🇦",
-        "Portugal": "🇵🇹",
-        "Japan": "🇯🇵",
-    };
-    return countryMap[countryName] || "🏳️";
-}
-
-
 function getWineTypeStyle(type: string): string {
     const t = type.toLowerCase();
     if (t.includes('赤') || t.includes('red')) {
-        return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200 border border-red-200 dark:border-red-800";
+        return "bg-[var(--color-wine-red-soft)] text-[var(--text)] border border-[var(--primary)]/25";
     }
     if (t.includes('白') || t.includes('white') || t.includes('sparkli') || t.includes('発泡')) {
         if (t.includes('ロゼ') || t.includes('rose') || t.includes('rosé')) {
-            return "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-200 border border-pink-200 dark:border-pink-800";
+            return "bg-[var(--color-wine-red-soft)] text-[var(--text-soft)] border border-[var(--primary)]/20";
         }
-        return "bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800";
+        return "bg-[var(--color-gold-soft)] text-[var(--text)] border border-[var(--color-gold)]/25";
     }
     if (t.includes('ロゼ') || t.includes('rose') || t.includes('rosé')) {
-        return "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-200 border border-pink-200 dark:border-pink-800";
+        return "bg-[var(--color-wine-red-soft)] text-[var(--text-soft)] border border-[var(--primary)]/20";
     }
     if (t.includes('オレンジ') || t.includes('orange')) {
-        return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-200 border border-orange-200 dark:border-orange-800";
+        return "bg-[var(--color-gold-soft)] text-[var(--text)] border border-[var(--color-gold)]/25";
     }
     return "bg-[var(--chip-bg)] text-[var(--chip-text)] border border-[var(--chip-border)]";
+}
+
+function matchesQuickFilter(note: TastingNote, filter: QuickFilter) {
+    if (filter === 'all') return true;
+
+    const type = (note.wine_type || '').toLowerCase();
+    const locationText = [note.country, note.region, note.locality, note.locality_vocab?.name, note.locality_vocab?.name_ja]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+    if (filter === 'red') return type.includes('赤') || type.includes('red');
+    if (filter === 'white') return type.includes('白') || type.includes('white');
+    if (filter === 'sparkling') return type.includes('泡') || type.includes('発泡') || type.includes('sparkling');
+    if (filter === 'bourgogne') return locationText.includes('ブルゴーニュ') || locationText.includes('bourgogne') || locationText.includes('burgundy');
+    if (filter === 'france') return locationText.includes('フランス') || locationText.includes('france');
+    if (filter === 'ai') return Boolean(note.ai_explanation_id);
+
+    return true;
 }
