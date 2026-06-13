@@ -48,11 +48,10 @@ export function isNavigationHidden(pathname: string) {
     );
 }
 
-export default function BottomNav() {
+function useNavigationState() {
     const pathname = usePathname();
     const [pendingNavigation, setPendingNavigation] = useState<{ href: string; from: string } | null>(null);
     const pendingHref = pendingNavigation?.from === pathname ? pendingNavigation.href : null;
-    const shouldHideNav = isNavigationHidden(pathname);
 
     useEffect(() => {
         const timeoutId = window.setTimeout(() => {
@@ -63,10 +62,6 @@ export default function BottomNav() {
             window.clearTimeout(timeoutId);
         };
     }, [pathname]);
-
-    if (shouldHideNav) {
-        return null;
-    }
 
     const isActive = (path: string) => {
         if (path === "/") return pathname === "/";
@@ -82,17 +77,36 @@ export default function BottomNav() {
         setPendingNavigation({ href, from: pathname });
     };
 
+    return { handleNavClick, isActive, pendingHref };
+}
+
+function DesktopSidebar() {
+    const { handleNavClick, isActive, pendingHref } = useNavigationState();
+
     return (
-        <nav
+        <aside
             aria-label="主要ナビゲーション"
-            className="app-navigation fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border)] bg-[var(--card-bg)] shadow-lg pb-safe md:bottom-auto md:right-auto md:top-0 md:h-dvh md:w-56 md:border-r md:border-t-0 md:pb-0 md:pt-safe"
+            className="fixed inset-y-0 left-0 z-40 hidden w-60 border-r border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-6 md:flex md:flex-col"
         >
             {pendingHref ? (
-                <div className="absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-[var(--accent-muted)]">
+                <div className="absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-[var(--color-wine-red-soft)]">
                     <div className="bottom-nav-progress h-full w-1/3 rounded-full bg-[var(--primary)]" />
                 </div>
             ) : null}
-            <div className="flex h-16 items-center justify-around md:h-full md:flex-col md:items-stretch md:justify-start md:gap-1.5 md:px-3 md:py-6">
+
+            <Link
+                href="/"
+                className="mb-8 block rounded-lg px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+            >
+                <span className="font-wine block text-2xl font-semibold leading-none tracking-normal text-[var(--text)]">
+                    WineNotes
+                </span>
+                <span className="mt-2 block text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--color-gold)]">
+                    Digital Sommelier
+                </span>
+            </Link>
+
+            <div className="flex flex-1 flex-col gap-1.5">
                 {navItems.map(({ href, label, Icon }) => {
                     const active = isActive(href);
                     const pending = pendingHref === href && !active;
@@ -105,16 +119,70 @@ export default function BottomNav() {
                             aria-busy={pending || undefined}
                             onClick={(event) => handleNavClick(href, event)}
                             className={cn(
-                                "relative flex h-full w-full flex-col items-center justify-center space-y-1 overflow-hidden transition-[color,background-color,transform] duration-150 ease-out active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-inset md:h-11 md:flex-row md:justify-start md:gap-3 md:space-y-0 md:rounded-lg md:px-3",
+                                "group relative flex h-11 items-center gap-3 rounded-lg border border-transparent px-3 text-sm font-medium transition-[background-color,border-color,color,transform] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
                                 active
-                                    ? "text-[var(--primary)] md:bg-[var(--accent-muted)]"
-                                    : "text-[var(--text-muted)] hover:text-[var(--text)] md:hover:bg-[var(--surface-2)]",
-                                pending && "scale-[0.98] bg-[var(--accent-muted)] text-[var(--primary)]"
+                                    ? "border-[var(--color-wine-red)]/25 bg-[var(--color-wine-red-soft)] text-[var(--text)]"
+                                    : "text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]",
+                                pending && "scale-[0.98] border-[var(--color-wine-red)]/25 bg-[var(--color-wine-red-soft)] text-[var(--text)]"
                             )}
                         >
-                            <span className="relative flex h-7 w-7 items-center justify-center">
+                            <span
+                                aria-hidden="true"
+                                className={cn(
+                                    "absolute left-0 top-2 h-7 w-0.5 rounded-full transition-opacity",
+                                    active ? "bg-[var(--primary)] opacity-100" : "opacity-0"
+                                )}
+                            />
+                            <Icon size={20} aria-hidden="true" className={active ? "text-[var(--primary)]" : undefined} />
+                            <span>{label}</span>
+                            {pending ? (
+                                <LoaderCircle size={15} aria-hidden="true" className="ml-auto animate-spin text-[var(--primary)] motion-reduce:animate-pulse" />
+                            ) : null}
+                            {pending ? <span className="sr-only">移動中</span> : null}
+                        </Link>
+                    );
+                })}
+            </div>
+        </aside>
+    );
+}
+
+function MobileBottomNav() {
+    const { handleNavClick, isActive, pendingHref } = useNavigationState();
+
+    return (
+        <nav
+            aria-label="主要ナビゲーション"
+            className="app-navigation fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 right-3 z-50 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--sidebar-bg)]/92 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl md:hidden"
+        >
+            {pendingHref ? (
+                <div className="absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-[var(--color-wine-red-soft)]">
+                    <div className="bottom-nav-progress h-full w-1/3 rounded-full bg-[var(--primary)]" />
+                </div>
+            ) : null}
+            <div className="grid h-16 grid-cols-5">
+                {navItems.map(({ href, label, Icon }) => {
+                    const active = isActive(href);
+                    const pending = pendingHref === href && !active;
+
+                    return (
+                        <Link
+                            key={href}
+                            href={href}
+                            aria-current={active ? "page" : undefined}
+                            aria-busy={pending || undefined}
+                            onClick={(event) => handleNavClick(href, event)}
+                            className={cn(
+                                "relative flex h-full min-w-0 flex-col items-center justify-center gap-1 overflow-hidden px-1 text-center transition-[color,background-color,transform] duration-150 ease-out active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-inset",
+                                active
+                                    ? "bg-[var(--color-wine-red-soft)] text-[var(--primary)]"
+                                    : "text-[var(--text-muted)] hover:text-[var(--text)]",
+                                pending && "scale-[0.98] bg-[var(--color-wine-red-soft)] text-[var(--primary)]"
+                            )}
+                        >
+                            <span className="relative flex h-6 w-6 items-center justify-center">
                                 <Icon
-                                    size={24}
+                                    size={20}
                                     aria-hidden="true"
                                     className={cn(
                                         "transition-transform duration-150",
@@ -129,12 +197,27 @@ export default function BottomNav() {
                                     />
                                 ) : null}
                             </span>
-                            <span className="text-xs font-medium md:text-sm">{label}</span>
+                            <span className="truncate text-[11px] font-semibold leading-none">{label}</span>
                             {pending ? <span className="sr-only">移動中</span> : null}
                         </Link>
                     );
                 })}
             </div>
         </nav>
+    );
+}
+
+export default function BottomNav() {
+    const pathname = usePathname();
+
+    if (isNavigationHidden(pathname)) {
+        return null;
+    }
+
+    return (
+        <>
+            <DesktopSidebar />
+            <MobileBottomNav />
+        </>
     );
 }

@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 import BottomNav, { isNavigationHidden } from "@/components/bottom-nav";
 import { PwaInstallPrompt } from "@/components/pwa/PwaInstallPrompt";
+import { cn } from "@/lib/utils";
 
 type NavigationFrameProps = {
     children: ReactNode;
@@ -17,11 +18,18 @@ export function NavigationFrame({ children }: NavigationFrameProps) {
     return (
         <>
             <div
-                id="main-content"
-                tabIndex={-1}
-                className={showNavigation ? "md:pl-56" : undefined}
+                className={cn(
+                    "min-h-screen",
+                    showNavigation && "md:pl-60"
+                )}
             >
-                {children}
+                <main
+                    id="main-content"
+                    tabIndex={-1}
+                    className={cn(showNavigation && "pb-28 md:pb-0")}
+                >
+                    {children}
+                </main>
             </div>
             <PwaInstallPrompt />
             {showNavigation ? <BottomNav /> : null}
