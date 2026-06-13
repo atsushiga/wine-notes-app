@@ -1,29 +1,18 @@
 'use client';
 
-// Imports updated
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-    round1,
-    fruitStateLabel,
-    oakAromaLabel,
-    acidityLabel,
-    tanninLabel,
-    bodyLabel,
-    finishLenLabel,
-    worldLabel,
-    intensityLabel,
-    colorLabel,
-    noseIntensityLabel,
-    palateElementLabel,
-    qualityLabel,
-} from "@/lib/wineHelpers";
-import { SAT_CONSTANTS } from '@/constants/sat';
-import Link from 'next/link';
-import Image from 'next/image';
-import { History, Loader2, Sparkles } from 'lucide-react';
-import ImageCarousel from './ImageCarousel';
-import AiWineInfo from './AiWineInfo';
+    ArrowLeft,
+    ExternalLink,
+    History,
+    Loader2,
+    Pencil,
+    Sparkles,
+    Trash2,
+} from 'lucide-react';
+
 import { generateVisualWineExplanation } from '@/app/actions/gemini';
 import { saveAiExplanation } from '@/app/actions/aiExplainer';
 import {
@@ -32,8 +21,25 @@ import {
     saveCurrentAiExplanationId,
 } from '@/lib/aiExplainerStorage';
 import { isProtectedImageUrl } from '@/lib/protectedImage';
-
+import {
+    colorLabel,
+    finishLenLabel,
+    fruitStateLabel,
+    intensityLabel,
+    noseIntensityLabel,
+    oakAromaLabel,
+    palateElementLabel,
+    qualityLabel,
+    round1,
+    worldLabel,
+} from '@/lib/wineHelpers';
+import { BUTTON_PRIMARY, BUTTON_SECONDARY } from '@/constants/styles';
+import { cn } from '@/lib/utils';
 import { TastingNote } from '@/types/custom';
+
+import AiWineInfo from './AiWineInfo';
+import ImageCarousel from './ImageCarousel';
+import { Chip, MetricCard, WineImageFrame } from './ui/primitives';
 
 interface Props {
     wine: TastingNote;
@@ -44,17 +50,22 @@ interface Props {
     isOptimizingImage?: boolean;
 }
 
-const getSatLabel = (options: readonly string[], value: number) => {
-    return options[value - 1] ?? '';
-};
-
-
-export default function WineDetailView({ wine, onEdit, onDelete, isDeleting, onOptimizeImage, isOptimizingImage = false }: Props) {
+export default function WineDetailView({
+    wine,
+    onEdit,
+    onDelete,
+    isDeleting,
+    onOptimizeImage,
+    isOptimizingImage = false,
+}: Props) {
     const router = useRouter();
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
-    const wineType = wine.wine_type || "";
+    const wineType = wine.wine_type || '';
     const hasOptimizableImage = Boolean(wine.images?.some((image) => image.url) || wine.image_url);
-    // ... (booleans same)
+    const imageSrc = wine.images?.[0]?.thumbnail_url || wine.images?.[0]?.url || wine.image_url || '';
+    const region = [wine.country, wine.locality || wine.region].filter(Boolean).join(' / ');
+    const varieties = [wine.main_variety, wine.other_varieties].filter(Boolean).join(', ');
+
     const isRed = wineType === '赤';
     const isWhite = wineType === '白';
     const isRose = wineType === 'ロゼ';
@@ -63,27 +74,32 @@ export default function WineDetailView({ wine, onEdit, onDelete, isDeleting, onO
     const isSparklingRose = wineType === '発泡ロゼ';
 
     const renderScore = (value: number | undefined, labelFn: (v: number) => string) => {
-        if (value === undefined || value === null) return "-";
+        if (value === undefined || value === null) return '-';
         return `${round1(value)} (${labelFn(value)})`;
     };
 
-    const renderSatScore = (value: number | undefined, options: readonly string[]) => {
-        if (value === undefined || value === null) return "-";
-        return `${value} (${getSatLabel(options, value)})`;
-    };
-
-    // getRimRatioLabel same...
     const getRimRatioLabel = (val: number | undefined) => {
-        if (val === undefined || val === null) return "-";
+        if (val === undefined || val === null) return '-';
         const v = round1(val);
         const comp = round1(10 - v);
         let labelLeft = '';
         let labelRight = '';
-        if (isRed) { labelLeft = '紫'; labelRight = 'オレンジ'; }
-        else if (isWhite || isSparklingWhite) { labelLeft = 'グリーン'; labelRight = 'ゴールド'; }
-        else if (isRose || isSparklingRose) { labelLeft = 'ピンク'; labelRight = 'オレンジ'; }
-        else if (isOrange) { labelLeft = '黄金'; labelRight = 'ブロンズ'; }
-        else { labelLeft = '紫'; labelRight = 'オレンジ'; }
+        if (isRed) {
+            labelLeft = '紫';
+            labelRight = 'オレンジ';
+        } else if (isWhite || isSparklingWhite) {
+            labelLeft = 'グリーン';
+            labelRight = 'ゴールド';
+        } else if (isRose || isSparklingRose) {
+            labelLeft = 'ピンク';
+            labelRight = 'オレンジ';
+        } else if (isOrange) {
+            labelLeft = '黄金';
+            labelRight = 'ブロンズ';
+        } else {
+            labelLeft = '紫';
+            labelRight = 'オレンジ';
+        }
         return `${labelLeft} ${comp.toFixed(1)} : ${labelRight} ${v.toFixed(1)}`;
     };
 
@@ -105,12 +121,15 @@ export default function WineDetailView({ wine, onEdit, onDelete, isDeleting, onO
                 referenceUrl: wine.reference_url || undefined,
                 price: input.price || undefined,
             });
-            const stored = await saveAiExplanation({
-                generatedAt: new Date().toISOString(),
-                imageUrl: input.imageUrl,
-                input,
-                explanation,
-            }, getAiExplainerClientKey());
+            const stored = await saveAiExplanation(
+                {
+                    generatedAt: new Date().toISOString(),
+                    imageUrl: input.imageUrl,
+                    input,
+                    explanation,
+                },
+                getAiExplainerClientKey()
+            );
 
             saveCurrentAiExplanationId(stored.id);
             router.push(`/ai-explainer/result?historyId=${encodeURIComponent(stored.id)}`);
@@ -123,239 +142,292 @@ export default function WineDetailView({ wine, onEdit, onDelete, isDeleting, onO
     };
 
     return (
-        <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8 pb-32">
-            {/* Header ... same */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto max-w-7xl px-4 py-6 pb-32 md:px-8 md:py-8">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <Link
                     href="/tasting-notes"
-                    className="text-[var(--text-muted)] hover:text-[var(--text)] flex items-center gap-1 text-sm transition-colors"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
                 >
-                    ← 一覧に戻る
+                    <ArrowLeft size={16} />
+                    一覧に戻る
                 </Link>
-                <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-                    <div className="text-[var(--text-muted)] text-sm">
-                        {new Date(wine.created_at).toLocaleDateString("ja-JP")}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        {wine.ai_explanation_id && (
-                            <Link
-                                href={`/ai-explainer/result?historyId=${encodeURIComponent(wine.ai_explanation_id)}`}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[var(--text)] bg-[var(--card-bg)] border border-[var(--border)] rounded-lg hover:bg-[var(--surface-2)]"
-                            >
-                                <History size={15} />
-                                AI解説履歴
-                            </Link>
-                        )}
-                        <button
-                            onClick={handleGenerateAiExplanation}
-                            disabled={isGeneratingAi || !wine.wine_name}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[var(--primary-foreground)] bg-[var(--primary)] rounded-lg hover:opacity-90 disabled:opacity-50"
-                        >
-                            {isGeneratingAi ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-                            AI解説を生成
-                        </button>
-                        <button onClick={onEdit} className="px-3 py-1.5 text-sm font-medium text-[var(--text)] bg-[var(--card-bg)] border border-[var(--border)] rounded-lg hover:bg-[var(--surface-2)]">編集</button>
-                        <button onClick={onDelete} disabled={isDeleting} className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50">{isDeleting ? '削除中...' : '削除'}</button>
-                    </div>
-                </div>
+                <span className="text-xs text-[var(--text-muted)]" suppressHydrationWarning>
+                    記録作成日 {formatDate(wine.created_at)}
+                </span>
             </div>
 
-            {/* Main Content Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Left Column ... same (Image/QuickStats) */}
-                <div className="space-y-6">
-                    <div className="bg-[var(--surface-2)] rounded-2xl overflow-hidden shadow-sm">
+            <section className="grid gap-6 lg:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.45fr)]">
+                <div className="space-y-3">
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
                         {wine.images && wine.images.length > 0 ? (
-                            <ImageCarousel images={wine.images} wineName={wine.wine_name || "Wine"} />
+                            <ImageCarousel images={wine.images} wineName={wine.wine_name || 'Wine'} />
                         ) : (
-                            // ... Image fallback same
-                            <div className="relative aspect-[3/4] w-full">
-                                {wine.image_url ? (
-                                    <Image
-                                        src={wine.image_url}
-                                        alt={wine.wine_name || "Wine"}
-                                        fill
-                                        className="object-cover"
-                                        unoptimized={isProtectedImageUrl(wine.image_url)}
-                                    />
-                                ) : (
-                                    <div className="flex items-center justify-center h-full text-[var(--text-muted)] opacity-30"><span className="text-6xl">🍷</span></div>
-                                )}
-                                {/* Rating Badge */}
-                                {wine.rating !== undefined && (
-                                    <div className="absolute top-4 right-4 bg-[var(--card-bg)]/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-md flex items-center gap-1 z-10 border border-[var(--border)]">
-                                        <span className="text-yellow-500 text-lg">★</span>
-                                        <span className="text-lg font-bold text-[var(--text)]">{round1(wine.rating)}</span>
-                                    </div>
-                                )}
-                                {wine.wine_type && (
-                                    <div className="absolute top-4 left-4 bg-[var(--chip-bg)]/90 border border-[var(--chip-border)] backdrop-blur-sm text-[var(--chip-text)] px-3 py-1.5 rounded-full text-sm font-medium z-10">{wine.wine_type}</div>
-                                )}
-                            </div>
-                        )}
-                        {hasOptimizableImage && onOptimizeImage && (
-                            <div className="p-3 border-t border-[var(--border)] bg-[var(--card-bg)]">
-                                <button
-                                    type="button"
-                                    onClick={onOptimizeImage}
-                                    disabled={isOptimizingImage}
-                                    className="w-full px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold rounded-md shadow-sm hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                                >
-                                    {isOptimizingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                                    AI画像補正
-                                </button>
-                            </div>
+                            <WineImageFrame
+                                src={imageSrc}
+                                alt={wine.wine_name || 'ワインラベル'}
+                                className="aspect-[3/4]"
+                                imageClassName="object-contain p-4"
+                                unoptimized={isProtectedImageUrl(imageSrc)}
+                            />
                         )}
                     </div>
 
-                    <div className="bg-[var(--card-bg)] p-6 rounded-2xl shadow-sm border border-[var(--border)] space-y-4">
-                        <h3 className="font-semibold text-[var(--text)] border-b border-[var(--border)] pb-2">基本情報</h3>
-                        <dl className="grid grid-cols-1 gap-y-3 text-sm">
-                            {/* ... same stats ... */}
-                            <div className="flex justify-between"><dt className="text-[var(--text-muted)]">ヴィンテージ</dt><dd className="font-medium text-[var(--text)]">{wine.vintage || "-"}</dd></div>
-                            <div className="flex justify-between"><dt className="text-[var(--text-muted)]">生産者</dt><dd className="font-medium text-[var(--text)] text-right">{wine.producer || "-"}</dd></div>
-                            {wine.importer && <div className="flex justify-between"><dt className="text-[var(--text-muted)]">輸入元</dt><dd className="font-medium text-[var(--text)] text-right">{wine.importer}</dd></div>}
-                            <div className="flex justify-between">
-                                <dt className="text-[var(--text-muted)]">国 / 地域</dt>
-                                <dd className="font-medium text-right flex flex-col items-end text-[var(--text)]">
-                                    <span>{[wine.country, wine.locality || wine.region].filter(Boolean).join(" / ") || "-"}</span>
-                                    {wine.locality_vocab && wine.locality_vocab.name !== wine.locality && (
-                                        <span className="text-xs text-[var(--text-muted)] font-normal">{wine.locality_vocab.name}</span>
-                                    )}
-                                </dd>
-                            </div>
-                            <div className="flex justify-between"><dt className="text-[var(--text-muted)]">品種</dt><dd className="font-medium text-[var(--text)] text-right">{[wine.main_variety, wine.other_varieties].filter(Boolean).join(", ") || "-"}</dd></div>
-                            <div className="flex justify-between"><dt className="text-[var(--text-muted)]">価格</dt><dd className="font-medium text-[var(--text)]">{wine.price ? `¥${wine.price.toLocaleString()}` : "-"}</dd></div>
-                            {wine.reference_url && (
-                                <div className="flex justify-between">
-                                    <dt className="text-[var(--text-muted)]">参考URL</dt>
-                                    <dd className="font-medium text-[var(--text)] text-right">
-                                        <a 
-                                            href={wine.reference_url} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 hover:underline break-all"
-                                        >
-                                            {wine.reference_url}
-                                        </a>
-                                    </dd>
-                                </div>
-                            )}
-                        </dl>
-                    </div>
+                    {hasOptimizableImage && onOptimizeImage ? (
+                        <button
+                            type="button"
+                            onClick={onOptimizeImage}
+                            disabled={isOptimizingImage}
+                            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[var(--color-gold)]/35 bg-[var(--color-gold-soft)] px-4 py-2 text-sm font-semibold text-[var(--text)] transition-colors hover:bg-[var(--surface-2)] disabled:opacity-50"
+                        >
+                            {isOptimizingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-[var(--color-gold)]" />}
+                            AI画像補正
+                        </button>
+                    ) : null}
                 </div>
 
-                {/* Right Column */}
-                <div className="space-y-6">
+                <div className="flex flex-col justify-between gap-6 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-5 md:p-6">
                     <div>
-                        <h1 className="text-3xl font-bold text-[var(--text)] mb-2 leading-tight">{wine.wine_name || "名称未設定"}</h1>
-                        <p className="text-[var(--text-muted)] text-sm">Reference ID: #{wine.id}</p>
+                        <div className="mb-4 flex flex-wrap gap-2">
+                            {wineType ? <Chip tone="wine">{wineType}</Chip> : null}
+                            {wine.vintage ? <Chip tone="gold">{wine.vintage}</Chip> : null}
+                            {wine.ai_explanation_id ? <Chip tone="gold">AI分析済み</Chip> : null}
+                        </div>
+
+                        <h1 className="font-wine text-3xl font-semibold leading-tight tracking-normal text-[var(--text)] md:text-5xl">
+                            {wine.wine_name || '名称未設定'}
+                        </h1>
+                        {wine.producer ? (
+                            <p className="mt-3 text-lg text-[var(--text-soft)]">{wine.producer}</p>
+                        ) : null}
+                        <p className="mt-4 max-w-3xl text-sm leading-6 text-[var(--text-muted)]">
+                            {[region, varieties, wine.date ? `テイスティング: ${formatDate(wine.date)}` : ''].filter(Boolean).join(' · ') || '基本情報はまだ十分に入力されていません。'}
+                        </p>
                     </div>
 
-                    {/* Conclusion (Quality) */}
-                    <section className="bg-[var(--surface-2)] p-6 rounded-2xl border border-[var(--border)]">
-                        <h2 className="font-semibold text-[var(--text)] mb-4 flex items-center gap-2">📝 総合評価</h2>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                        <MetricCard
+                            label="総合評価"
+                            value={wine.rating ? `★ ${round1(wine.rating)}` : '-'}
+                            detail={wine.quality_score ? `品質 ${renderScore(wine.quality_score, qualityLabel)}` : '未評価'}
+                            accent="gold"
+                        />
+                        <MetricCard
+                            label="飲み頃"
+                            value={<span className="text-xl">{wine.readiness || '-'}</span>}
+                            detail={wine.vintage ? `${wine.vintage} vintage` : 'ヴィンテージ未設定'}
+                            accent="neutral"
+                        />
+                        <MetricCard
+                            label="価格"
+                            value={wine.price ? `¥${wine.price.toLocaleString()}` : '-'}
+                            detail={wine.place || '購入場所未設定'}
+                            accent="neutral"
+                        />
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-5">
+                        <button
+                            type="button"
+                            onClick={handleGenerateAiExplanation}
+                            disabled={isGeneratingAi || !wine.wine_name}
+                            className={BUTTON_PRIMARY}
+                        >
+                            {isGeneratingAi ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                            AI解説を生成
+                        </button>
+                        <button type="button" onClick={onEdit} className={BUTTON_SECONDARY}>
+                            <Pencil size={16} />
+                            編集
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onDelete}
+                            disabled={isDeleting}
+                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--color-error)]/35 bg-transparent px-4 py-2 text-sm font-semibold text-[var(--color-error)] transition-colors hover:bg-[var(--color-error)]/10 disabled:opacity-50"
+                        >
+                            {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                            {isDeleting ? '削除中...' : '削除'}
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            {wine.ai_explanation_id ? (
+                <section className="mt-6 rounded-lg border border-[var(--color-gold)]/35 bg-[var(--color-gold-soft)] p-4 md:flex md:items-center md:justify-between">
+                    <div>
+                        <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--text)]">
+                            <History size={16} className="text-[var(--color-gold)]" />
+                            AI Analysis
+                        </h2>
+                        <p className="mt-1 text-sm text-[var(--text-soft)]">
+                            このワインには生成済みのAI解説があります。自分の記録とは分けて、調査レポートとして確認できます。
+                        </p>
+                    </div>
+                    <Link
+                        href={`/ai-explainer/result?historyId=${encodeURIComponent(wine.ai_explanation_id)}`}
+                        className={cn(BUTTON_SECONDARY, 'mt-4 md:mt-0')}
+                    >
+                        AI解説を見る
+                        <ExternalLink size={15} />
+                    </Link>
+                </section>
+            ) : null}
+
+            <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
+                <div className="space-y-8">
+                    <RecordSection title="総評" description="自分の評価と飲んだ時の印象">
                         <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-[var(--card-bg)] p-3 rounded-xl border border-[var(--border)]">
-                                    <span className="block text-[var(--text-muted)] text-xs mb-1">品質 (Quality)</span>
-                                    <span className="font-bold text-[var(--text)]">{renderScore(wine.quality_score, qualityLabel)}</span>
-                                </div>
-                                <div className="bg-[var(--card-bg)] p-3 rounded-xl border border-[var(--border)]">
-                                    <span className="block text-[var(--text-muted)] text-xs mb-1">熟成 (Readiness)</span>
-                                    <span className="font-bold text-[var(--text)] text-sm">{wine.readiness || "-"}</span>
-                                </div>
-                            </div>
-                            {wine.notes && (
-                                <div className="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--border)]">
-                                    <p className="text-[var(--text)] whitespace-pre-wrap text-sm leading-relaxed">{wine.notes}</p>
-                                </div>
+                            {wine.notes ? (
+                                <p className="whitespace-pre-wrap text-sm leading-7 text-[var(--text)]">{wine.notes}</p>
+                            ) : (
+                                <EmptyText>総評は未入力です。</EmptyText>
                             )}
-                            {wine.vivino_url && (
-                                <a href={wine.vivino_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-[var(--accent)] hover:underline">
-                                    Vivinoで見る ↗
+                            {wine.vivino_url ? (
+                                <a
+                                    href={wine.vivino_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 text-sm font-medium text-[var(--primary)] hover:underline"
+                                >
+                                    Vivinoで見る
+                                    <ExternalLink size={14} />
                                 </a>
-                            )}
+                            ) : null}
                         </div>
-                    </section>
+                    </RecordSection>
 
-                    {/* Appearance */}
-                    <section>
-                        <h3 className="font-medium text-[var(--text)] border-b border-[var(--border)] pb-2 mb-3">👁️ 外観</h3>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">濃淡</span><span className="font-medium text-[var(--text)]">{renderScore(wine.intensity, intensityLabel)}</span></div>
-                            <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">色調</span><span className="font-medium text-[var(--text)]">{renderScore(wine.color as number, (v) => colorLabel(v, wineType))}</span></div>
-                            <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">縁の色調</span><span className="font-medium text-[var(--text)]">{getRimRatioLabel(wine.rim_ratio)}</span></div>
-                            <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">清澄度</span><span className="font-medium text-[var(--text)]">{wine.clarity || "-"}</span></div>
-                            {wine.sparkle_intensity && <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">泡の強さ</span><span className="font-medium text-[var(--text)]">{wine.sparkle_intensity}</span></div>}
-                        </div>
-                        {wine.appearance_other && <p className="mt-2 text-xs text-[var(--text-muted)] bg-[var(--surface-2)] p-2 rounded">{wine.appearance_other}</p>}
-                    </section>
+                    <RecordSection title="基本情報" description="購入・産地・品種などの記録">
+                        <DefinitionGrid>
+                            <InfoRow label="ヴィンテージ" value={wine.vintage} />
+                            <InfoRow label="生産者" value={wine.producer} />
+                            <InfoRow label="輸入元" value={wine.importer} />
+                            <InfoRow label="国 / 地域" value={region} detail={wine.locality_vocab?.name} />
+                            <InfoRow label="品種" value={varieties} />
+                            <InfoRow label="価格" value={wine.price ? `¥${wine.price.toLocaleString()}` : ''} />
+                            <InfoRow label="参考URL" value={wine.reference_url} link />
+                        </DefinitionGrid>
+                    </RecordSection>
 
-                    {/* Nose */}
-                    <section>
-                        <h3 className="font-medium text-[var(--text)] border-b border-[var(--border)] pb-2 mb-3">👃 香り</h3>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">コンディション</span><span className="font-medium text-[var(--text)]">{wine.nose_condition || "-"}</span></div>
-                            <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">強さ</span><span className="font-medium text-[var(--text)]">{renderScore(wine.nose_intensity, noseIntensityLabel)}</span></div>
-                            <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">熟成段階</span><span className="font-medium text-[var(--text)]">{wine.development || "-"}</span></div>
-                            <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">樽香</span><span className="font-medium text-[var(--text)]">{renderScore(wine.oak_aroma, oakAromaLabel)}</span></div>
-                        </div>
-                        {/* Optional old/new world etc */}
-                        <div className="grid grid-cols-2 gap-4 text-sm mt-3">
-                            {(isRed || isRose || isOrange) && (
+                    <RecordSection title="外観" description="色調、濃淡、清澄度">
+                        <DefinitionGrid>
+                            <InfoRow label="濃淡" value={renderScore(wine.intensity, intensityLabel)} />
+                            <InfoRow label="色調" value={renderScore(wine.color, (v) => colorLabel(v, wineType))} />
+                            <InfoRow label="縁の色調" value={getRimRatioLabel(wine.rim_ratio)} />
+                            <InfoRow label="清澄度" value={wine.clarity} />
+                            <InfoRow label="輝き" value={wine.brightness} />
+                            <InfoRow label="泡の強さ" value={wine.sparkle_intensity} />
+                        </DefinitionGrid>
+                        {wine.appearance_other ? <NoteText>{wine.appearance_other}</NoteText> : null}
+                    </RecordSection>
+
+                    <RecordSection title="香り" description="状態、強さ、アロマ、発達段階">
+                        <DefinitionGrid>
+                            <InfoRow label="コンディション" value={wine.nose_condition} />
+                            <InfoRow label="強さ" value={renderScore(wine.nose_intensity, noseIntensityLabel)} />
+                            <InfoRow label="熟成段階" value={wine.development} />
+                            <InfoRow label="樽香" value={renderScore(wine.oak_aroma, oakAromaLabel)} />
+                            {(isRed || isRose || isOrange) ? (
                                 <>
-                                    <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">旧/新世界</span><span className="font-medium text-[var(--text)]">{renderScore(wine.old_new_world, worldLabel)}</span></div>
-                                    <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">果実の状態</span><span className="font-medium text-[var(--text)]">{renderScore(wine.fruits_maturity, fruitStateLabel)}</span></div>
+                                    <InfoRow label="旧/新世界" value={renderScore(wine.old_new_world, worldLabel)} />
+                                    <InfoRow label="果実の状態" value={renderScore(wine.fruits_maturity, fruitStateLabel)} />
                                 </>
-                            )}
-                            {isWhite && (
-                                <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">ニュートラル/アロマティック</span><span className="font-medium text-[var(--text)]">{wine.aroma_neutrality ? `${round1(wine.aroma_neutrality)}` : "-"}</span></div>
-                            )}
-                        </div>
-
-                        {wine.aromas && wine.aromas.length > 0 && (
-                            <div className="mt-3">
-                                <span className="block text-xs text-[var(--text-muted)] mb-1">アロマ</span>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {wine.aromas.map((aroma, i) => (
-                                        <span key={i} className="inline-block px-2 py-1 bg-[var(--chip-bg)] text-[var(--chip-text)] text-xs rounded-full border border-[var(--chip-border)]">{aroma}</span>
+                            ) : null}
+                            {isWhite ? <InfoRow label="ニュートラル/アロマティック" value={wine.aroma_neutrality ? `${round1(wine.aroma_neutrality)}` : ''} /> : null}
+                        </DefinitionGrid>
+                        {wine.aromas && wine.aromas.length > 0 ? (
+                            <div className="mt-5">
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">Aromas</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {wine.aromas.map((aroma) => (
+                                        <Chip key={aroma}>{aroma}</Chip>
                                     ))}
                                 </div>
                             </div>
-                        )}
-                        {wine.aroma_other && <p className="mt-2 text-xs text-[var(--text-muted)] bg-[var(--surface-2)] p-2 rounded">{wine.aroma_other}</p>}
-                    </section>
+                        ) : null}
+                        {wine.aroma_other ? <NoteText>{wine.aroma_other}</NoteText> : null}
+                    </RecordSection>
 
-                    {/* Palate */}
-                    <section>
-                        <h3 className="font-medium text-[var(--text)] border-b border-[var(--border)] pb-2 mb-3">👄 味わい</h3>
-                        <div className="grid grid-cols-2 gap-4 text-sm mb-3">
-                            <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">甘味</span><span className="font-medium text-[var(--text)]">{renderScore(wine.sweetness, (v) => palateElementLabel(v, 'sweetness'))}</span></div>
-                            <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">酸味</span><span className="font-medium text-[var(--text)]">{renderScore(wine.acidity_score, (v) => palateElementLabel(v, 'acidity'))}</span></div>
+                    <RecordSection title="味わい" description="甘味、酸味、タンニン、ボディ、余韻">
+                        <DefinitionGrid>
+                            <InfoRow label="甘味" value={renderScore(wine.sweetness, (v) => palateElementLabel(v, 'sweetness'))} />
+                            <InfoRow label="酸味" value={renderScore(wine.acidity_score, (v) => palateElementLabel(v, 'acidity'))} />
+                            {(isRed || isOrange) ? <InfoRow label="タンニン" value={renderScore(wine.tannin_score, (v) => palateElementLabel(v, 'tannin'))} /> : null}
+                            <InfoRow label="ボディ" value={renderScore(wine.body_score, (v) => palateElementLabel(v, 'body'))} />
+                            <InfoRow label="余韻" value={renderScore(wine.finish_score, finishLenLabel)} />
+                            <InfoRow label="アルコール度数" value={wine.alcohol_abv ? `${round1(wine.alcohol_abv)}%` : ''} />
+                        </DefinitionGrid>
+                        {wine.palate_notes ? <NoteText>{wine.palate_notes}</NoteText> : null}
+                    </RecordSection>
 
-                            {(isRed || isOrange) && (
-                                <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">タンニン</span><span className="font-medium text-[var(--text)]">{renderScore(wine.tannin_score, (v) => palateElementLabel(v, 'tannin'))}</span></div>
-                            )}
-
-                            <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">ボディ</span><span className="font-medium text-[var(--text)]">{renderScore(wine.body_score, (v) => palateElementLabel(v, 'body'))}</span></div>
-                            <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">余韻</span><span className="font-medium text-[var(--text)]">{renderScore(wine.finish_score, finishLenLabel)}</span></div>
-                            <div className="space-y-1"><span className="block text-xs text-[var(--text-muted)]">アルコール度数</span><span className="font-medium text-[var(--text)]">{wine.alcohol_abv ? `${round1(wine.alcohol_abv)}%` : "-"}</span></div>
-                        </div>
-                        {wine.palate_notes && <p className="text-xs text-[var(--text-muted)] bg-[var(--surface-2)] p-2 rounded">{wine.palate_notes}</p>}
-                    </section>
-
-                    {/* Additional Info same... */}
-                    {wine.additional_info && (
-                        <section>
-                            <h3 className="font-medium text-[var(--text)] border-b border-[var(--border)] pb-2 mb-3">ℹ️ 補足情報</h3>
-                            <p className="text-sm text-[var(--text)] whitespace-pre-wrap leading-relaxed">{wine.additional_info}</p>
-                        </section>
-                    )}
+                    {wine.additional_info ? (
+                        <RecordSection title="補足情報">
+                            <p className="whitespace-pre-wrap text-sm leading-7 text-[var(--text)]">{wine.additional_info}</p>
+                        </RecordSection>
+                    ) : null}
                 </div>
+
+                <aside className="lg:sticky lg:top-8 lg:self-start">
+                    <AiWineInfo wine={wine} />
+                </aside>
             </div>
-            {/* AI same ... */}
-            <AiWineInfo wine={wine} />
         </div>
     );
+}
+
+function RecordSection({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+    return (
+        <section className="border-t border-[var(--border)] pt-6 first:border-t-0 first:pt-0">
+            <div className="mb-4">
+                <h2 className="text-lg font-semibold text-[var(--text)]">{title}</h2>
+                {description ? <p className="mt-1 text-sm text-[var(--text-muted)]">{description}</p> : null}
+            </div>
+            {children}
+        </section>
+    );
+}
+
+function DefinitionGrid({ children }: { children: ReactNode }) {
+    return <dl className="grid gap-3 sm:grid-cols-2">{children}</dl>;
+}
+
+function InfoRow({ label, value, detail, link = false }: { label: string; value?: ReactNode; detail?: ReactNode; link?: boolean }) {
+    const isEmpty = value === undefined || value === null || value === '';
+    return (
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-3">
+            <dt className="text-xs font-medium text-[var(--text-muted)]">{label}</dt>
+            <dd className="mt-1 break-words text-sm font-medium text-[var(--text)]">
+                {isEmpty ? (
+                    '-'
+                ) : link && typeof value === 'string' ? (
+                    <a href={value} target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] hover:underline">
+                        {value}
+                    </a>
+                ) : (
+                    value
+                )}
+            </dd>
+            {detail ? <dd className="mt-1 text-xs text-[var(--text-muted)]">{detail}</dd> : null}
+        </div>
+    );
+}
+
+function EmptyText({ children }: { children: ReactNode }) {
+    return <p className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface-2)] px-4 py-5 text-sm text-[var(--text-muted)]">{children}</p>;
+}
+
+function NoteText({ children }: { children: ReactNode }) {
+    return <p className="mt-4 whitespace-pre-wrap rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] p-3 text-sm leading-7 text-[var(--text-soft)]">{children}</p>;
+}
+
+function formatDate(value?: string) {
+    if (!value) return '-';
+
+    const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dateOnly) {
+        return `${Number(dateOnly[1])}/${Number(dateOnly[2])}/${Number(dateOnly[3])}`;
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString('ja-JP');
 }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { TastingNote } from '@/types/custom';
-import { searchWineDetails, saveGeminiData, GroundingData } from '@/app/actions/gemini';
+import { searchWineDetails, saveGeminiData } from '@/app/actions/gemini';
 import { Sparkles, Loader2, BookOpen, User, Settings, Calendar, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -49,94 +49,100 @@ export default function AiWineInfo({ wine }: AiWineInfoProps) {
 
     if (!hasAiData && !isLoading) {
         return (
-            <div className="mt-8 p-6 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-2xl border border-purple-100 dark:border-purple-800 shadow-sm">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <section className="rounded-lg border border-[var(--color-gold)]/35 bg-[var(--color-gold-soft)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.16)]">
+                <div className="flex flex-col gap-4">
                     <div>
-                        <h3 className="text-lg font-bold text-[var(--text)] flex items-center gap-2">
-                            <Sparkles className="w-5 h-5 text-purple-600" />
-                            AIによる深掘り検索
+                        <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--text)]">
+                            <Sparkles className="h-4 w-4 text-[var(--color-gold)]" />
+                            AI補助情報
                         </h3>
-                        <p className="text-sm text-[var(--text-muted)] mt-1">
+                        <p className="mt-2 text-sm leading-6 text-[var(--text-soft)]">
                             Geminiを使用して、テロワール、生産者の哲学、技術詳細などをWebから検索・取得します。
-                            <br />
-                            <span className="text-xs text-[var(--text-muted)]">国名・地域名・参考URLが入力されている場合は、それらの情報も検索に活用されます。参考URLがある場合は必ず参照します。</span>
+                        </p>
+                        <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
+                            国名・地域名・参考URLが入力されている場合は、それらの情報も検索に活用されます。
                         </p>
                     </div>
                     <button
                         onClick={handleSearch}
-                        className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium rounded-xl shadow-md hover:shadow-lg transform transition-all hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2 whitespace-nowrap"
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--color-gold)]/35 bg-[var(--card-bg)] px-4 py-2 text-sm font-semibold text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
                     >
-                        <Sparkles className="w-4 h-4" />
+                        <Sparkles className="h-4 w-4 text-[var(--color-gold)]" />
                         情報を取得する
                     </button>
                 </div>
-            </div>
+            </section>
         );
     }
 
     if (isLoading) {
         return (
-            <div className="mt-8 p-12 bg-[var(--surface-2)] rounded-2xl border border-[var(--border)] flex flex-col items-center justify-center text-center animate-pulse">
-                <Loader2 className="w-8 h-8 text-purple-600 animate-spin mb-4" />
-                <h3 className="text-lg font-bold text-[var(--text)]">AIが情報を収集中...</h3>
-                <p className="text-sm text-[var(--text-muted)] mt-2">Web上の専門情報を検索・分析しています。<br />これには数十秒かかる場合があります。</p>
-            </div>
+            <section className="flex flex-col items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-8 text-center">
+                <Loader2 className="mb-4 h-8 w-8 animate-spin text-[var(--color-gold)]" />
+                <h3 className="text-base font-semibold text-[var(--text)]">AIが情報を収集中...</h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">Web上の専門情報を検索・分析しています。数十秒かかる場合があります。</p>
+            </section>
         );
     }
 
     // Has Data
     return (
-        <div className="mt-8 space-y-6">
-            <h3 className="text-xl font-bold text-[var(--text)] flex items-center gap-2 pb-2 border-b border-[var(--border)]">
-                <Sparkles className="w-6 h-6 text-purple-600" />
-                AI Wine Analysis
-            </h3>
+        <section className="space-y-4 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4">
+            <div className="border-b border-[var(--border-subtle)] pb-3">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--text)]">
+                    <Sparkles className="h-4 w-4 text-[var(--color-gold)]" />
+                    AI補助情報
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+                    自分の記録とは別の参考情報です。
+                </p>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-3">
                 <InfoCard
                     title="テロワール (Terroir)"
-                    icon={<BookOpen className="w-5 h-5 text-emerald-600" />}
+                    icon={<BookOpen className="h-4 w-4 text-[var(--color-gold)]" />}
                     content={wine.terroir_info}
                 />
                 <InfoCard
                     title="生産者・哲学 (Producer)"
-                    icon={<User className="w-5 h-5 text-blue-600" />}
+                    icon={<User className="h-4 w-4 text-[var(--text-soft)]" />}
                     content={wine.producer_philosophy}
                 />
                 <InfoCard
                     title="技術詳細 (Technical)"
-                    icon={<Settings className="w-5 h-5 text-gray-600" />}
+                    icon={<Settings className="h-4 w-4 text-[var(--text-soft)]" />}
                     content={wine.technical_details}
                 />
                 <InfoCard
                     title="ヴィンテージ分析 (Vintage)"
-                    icon={<Calendar className="w-5 h-5 text-orange-600" />}
+                    icon={<Calendar className="h-4 w-4 text-[var(--color-gold)]" />}
                     content={wine.vintage_analysis}
                 />
             </div>
 
-            <div className="bg-[var(--card-bg)] p-6 rounded-2xl shadow-sm border border-[var(--border)]">
-                <h4 className="text-lg font-bold text-[var(--text)] mb-4 flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-red-600" />
+            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] p-4">
+                <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                    <FileText className="h-4 w-4 text-[var(--primary)]" />
                     Web上のテイスティングノート
                 </h4>
-                <p className="text-[var(--text)] whitespace-pre-wrap leading-relaxed text-sm">
+                <p className="whitespace-pre-wrap text-sm leading-7 text-[var(--text-soft)]">
                     {wine.search_result_tasting_note || "情報なし"}
                 </p>
             </div>
-        </div>
+        </section>
     );
 }
 
 function InfoCard({ title, icon, content }: { title: string; icon: React.ReactNode; content?: string }) {
     if (!content) return null;
     return (
-        <div className="bg-[var(--card-bg)] p-6 rounded-2xl shadow-sm border border-[var(--border)] hover:shadow-md transition-shadow">
-            <h4 className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-wide mb-3 flex items-center gap-2">
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] p-4">
+            <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
                 {icon}
                 {title}
             </h4>
-            <p className="text-[var(--text)] text-sm leading-relaxed whitespace-pre-wrap">
+            <p className="whitespace-pre-wrap text-sm leading-7 text-[var(--text-soft)]">
                 {content}
             </p>
         </div>
