@@ -211,7 +211,7 @@ export function SimpleRecordingControls({
         <>
             <div className="fixed right-[max(1rem,calc((100vw-56rem)/2+2rem))] top-[calc(env(safe-area-inset-top)+5rem)] z-50 hidden flex-col items-end gap-2 sm:flex md:right-[max(2rem,calc((100vw-15rem-56rem)/2+2rem))]">
                 {error && (
-                    <div className="max-w-[220px] rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 shadow-lg">
+                    <div className="max-w-[220px] rounded-lg border border-[var(--color-error)]/30 bg-[var(--color-error-soft)] px-3 py-2 text-xs text-[var(--color-error)] shadow-[var(--shadow-popover)]">
                         {error}
                     </div>
                 )}
@@ -219,7 +219,7 @@ export function SimpleRecordingControls({
                     type="button"
                     onClick={isRecording ? stopRecording : startRecording}
                     className={`flex h-14 w-14 items-center justify-center rounded-full border shadow-lg transition-all active:scale-95 ${isRecording
-                        ? 'border-red-400 bg-red-600 text-white shadow-red-900/20'
+                        ? 'border-[var(--color-error)] bg-[var(--color-error-solid)] text-[var(--primary-foreground)] shadow-[var(--shadow-card)]'
                         : 'border-[var(--border)] bg-[var(--card-bg)] text-[var(--text)] hover:bg-[var(--surface-2)]'
                         }`}
                     aria-label={isRecording ? '録音を停止' : '録音を開始'}
@@ -253,7 +253,7 @@ export function SimpleRecordingControls({
                             type="button"
                             onClick={isRecording ? stopRecording : startRecording}
                             className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${isRecording
-                                ? 'bg-red-600 text-white'
+                                ? 'bg-[var(--color-error-solid)] text-[var(--primary-foreground)]'
                                 : 'bg-[var(--surface-2)] text-[var(--text)] hover:bg-[var(--app-bg)]'
                                 }`}
                         >
@@ -266,7 +266,7 @@ export function SimpleRecordingControls({
                         <button
                             type="button"
                             onClick={onClearTranscript}
-                            className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-red-600"
+                            className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--color-error)]"
                             aria-label="文字起こしをクリア"
                         >
                             <Trash2 size={15} />

@@ -151,7 +151,7 @@ export default function WineList({ notes }: WineListProps) {
                             <button
                                 onClick={handleBulkDelete}
                                 disabled={isDeleting}
-                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--color-error)]/35 bg-[var(--color-error)]/10 px-4 py-2 text-sm font-semibold text-[var(--color-error)] transition-colors hover:bg-[var(--color-error)]/15 disabled:opacity-50"
+                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--color-error)]/35 bg-[var(--color-error-solid)]/10 px-4 py-2 text-sm font-semibold text-[var(--color-error)] transition-colors hover:bg-[var(--color-error-solid)]/15 disabled:opacity-50"
                             >
                                 <Trash2 size={16} />
                                 {isDeleting ? '削除中...' : `${selectedIds.length}件を削除`}

@@ -141,7 +141,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                         key={category.label}
                                         type="button"
                                         onClick={() => setActiveQuickCategory(category.label)}
-                                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${active ? 'border-[var(--primary)] bg-[var(--wine-red-soft)] text-[var(--primary)]' : 'border-[var(--border)] bg-[var(--card-bg)] text-[var(--text-muted)] hover:bg-[var(--input-bg)] hover:text-[var(--text)]'}`}
+                                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${active ? 'border-[var(--primary)] bg-[var(--wine-red-soft)] text-[var(--primary-text)]' : 'border-[var(--border)] bg-[var(--card-bg)] text-[var(--text-muted)] hover:bg-[var(--input-bg)] hover:text-[var(--text)]'}`}
                                     >
                                         {category.label}
                                     </button>
@@ -167,7 +167,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                         {/* Recent */}
                         {recents.length > 0 && (
                             <div className="flex items-center gap-2 overflow-hidden">
-                                <div className="flex-shrink-0 w-6 flex justify-center text-gray-300" title="Recent">
+                                <div className="flex-shrink-0 w-6 flex justify-center text-[var(--text-muted)]" title="Recent">
                                     <History size={14} />
                                 </div>
                                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide no-scrollbar mask-gradient-right">
@@ -179,7 +179,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                             className={`
                                                 flex-shrink-0 px-2.5 py-1 rounded-full text-xs border transition-colors whitespace-nowrap
                                                 ${selectedAromas.includes(term)
-                                                    ? 'bg-[var(--wine-red-soft)] text-[var(--primary)] border-[var(--primary)]/45'
+                                                    ? 'bg-[var(--wine-red-soft)] text-[var(--primary-text)] border-[var(--primary)]/45'
                                                     : 'bg-[var(--card-bg)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--app-bg)] hover:text-[var(--text)]'}
                                             `}
                                         >
@@ -193,7 +193,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                         {/* Frequent */}
                         {frequents.length > 0 && (
                             <div className="flex items-center gap-2 overflow-hidden">
-                                <div className="flex-shrink-0 w-6 flex justify-center text-amber-300" title="Frequent">
+                                <div className="flex-shrink-0 w-6 flex justify-center text-[var(--color-gold)]" title="Frequent">
                                     <Trophy size={14} />
                                 </div>
                                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide no-scrollbar mask-gradient-right">
@@ -225,7 +225,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                         {/* Primary */}
                         {groupedSelected['Primary'].length > 0 && (
                             <div className="flex flex-col sm:flex-row sm:gap-4 sm:items-start gap-1">
-                                <span className="text-[10px] uppercase tracking-wide text-zinc-400 w-16 flex-shrink-0 sm:mt-1.5 font-medium">Primary</span>
+                                <span className="text-[10px] uppercase tracking-wide text-[var(--text-muted)] w-16 flex-shrink-0 sm:mt-1.5 font-medium">Primary</span>
                                 <div className="flex flex-wrap gap-1.5">
                                     {groupedSelected['Primary'].map(term => (
                                         <MountedShelfChip key={term} term={term} onRemove={() => toggleAroma(term)} colorClass="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-100 dark:border-green-800" />
@@ -237,7 +237,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                         {/* Secondary */}
                         {groupedSelected['Secondary'].length > 0 && (
                             <div className="flex flex-col sm:flex-row sm:gap-4 sm:items-start gap-1">
-                                <span className="text-[10px] uppercase tracking-wide text-zinc-400 w-16 flex-shrink-0 sm:mt-1.5 font-medium">Secondary</span>
+                                <span className="text-[10px] uppercase tracking-wide text-[var(--text-muted)] w-16 flex-shrink-0 sm:mt-1.5 font-medium">Secondary</span>
                                 <div className="flex flex-wrap gap-1.5">
                                     {groupedSelected['Secondary'].map(term => (
                                         <MountedShelfChip key={term} term={term} onRemove={() => toggleAroma(term)} colorClass="bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-orange-100 dark:border-orange-800" />
@@ -249,7 +249,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                         {/* Tertiary */}
                         {groupedSelected['Tertiary'].length > 0 && (
                             <div className="flex flex-col sm:flex-row sm:gap-4 sm:items-start gap-1">
-                                <span className="text-[10px] uppercase tracking-wide text-zinc-400 w-16 flex-shrink-0 sm:mt-1.5 font-medium">Tertiary</span>
+                                <span className="text-[10px] uppercase tracking-wide text-[var(--text-muted)] w-16 flex-shrink-0 sm:mt-1.5 font-medium">Tertiary</span>
                                 <div className="flex flex-wrap gap-1.5">
                                     {groupedSelected['Tertiary'].map(term => (
                                         <MountedShelfChip key={term} term={term} onRemove={() => toggleAroma(term)} colorClass="bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-400 border-amber-100 dark:border-amber-800" />
@@ -261,10 +261,10 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                         {/* Other */}
                         {groupedSelected['Other'].length > 0 && (
                             <div className="flex flex-col sm:flex-row sm:gap-4 sm:items-start gap-1">
-                                <span className="text-[10px] uppercase tracking-wide text-zinc-400 w-16 flex-shrink-0 sm:mt-1.5 font-medium">Other</span>
+                                <span className="text-[10px] uppercase tracking-wide text-[var(--text-muted)] w-16 flex-shrink-0 sm:mt-1.5 font-medium">Other</span>
                                 <div className="flex flex-wrap gap-1.5">
                                     {groupedSelected['Other'].map(term => (
-                                        <MountedShelfChip key={term} term={term} onRemove={() => toggleAroma(term)} colorClass="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700" />
+                                        <MountedShelfChip key={term} term={term} onRemove={() => toggleAroma(term)} colorClass="bg-[var(--surface-2)] text-[var(--text-soft)] border-[var(--border)]" />
                                     ))}
                                 </div>
                             </div>
@@ -281,8 +281,8 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                         onClick={() => setIsBrowseOpen(!isBrowseOpen)}
                         className="flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--text)] transition-colors mb-2 group w-full"
                     >
-                        {isBrowseOpen ? <ChevronDown size={14} className="text-zinc-400 group-hover:text-zinc-600" /> : <ChevronRight size={14} className="text-zinc-400 group-hover:text-zinc-600" />}
-                        <span className={isBrowseOpen ? "font-medium" : "decoration-zinc-300 underline-offset-4 group-hover:underline"}>
+                        {isBrowseOpen ? <ChevronDown size={14} className="text-[var(--text-muted)] group-hover:text-[var(--text)]" /> : <ChevronRight size={14} className="text-[var(--text-muted)] group-hover:text-[var(--text)]" />}
+                        <span className={isBrowseOpen ? "font-medium" : "decoration-[var(--border)] underline-offset-4 group-hover:underline"}>
                             Browse aromas by category
                         </span>
                     </button>
@@ -300,7 +300,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                         type="button"
                                         onClick={() => setActiveLayerIndex(idx)}
                                         className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeLayerIndex === idx
-                                            ? 'border-[var(--primary)] text-[var(--primary)]'
+                                            ? 'border-[var(--primary)] text-[var(--primary-text)]'
                                             : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--border)]'
                                             }`}
                                     >
@@ -319,7 +319,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                             <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">
                                                 {layer.layer}
                                             </h4>
-                                            <div className="space-y-4 pl-2 border-l-2 border-gray-100">
+                                            <div className="space-y-4 pl-2 border-l-2 border-[var(--border)]">
                                                 {layer.categories.map((category) => (
                                                     <div key={category.name}>
                                                         <div className="text-sm font-medium text-[var(--text)] mb-2">
@@ -341,7 +341,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                         </div>
                                     ))}
                                     {filteredDefinitions.length === 0 && (
-                                        <div className="text-center py-8 text-gray-500">
+                                        <div className="text-center py-8 text-[var(--text-muted)]">
                                             該当するアロマが見つかりません
                                         </div>
                                     )}
@@ -386,7 +386,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => toggleShowAll(category.name)}
-                                                                    className="text-xs text-[var(--primary)] hover:text-[var(--text)] font-medium px-2 py-1"
+                                                                    className="text-xs text-[var(--primary-text)] hover:text-[var(--text)] font-medium px-2 py-1"
                                                                 >
                                                                     +{hiddenCount} more
                                                                 </button>
@@ -395,7 +395,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => toggleShowAll(category.name)}
-                                                                    className="text-xs text-gray-400 hover:text-gray-600 font-medium px-2 py-1"
+                                                                    className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] font-medium px-2 py-1"
                                                                 >
                                                                     Show less
                                                                 </button>

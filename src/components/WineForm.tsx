@@ -168,7 +168,7 @@ function FormAccordionSection({
     const isActive = id === activeId;
 
     return (
-        <section className={`rounded-lg border transition-colors ${isActive ? 'border-[var(--border)] bg-[var(--card-bg)] shadow-[0_18px_48px_rgba(0,0,0,0.22)]' : 'border-[var(--border-subtle)] bg-[var(--surface-2)]/55'}`}>
+        <section className={`rounded-lg border transition-colors ${isActive ? 'border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--shadow-card-elevated)]' : 'border-[var(--border-subtle)] bg-[var(--surface-2)]/55'}`}>
             <div className="flex items-start justify-between gap-3 p-4 md:p-5">
                 <button
                     type="button"
@@ -177,14 +177,14 @@ function FormAccordionSection({
                     aria-expanded={isActive}
                     aria-controls={`wine-form-section-${id}`}
                 >
-                    <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-sm font-semibold ${isActive ? 'border-[var(--primary)] bg-[var(--wine-red-soft)] text-[var(--primary)]' : 'border-[var(--border)] bg-[var(--input-bg)] text-[var(--text-muted)]'}`}>
+                    <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-sm font-semibold ${isActive ? 'border-[var(--primary)] bg-[var(--wine-red-soft)] text-[var(--primary-text)]' : 'border-[var(--border)] bg-[var(--input-bg)] text-[var(--text-muted)]'}`}>
                         {index}
                     </span>
                     <span className="min-w-0">
                         <span className="flex items-center gap-2">
-                            <span className={isActive ? 'text-[var(--primary)]' : 'text-[var(--text-soft)]'}>{icon}</span>
+                            <span className={isActive ? 'text-[var(--primary-text)]' : 'text-[var(--text-soft)]'}>{icon}</span>
                             <span className="text-base font-semibold leading-6 text-[var(--text)]">{title}</span>
-                            {hasError && <span className="rounded-full bg-[var(--wine-red-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--primary)]">要確認</span>}
+                            {hasError && <span className="rounded-full bg-[var(--wine-red-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--primary-text)]">要確認</span>}
                         </span>
                         <span className="mt-1 block text-sm leading-5 text-[var(--text-muted)]">{description}</span>
                     </span>
@@ -1531,7 +1531,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                 <button
                                     type="button"
                                     onClick={() => removeImage(idx)}
-                                    className="absolute top-1 right-1 bg-[var(--card-bg)]/80 p-1 rounded-full text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="absolute top-1 right-1 bg-[var(--card-bg)]/80 p-1 rounded-full text-[var(--color-error)] opacity-0 group-hover:opacity-100 transition-opacity"
                                     aria-label="写真を削除"
                                 >
                                     <Trash2 size={16} />
@@ -1642,7 +1642,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 render={({ field }) => (
                     <>
                         <div className="relative inline-block select-none" aria-label={`Rating ${round1(field.value)} of 5`}>
-                            <div className="text-2xl tracking-tight text-[var(--border)]">★★★★★</div>
+                            <div className="text-2xl tracking-tight text-[var(--text-muted)]">★★★★★</div>
                             <div
                                 className="absolute top-0 left-0 overflow-hidden text-2xl tracking-tight text-[var(--color-gold)] pointer-events-none"
                                 style={{ width: `${(Math.max(0, Math.min(5, Number(field.value))) / 5) * 100}%` }}
@@ -1675,7 +1675,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
     );
 
     const simpleSummarySection = (
-        <section className="rounded-lg border border-[var(--color-gold)]/35 bg-[var(--surface-2)] p-4 shadow-[0_12px_36px_rgba(0,0,0,0.18)] md:p-5">
+        <section className="rounded-lg border border-[var(--color-gold)]/35 bg-[var(--surface-2)] p-4 shadow-[var(--shadow-card)] md:p-5">
             <div className="mb-5 flex items-start gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--color-gold)]/35 bg-[var(--color-gold-soft)] text-[var(--color-gold)]">
                     <Award size={18} />
@@ -1847,7 +1847,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-[var(--primary)]" /> 参考テイスティングノート
+                                <FileText className="w-4 h-4 text-[var(--primary-text)]" /> 参考テイスティングノート
                             </label>
                             <Controller
                                 control={control}
@@ -1937,7 +1937,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                         <button
                                             key={t}
                                             type="button"
-                                            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${active ? 'border-[var(--primary)] bg-[var(--wine-red-soft)] text-[var(--primary)]' : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:bg-[var(--input-bg)] hover:text-[var(--text)]'}`}
+                                            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${active ? 'border-[var(--primary)] bg-[var(--wine-red-soft)] text-[var(--primary-text)]' : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:bg-[var(--input-bg)] hover:text-[var(--text)]'}`}
                                             onClick={() => setValue('wineType', t, { shouldDirty: true })}
                                         >
                                             {t}
@@ -1980,7 +1980,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
                                 <FieldRow label="ワイン名*">
                                     <input className={FORM_CONTROL_BASE} placeholder="例: Bourgogne Rouge" {...register('wineName')} />
-                                    {errors.wineName && <p className="mt-1 text-sm text-[var(--primary)]">必須です</p>}
+                                    {errors.wineName && <p className="mt-1 text-sm text-[var(--primary-text)]">必須です</p>}
                                 </FieldRow>
 
                                 <div className="grid gap-4 sm:grid-cols-2">

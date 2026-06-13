@@ -49,7 +49,7 @@ export default function AiWineInfo({ wine }: AiWineInfoProps) {
 
     if (!hasAiData && !isLoading) {
         return (
-            <section className="rounded-lg border border-[var(--color-gold)]/35 bg-[var(--color-gold-soft)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.16)]">
+            <section className="rounded-lg border border-[var(--color-gold)]/35 bg-[var(--color-gold-soft)] p-4 shadow-[var(--shadow-card)]">
                 <div className="flex flex-col gap-4">
                     <div>
                         <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--text)]">
@@ -123,7 +123,7 @@ export default function AiWineInfo({ wine }: AiWineInfoProps) {
 
             <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] p-4">
                 <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
-                    <FileText className="h-4 w-4 text-[var(--primary)]" />
+                    <FileText className="h-4 w-4 text-[var(--primary-text)]" />
                     Web上のテイスティングノート
                 </h4>
                 <p className="whitespace-pre-wrap text-sm leading-7 text-[var(--text-soft)]">

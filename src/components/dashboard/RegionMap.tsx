@@ -122,12 +122,12 @@ const RegionMap: React.FC<Props> = ({ data }) => {
     const colorScale = scaleQuantile<string>()
         .domain(Object.values(mappedData))
         .range([
-            "#1A2230",
-            "#2A3445",
-            "#4A2D39",
-            "#753046",
-            "#A5264D",
-            "#E0184D"
+            "var(--map-fill-1)",
+            "var(--map-fill-2)",
+            "var(--map-fill-3)",
+            "var(--map-fill-4)",
+            "var(--map-fill-5)",
+            "var(--map-fill-6)"
         ]);
 
     return (
@@ -167,7 +167,7 @@ const RegionMap: React.FC<Props> = ({ data }) => {
                             const isActive = activeCountry?.name === name;
                             const isTopCountry = topCountryNames.has(name);
                             const fill = value
-                                ? isActive || isTopCountry ? '#C7A15A' : colorScale(value)
+                                ? isActive || isTopCountry ? 'var(--color-gold)' : colorScale(value)
                                 : 'var(--card-bg)';
                             const stroke = isActive ? 'var(--text)' : 'var(--border)';
 
@@ -197,7 +197,7 @@ const RegionMap: React.FC<Props> = ({ data }) => {
 
             <div className="mt-3 space-y-3">
                 <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card-bg)]/90 px-3 py-2 text-xs text-[var(--text-muted)]">
-                    <span className="h-2.5 w-2.5 rounded-full bg-[#C7A15A]" aria-hidden="true" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-gold)]" aria-hidden="true" />
                     <span>黄色は記録本数トップ3の国です。</span>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -219,12 +219,12 @@ const RegionMap: React.FC<Props> = ({ data }) => {
                                     <span className="shrink-0 text-sm font-bold text-[var(--text)]">{entry.value}本</span>
                                 </div>
                                 {isTopCountry && (
-                                    <div className="mb-2 w-fit rounded-full border border-[#C7A15A]/35 bg-[#C7A15A]/15 px-2 py-0.5 text-[10px] font-semibold text-[var(--text)]">
+                                    <div className="mb-2 w-fit rounded-full border border-[var(--color-gold)]/35 bg-[var(--color-gold-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text)]">
                                         Top 3
                                     </div>
                                 )}
                                 <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
-                                    <div className="h-full rounded-full" style={{ width, backgroundColor: isTopCountry ? '#C7A15A' : colorScale(entry.value) }} />
+                                    <div className="h-full rounded-full" style={{ width, backgroundColor: isTopCountry ? 'var(--color-gold)' : colorScale(entry.value) }} />
                                 </div>
                             </div>
                         );

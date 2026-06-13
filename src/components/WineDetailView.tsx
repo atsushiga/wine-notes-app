@@ -158,7 +158,7 @@ export default function WineDetailView({
 
             <section className="grid gap-6 lg:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.45fr)]">
                 <div className="space-y-3">
-                    <div className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-3 shadow-[var(--shadow-popover)]">
                         {wine.images && wine.images.length > 0 ? (
                             <ImageCarousel images={wine.images} wineName={wine.wine_name || 'Wine'} />
                         ) : (
@@ -243,7 +243,7 @@ export default function WineDetailView({
                             type="button"
                             onClick={onDelete}
                             disabled={isDeleting}
-                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--color-error)]/35 bg-transparent px-4 py-2 text-sm font-semibold text-[var(--color-error)] transition-colors hover:bg-[var(--color-error)]/10 disabled:opacity-50"
+                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--color-error)]/35 bg-transparent px-4 py-2 text-sm font-semibold text-[var(--color-error)] transition-colors hover:bg-[var(--color-error-solid)]/10 disabled:opacity-50"
                         >
                             {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                             {isDeleting ? '削除中...' : '削除'}
@@ -287,7 +287,7 @@ export default function WineDetailView({
                                     href={wine.vivino_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 text-sm font-medium text-[var(--primary)] hover:underline"
+                                    className="inline-flex items-center gap-2 text-sm font-medium text-[var(--primary-text)] hover:underline"
                                 >
                                     Vivinoで見る
                                     <ExternalLink size={14} />
@@ -399,7 +399,7 @@ function InfoRow({ label, value, detail, link = false }: { label: string; value?
                 {isEmpty ? (
                     '-'
                 ) : link && typeof value === 'string' ? (
-                    <a href={value} target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] hover:underline">
+                    <a href={value} target="_blank" rel="noopener noreferrer" className="text-[var(--primary-text)] hover:underline">
                         {value}
                     </a>
                 ) : (

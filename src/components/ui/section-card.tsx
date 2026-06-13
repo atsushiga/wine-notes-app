@@ -25,13 +25,13 @@ export function SectionCard({
     const toneClass = {
         neutral: 'bg-[var(--card-bg)]',
         soft: 'bg-[var(--surface-2)]',
-        focus: 'border-[var(--color-gold)]/45 bg-[var(--surface-2)] shadow-[0_18px_50px_rgba(0,0,0,0.24)]',
+        focus: 'border-[var(--color-gold)]/45 bg-[var(--surface-2)] shadow-[var(--shadow-card-elevated)]',
     }[tone];
 
     return (
         <section
             className={cn(
-                'mt-6 first:mt-0 rounded-lg border border-[var(--border)] px-4 py-5 shadow-[0_12px_40px_rgba(0,0,0,0.16)] transition-[border-color,background-color,box-shadow] md:px-6 md:py-6',
+                'mt-6 first:mt-0 rounded-lg border border-[var(--border)] px-4 py-5 shadow-[var(--shadow-card)] transition-[border-color,background-color,box-shadow] md:px-6 md:py-6',
                 toneClass,
                 className
             )}

@@ -171,7 +171,7 @@ function HighlightText({ text }: { text?: string }) {
         <>
             {text.split(HIGHLIGHT_PATTERN).map((part, index) => (
                 HIGHLIGHT_TOKEN_PATTERN.test(part) ? (
-                    <strong key={`${part}-${index}`} className="font-bold text-[var(--primary)]">
+                    <strong key={`${part}-${index}`} className="font-bold text-[var(--primary-text)]">
                         {part}
                     </strong>
                 ) : (
@@ -345,7 +345,7 @@ export default function AiExplainerResultPage() {
     if (!data) {
         return (
             <main className="mx-auto flex min-h-[70vh] max-w-3xl flex-col items-center justify-center px-4 pb-32 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] text-[var(--primary)]">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] text-[var(--primary-text)]">
                     <Sparkles size={24} />
                 </div>
                 <h1 className="mt-4 text-2xl font-bold text-[var(--text)]">生成結果がありません</h1>
@@ -415,7 +415,7 @@ function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExpla
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <Link
                             href="/ai-explainer"
-                            className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--primary)]"
+                            className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--primary-text)]"
                         >
                             <ArrowLeft size={16} />
                             AI解説に戻る
@@ -613,7 +613,7 @@ function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExpla
                             <TastingColumn title="味わい" items={explanation.tasting.palate} />
                             <div className="rounded-xl border border-[var(--border)] bg-[var(--app-bg)] p-4">
                                 <div className="flex items-center gap-2 text-sm font-bold text-[var(--text)]">
-                                    <Clock3 size={16} className="text-[var(--primary)]" />
+                                    <Clock3 size={16} className="text-[var(--primary-text)]" />
                                     余韻
                                 </div>
                                 <p className="mt-3 text-sm leading-7 text-[var(--text)]">
@@ -662,7 +662,7 @@ function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExpla
 
                     <Panel title="参考情報" icon={<ExternalLink size={18} />}>
                         <div className="mb-4 rounded-lg bg-[var(--app-bg)] px-3 py-2">
-                            <p className="text-xs font-bold text-[var(--primary)]">生成日時</p>
+                            <p className="text-xs font-bold text-[var(--primary-text)]">生成日時</p>
                             <p className="mt-1 text-sm leading-6 text-[var(--text)]">{generatedAt}</p>
                         </div>
                         <div className="space-y-2">
@@ -682,7 +682,7 @@ function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExpla
                                         rel="noreferrer"
                                         className="flex items-start gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--text)] hover:border-[var(--primary)]"
                                     >
-                                        <ExternalLink size={15} className="mt-0.5 shrink-0 text-[var(--primary)]" />
+                                        <ExternalLink size={15} className="mt-0.5 shrink-0 text-[var(--primary-text)]" />
                                         <span className="line-clamp-2">{source.title || source.url}</span>
                                     </a>
                                 ))}
@@ -814,7 +814,7 @@ function AssetDisclosure({ asset, compact = false }: { asset?: VisualImageAsset;
                     href={asset.sourceUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex min-w-0 items-center gap-1 break-all font-semibold text-[var(--primary)]"
+                    className="inline-flex min-w-0 items-center gap-1 break-all font-semibold text-[var(--primary-text)]"
                 >
                     <ExternalLink size={compact ? 11 : 13} className="shrink-0" />
                     <span>出典: {asset.sourceTitle || asset.sourceUrl}</span>
@@ -926,7 +926,7 @@ function ProducerVisual({ asset, producer, onImageOpen }: { asset?: VisualImageA
                         imgClassName="h-full w-full object-cover"
                     />
                 ) : (
-                    <div className="grid h-full grid-cols-3 items-center gap-3 p-5 text-[var(--primary)]">
+                    <div className="grid h-full grid-cols-3 items-center gap-3 p-5 text-[var(--primary-text)]">
                         <div className="flex h-20 items-center justify-center rounded-xl bg-[var(--card-bg)]">
                             <Factory size={34} />
                         </div>
@@ -978,14 +978,14 @@ function TerroirMapVisual({
         <div className="relative h-72 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card-bg)] sm:h-80">
             <div className="absolute left-7 top-10 h-24 w-36 rotate-[-12deg] rounded-[45%] border-2 border-[var(--border)] bg-[var(--surface-2)]" />
             <div className="absolute bottom-10 right-8 h-28 w-48 rotate-[10deg] rounded-[50%] border-2 border-[var(--border)] bg-[var(--surface-2)]" />
-            <div className="absolute left-7 bottom-7 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--app-bg)] text-[var(--primary)]">
+            <div className="absolute left-7 bottom-7 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--app-bg)] text-[var(--primary-text)]">
                 <Waves size={22} />
             </div>
-            <div className="absolute right-8 top-8 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--app-bg)] text-[var(--primary)]">
+            <div className="absolute right-8 top-8 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--app-bg)] text-[var(--primary-text)]">
                 <Mountain size={22} />
             </div>
             <div className="absolute bottom-3 left-3 right-3 flex items-center gap-2 rounded-xl bg-[var(--card-bg)]/95 px-3 py-2 text-xs font-bold text-[var(--text)] shadow-sm">
-                <MapPin size={15} className="text-[var(--primary)]" />
+                <MapPin size={15} className="text-[var(--primary-text)]" />
                 <span className="line-clamp-2">{label}</span>
             </div>
         </div>
@@ -1018,7 +1018,7 @@ function TerroirPointCards({ callouts }: { callouts?: TerroirMapCallout[] }) {
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {list.map((callout, index) => (
                 <div key={`${callout.label}-${index}`} className="flex gap-3 rounded-xl border border-[var(--border)] bg-[var(--app-bg)] p-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--card-bg)] text-[var(--primary)]">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--card-bg)] text-[var(--primary-text)]">
                         <TerroirCalloutIcon icon={callout.icon} />
                     </div>
                     <div>
@@ -1047,7 +1047,7 @@ function TerroirInfluences({ items }: { items?: { title: string; description: st
         <div className={`mt-4 grid gap-3 ${gridClass}`}>
             {list.map((item, index) => (
                 <div key={`${item.title}-${index}`} className="rounded-xl border border-[var(--border)] bg-[var(--app-bg)] p-3">
-                    <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--card-bg)] text-[var(--primary)]">
+                    <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--card-bg)] text-[var(--primary-text)]">
                         {icons[index % icons.length]}
                     </div>
                     <p className="text-sm font-bold text-[var(--text)]">{item.title}</p>
@@ -1138,7 +1138,7 @@ function TasteRadar({ scales }: { scales?: VisualScale[] }) {
 
 function Panel({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
     return (
-        <section className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.16)] sm:p-6">
+        <section className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--shadow-card)] sm:p-6">
             <div className="mb-5 flex items-center gap-3 border-b border-[var(--border-subtle)] pb-4">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--input-bg)] text-[var(--color-gold)]">
                     {icon}
@@ -1220,7 +1220,7 @@ function PairingVisual({ asset, pairing, onImageOpen }: { asset?: VisualImageAss
                     className="h-full w-full"
                     imgClassName="h-full w-full object-cover"
                 />
-                <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-[var(--card-bg)]/95 px-3 py-1 text-[10px] font-bold text-[var(--primary)] shadow-sm">
+                <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-[var(--card-bg)]/95 px-3 py-1 text-[10px] font-bold text-[var(--primary-text)] shadow-sm">
                     <Utensils size={13} />
                     {pairing || "ペアリング"}
                 </div>
@@ -1261,7 +1261,7 @@ function AromaVisualGrid({ aromas, onImageOpen }: { aromas: AromaVisual[]; onIma
                             </>
                         ) : (
                             <>
-                                <div className="absolute left-3 top-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--card-bg)]/95 text-[var(--primary)] shadow-sm">
+                                <div className="absolute left-3 top-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--card-bg)]/95 text-[var(--primary-text)] shadow-sm">
                                     <AromaIcon family={aroma.family} size={23} />
                                 </div>
                                 <div className="absolute bottom-3 right-3 flex gap-2 text-[var(--card-bg)]/80">
@@ -1347,7 +1347,7 @@ function ScaleBar({ scale }: { scale: VisualScale }) {
 function TimelineItem({ label, title, description }: { label: string; title: string; description: string }) {
     return (
         <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-3">
-            <div className="text-sm font-bold text-[var(--primary)]">{label}</div>
+            <div className="text-sm font-bold text-[var(--primary-text)]">{label}</div>
             <div>
                 <p className="text-sm font-bold text-[var(--text)]">{title}</p>
                 <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
@@ -1366,7 +1366,7 @@ function FlowStep({ index, label, description }: { index: number; label: string;
             </div>
             <div>
                 <p className="text-sm font-bold text-[var(--text)]">
-                    <span className="mr-2 text-[var(--primary)]">{String(index).padStart(2, "0")}</span>
+                    <span className="mr-2 text-[var(--primary-text)]">{String(index).padStart(2, "0")}</span>
                     {label}
                 </p>
                 <p className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
@@ -1388,7 +1388,7 @@ function NumberedNote({ index, text }: { index: number; text: string }) {
     ];
     return (
         <div className="flex gap-3 rounded-xl bg-[var(--app-bg)] p-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--card-bg)] text-[var(--primary)]">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--card-bg)] text-[var(--primary-text)]">
                 {icons[(index - 1) % icons.length]}
             </span>
             <p className="text-sm leading-6 text-[var(--text)]">
@@ -1402,7 +1402,7 @@ function TastingColumn({ title, items }: { title: string; items?: string[] }) {
     return (
         <div className="rounded-xl border border-[var(--border)] bg-[var(--app-bg)] p-4">
             <div className="flex items-center gap-2 text-sm font-bold text-[var(--text)]">
-                <BadgeInfo size={16} className="text-[var(--primary)]" />
+                <BadgeInfo size={16} className="text-[var(--primary-text)]" />
                 {title}
             </div>
             <ul className="mt-3 space-y-2">

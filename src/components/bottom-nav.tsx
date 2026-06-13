@@ -133,10 +133,10 @@ function DesktopSidebar() {
                                     active ? "bg-[var(--primary)] opacity-100" : "opacity-0"
                                 )}
                             />
-                            <Icon size={20} aria-hidden="true" className={active ? "text-[var(--primary)]" : undefined} />
+                            <Icon size={20} aria-hidden="true" className={active ? "text-[var(--primary-text)]" : undefined} />
                             <span>{label}</span>
                             {pending ? (
-                                <LoaderCircle size={15} aria-hidden="true" className="ml-auto animate-spin text-[var(--primary)] motion-reduce:animate-pulse" />
+                                <LoaderCircle size={15} aria-hidden="true" className="ml-auto animate-spin text-[var(--primary-text)] motion-reduce:animate-pulse" />
                             ) : null}
                             {pending ? <span className="sr-only">移動中</span> : null}
                         </Link>
@@ -153,7 +153,7 @@ function MobileBottomNav() {
     return (
         <nav
             aria-label="主要ナビゲーション"
-            className="app-navigation fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 right-3 z-50 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--sidebar-bg)]/92 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl md:hidden"
+            className="app-navigation fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 right-3 z-50 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--sidebar-bg)]/92 shadow-[var(--shadow-nav)] backdrop-blur-xl md:hidden"
         >
             {pendingHref ? (
                 <div className="absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-[var(--color-wine-red-soft)]">
@@ -175,9 +175,9 @@ function MobileBottomNav() {
                             className={cn(
                                 "relative flex h-full min-w-0 flex-col items-center justify-center gap-1 overflow-hidden px-1 text-center transition-[color,background-color,transform] duration-150 ease-out active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-inset",
                                 active
-                                    ? "bg-[var(--color-wine-red-soft)] text-[var(--primary)]"
+                                    ? "bg-[var(--color-wine-red-soft)] text-[var(--primary-text)]"
                                     : "text-[var(--text-muted)] hover:text-[var(--text)]",
-                                pending && "scale-[0.98] bg-[var(--color-wine-red-soft)] text-[var(--primary)]"
+                                pending && "scale-[0.98] bg-[var(--color-wine-red-soft)] text-[var(--primary-text)]"
                             )}
                         >
                             <span className="relative flex h-6 w-6 items-center justify-center">
@@ -193,7 +193,7 @@ function MobileBottomNav() {
                                     <LoaderCircle
                                         size={16}
                                         aria-hidden="true"
-                                        className="absolute -right-1 -top-1 animate-spin text-[var(--primary)] motion-reduce:animate-pulse"
+                                        className="absolute -right-1 -top-1 animate-spin text-[var(--primary-text)] motion-reduce:animate-pulse"
                                     />
                                 ) : null}
                             </span>

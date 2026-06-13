@@ -162,7 +162,7 @@ export default function AiExplainerClient() {
                             />
                         ) : (
                             <div className="flex flex-col items-center gap-3 px-6">
-                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] text-[var(--primary)]">
+                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] text-[var(--primary-text)]">
                                     <FileImage size={24} />
                                 </div>
                                 <div>
@@ -179,7 +179,7 @@ export default function AiExplainerClient() {
                     <div className="flex flex-col justify-between gap-4">
                         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-4">
                             <div className="flex items-center gap-3">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--card-bg)] text-[var(--primary)]">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--card-bg)] text-[var(--primary-text)]">
                                     {status === "uploading" || status === "analyzing" ? (
                                         <Loader2 size={18} className="animate-spin" />
                                     ) : status === "ready" ? (

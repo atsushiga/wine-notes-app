@@ -75,14 +75,14 @@ export default function SignupPage() {
             />
           </div>
           {errorMessage && (
-            <p className="text-sm text-red-500" role="alert">
+            <p className="text-sm text-[var(--color-error)]" role="alert">
               {errorMessage}
             </p>
           )}
           <button
             type="submit"
             disabled={status === 'loading'}
-            className="w-full rounded-md bg-[var(--ring)] px-4 py-2 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:opacity-70"
+            className="w-full rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--primary-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:opacity-70"
           >
             {status === 'loading' ? '送信中...' : '確認メールを送信'}
           </button>

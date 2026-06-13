@@ -77,13 +77,13 @@ const PriceSatisfactionHighlights: React.FC<Props> = ({ notes }) => {
                                             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-gold-soft)] text-xs font-bold text-[var(--color-gold)]">
                                                 {index + 1}
                                             </span>
-                                            <p className="truncate text-sm font-semibold text-[var(--text)] group-hover:text-[var(--primary)]">{note.wine_name}</p>
+                                            <p className="truncate text-sm font-semibold text-[var(--text)] group-hover:text-[var(--primary-text)]">{note.wine_name}</p>
                                         </div>
                                         <p className="mt-1 truncate pl-8 text-xs text-[var(--text-muted)]">
                                             {[note.country, note.region || note.locality, note.vintage].filter(Boolean).join(' / ') || '産地未入力'}
                                         </p>
                                     </div>
-                                    <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-[var(--primary)] transition-transform group-hover:translate-x-0.5" />
+                                    <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-[var(--primary-text)] transition-transform group-hover:translate-x-0.5" />
                                 </div>
                                 <div className="mt-2 flex flex-wrap gap-2 pl-8 text-xs">
                                     <span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[var(--text-muted)]">

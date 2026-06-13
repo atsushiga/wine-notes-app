@@ -65,7 +65,7 @@ export default function AiExplainerHistory() {
                 </div>
             ) : items.length === 0 ? (
                 <div className="flex items-center gap-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--app-bg)] px-4 py-5 text-sm text-[var(--text-muted)]">
-                    <Sparkles size={18} className="shrink-0 text-[var(--primary)]" />
+                    <Sparkles size={18} className="shrink-0 text-[var(--primary-text)]" />
                     <span>AI解説を生成すると、ここに履歴が表示されます。</span>
                 </div>
             ) : (

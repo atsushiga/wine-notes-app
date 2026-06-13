@@ -105,7 +105,7 @@ export default function WineEntryClient({ defaultInputMode, simpleAiAutomation }
             <button
               type="button"
               onClick={handleClear}
-              className="ml-auto inline-flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-1.5 text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
+              className="ml-auto inline-flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-1.5 text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--primary-text)]"
             >
               <RotateCcw size={16} />
               <span>入力をクリア</span>
@@ -129,7 +129,7 @@ export default function WineEntryClient({ defaultInputMode, simpleAiAutomation }
       )}
 
       {sent && (
-        <p className={`text-sm ${sent.ok ? 'text-green-600' : 'text-red-600'} mt-4 px-4`}>
+        <p className={`text-sm ${sent.ok ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'} mt-4 px-4`}>
           {sent.ok ? '保存しました（ID: ' + sent.id + '）' : `保存に失敗しました: ${sent.error}`}
         </p>
       )}

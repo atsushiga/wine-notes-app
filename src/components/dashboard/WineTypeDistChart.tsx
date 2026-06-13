@@ -16,15 +16,15 @@ interface Props {
 }
 
 const COLORS: Record<string, string> = {
-    '赤': '#E0184D',
-    '白': '#C7A15A',
-    'ロゼ': '#BFC7D9',
-    'スパークリング': '#8E99AA',
+    '赤': 'var(--color-wine-red)',
+    '白': 'var(--color-gold)',
+    'ロゼ': 'var(--text-soft)',
+    'スパークリング': 'var(--text-muted)',
     'オレンジ': '#D7A84F',
-    'その他': '#2A3445'
+    'その他': 'var(--border)'
 };
 
-const DEFAULT_COLOR = '#2A3445';
+const DEFAULT_COLOR = 'var(--border)';
 
 function WineTypeTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload?: WineTypeStats }> }) {
     if (!active || !payload?.length || !payload[0].payload) return null;

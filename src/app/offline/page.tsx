@@ -5,7 +5,7 @@ export default function OfflinePage() {
   return (
     <ContentContainer size="form" className="pb-32">
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] px-5 py-6 shadow-sm">
-        <p className="text-sm font-semibold text-[var(--primary)]">オフラインです</p>
+        <p className="text-sm font-semibold text-[var(--color-error)]">オフラインです</p>
         <h1 className="mt-2 text-2xl font-semibold text-[var(--text)]">
           接続が戻ったらもう一度開いてください
         </h1>

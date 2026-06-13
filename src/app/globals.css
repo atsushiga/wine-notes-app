@@ -5,28 +5,40 @@
 @tailwind utilities;
 
 :root {
-  --color-canvas: #070A0F;
-  --color-sidebar: #08111D;
-  --color-surface: #121821;
-  --color-surface-elevated: #1A2230;
-  --color-surface-highest: #202B38;
+  color-scheme: light;
 
-  --color-border: #2A3445;
-  --color-border-subtle: rgba(216, 227, 246, 0.08);
+  --color-canvas: #F7F8FA;
+  --color-sidebar: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-surface-elevated: #F1F4F7;
+  --color-surface-highest: #E6EBF1;
 
-  --color-text: #F4F1EA;
-  --color-text-muted: #8E99AA;
-  --color-text-soft: #BFC7D9;
+  --color-border: #D6DEE8;
+  --color-border-subtle: rgba(29, 36, 48, 0.1);
 
-  --color-wine-red: #E0184D;
-  --color-wine-red-soft: rgba(224, 24, 77, 0.14);
+  --color-text: #1D2430;
+  --color-text-muted: #667085;
+  --color-text-soft: #475467;
 
-  --color-gold: #C7A15A;
-  --color-gold-soft: rgba(199, 161, 90, 0.14);
+  --color-wine-red: #B5123E;
+  --color-wine-red-soft: rgba(181, 18, 62, 0.1);
+  --color-wine-red-text: var(--color-wine-red);
 
-  --color-success: #2BC48A;
+  --color-gold: #7D5A22;
+  --color-gold-soft: rgba(125, 90, 34, 0.12);
+
+  --color-success: #087A50;
+  --color-success-soft: rgba(8, 122, 80, 0.12);
   --color-warning: var(--color-gold);
-  --color-error: #FF6B6B;
+  --color-warning-soft: var(--color-gold-soft);
+  --color-error: #C22635;
+  --color-error-solid: var(--color-error);
+  --color-error-soft: rgba(194, 38, 53, 0.1);
+
+  --shadow-card: 0 12px 34px rgba(29, 36, 48, 0.08);
+  --shadow-card-elevated: 0 18px 48px rgba(29, 36, 48, 0.12);
+  --shadow-nav: 0 18px 48px rgba(29, 36, 48, 0.14);
+  --shadow-popover: 0 16px 40px rgba(29, 36, 48, 0.16);
 
   /* Backward-compatible app tokens used across the existing UI. */
   --app-bg: var(--color-canvas);
@@ -44,6 +56,7 @@
   --text-soft: var(--color-text-soft);
 
   --primary: var(--color-wine-red);
+  --primary-text: var(--color-wine-red-text);
   --primary-foreground: #ffffff;
   --ring: var(--color-gold);
 
@@ -51,16 +64,69 @@
   --chip-border: var(--color-border);
   --chip-text: var(--color-text-soft);
 
-  --chart-grid: rgba(216, 227, 246, 0.12);
+  --chart-grid: rgba(29, 36, 48, 0.12);
   --chart-axis: var(--color-text-muted);
   --chart-text: var(--color-text-soft);
+  --map-fill-1: #E6EBF1;
+  --map-fill-2: #EAC9D2;
+  --map-fill-3: #DE9DB0;
+  --map-fill-4: #CE6886;
+  --map-fill-5: #BE3B62;
+  --map-fill-6: var(--color-wine-red);
 
   --accent: var(--color-wine-red);
   --accent-muted: var(--color-wine-red-soft);
+  --wine-red-soft: var(--color-wine-red-soft);
   --ai-accent: var(--color-gold);
   --ai-accent-muted: var(--color-gold-soft);
 
   --radius: 0.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --color-canvas: #070A0F;
+    --color-sidebar: #08111D;
+    --color-surface: #121821;
+    --color-surface-elevated: #1A2230;
+    --color-surface-highest: #202B38;
+
+    --color-border: #2A3445;
+    --color-border-subtle: rgba(216, 227, 246, 0.08);
+
+    --color-text: #F4F1EA;
+    --color-text-muted: #8E99AA;
+    --color-text-soft: #BFC7D9;
+
+    --color-wine-red: #E0184D;
+    --color-wine-red-soft: rgba(224, 24, 77, 0.14);
+    --color-wine-red-text: #FF5C8A;
+
+    --color-gold: #C7A15A;
+    --color-gold-soft: rgba(199, 161, 90, 0.14);
+
+    --color-success: #2BC48A;
+    --color-success-soft: rgba(43, 196, 138, 0.14);
+    --color-error: #FF6B6B;
+    --color-error-solid: #C22635;
+    --color-error-soft: rgba(255, 107, 107, 0.14);
+
+    --shadow-card: 0 12px 40px rgba(0, 0, 0, 0.16);
+    --shadow-card-elevated: 0 18px 50px rgba(0, 0, 0, 0.24);
+    --shadow-nav: 0 18px 60px rgba(0, 0, 0, 0.45);
+    --shadow-popover: 0 18px 60px rgba(0, 0, 0, 0.22);
+
+    --chart-grid: rgba(216, 227, 246, 0.12);
+
+    --map-fill-1: #1A2230;
+    --map-fill-2: #2A3445;
+    --map-fill-3: #4A2D39;
+    --map-fill-4: #753046;
+    --map-fill-5: #A5264D;
+    --map-fill-6: var(--color-wine-red);
+  }
 }
 
 @theme inline {
@@ -73,7 +139,6 @@ body {
   color: var(--text);
   font-family: var(--font-geist), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
-  color-scheme: dark;
 }
 
 html {
@@ -95,7 +160,7 @@ body {
 }
 
 :where(input, select, textarea) {
-  color-scheme: dark;
+  color-scheme: inherit;
 }
 
 :where(input, textarea)::placeholder {

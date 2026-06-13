@@ -16,7 +16,7 @@ export function Button({ className, variant = "secondary", ...props }: ButtonPro
         primary: "border border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90",
         secondary: "border border-[var(--border)] bg-transparent text-[var(--text)] hover:bg-[var(--surface-2)]",
         ghost: "border border-transparent bg-transparent text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]",
-        danger: "border border-[var(--color-error)]/35 bg-transparent text-[var(--color-error)] hover:bg-[var(--color-error)]/10",
+        danger: "border border-[var(--color-error)]/35 bg-transparent text-[var(--color-error)] hover:bg-[var(--color-error-solid)]/10",
     }[variant];
 
     return (
@@ -79,7 +79,7 @@ type MetricCardProps = {
 
 export function MetricCard({ label, value, detail, accent = "neutral", className }: MetricCardProps) {
     const accentClass = {
-        wine: "text-[var(--primary)]",
+        wine: "text-[var(--primary-text)]",
         gold: "text-[var(--color-gold)]",
         neutral: "text-[var(--text)]",
     }[accent];
