@@ -25,8 +25,8 @@ const CostPerformanceScatter: React.FC<Props> = ({ notes }) => {
     return (
         <Card className="p-6 h-[300px]">
             <h3 className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wider mb-4">コスパ分析 (価格 vs 評価)</h3>
-            <div className="w-full h-[220px]">
-                <ResponsiveContainer width="100%" height="100%">
+            <div className="w-full min-w-0">
+                <ResponsiveContainer width="100%" height={220} minWidth={0}>
                     <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 10 }}>
                         <CartesianGrid strokeDasharray="3 3" opacity={0.3} stroke="var(--chart-grid)" />
                         <XAxis type="number" dataKey="x" name="価格" unit="円" tick={{ fontSize: 10, fill: 'var(--chart-text)' }}>

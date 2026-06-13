@@ -17,10 +17,10 @@ interface Props {
 
 const PriceHistogram: React.FC<Props> = ({ data }) => {
     return (
-        <Card className="p-6 h-full min-h-[474px] flex flex-col">
+        <Card className="p-6 h-full min-h-[474px]">
             <h3 className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wider mb-2 flex-none">価格帯分布</h3>
-            <div className="w-full flex-grow min-h-0">
-                <ResponsiveContainer width="100%" height="100%">
+            <div className="w-full min-w-0">
+                <ResponsiveContainer width="100%" height={390} minWidth={0}>
                     <BarChart layout="vertical" data={data} margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--chart-grid)" opacity={0.5} />
                         <XAxis

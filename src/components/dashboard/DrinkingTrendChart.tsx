@@ -18,8 +18,8 @@ const DrinkingTrendChart: React.FC<Props> = ({ data }) => {
     return (
         <Card className="p-6 h-[300px]">
             <h3 className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wider mb-4">飲酒トレンド (月別)</h3>
-            <div className="w-full h-[220px]">
-                <ResponsiveContainer width="100%" height="100%">
+            <div className="w-full min-w-0">
+                <ResponsiveContainer width="100%" height={220} minWidth={0}>
                     <LineChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)" opacity={0.5} />
                         <XAxis

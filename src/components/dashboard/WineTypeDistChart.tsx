@@ -38,8 +38,8 @@ const WineTypeDistChart: React.FC<Props> = ({ data }) => {
                 </div>
             ) : (
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <div className="w-full sm:flex-1 h-[170px] min-w-0">
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="w-full sm:flex-1 min-w-0">
+                        <ResponsiveContainer width="100%" height={170} minWidth={0}>
                             <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                                 <Pie
                                     data={data}
