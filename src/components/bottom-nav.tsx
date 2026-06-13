@@ -32,11 +32,8 @@ function shouldIgnoreNavigationClick(event: MouseEvent<HTMLAnchorElement>) {
     );
 }
 
-export default function BottomNav() {
-    const pathname = usePathname();
-    const [pendingNavigation, setPendingNavigation] = useState<{ href: string; from: string } | null>(null);
-    const pendingHref = pendingNavigation?.from === pathname ? pendingNavigation.href : null;
-    const shouldHideNav =
+export function isNavigationHidden(pathname: string) {
+    return (
         pathname === "/login" ||
         pathname === "/signup" ||
         pathname === "/set-password" ||
@@ -47,7 +44,15 @@ export default function BottomNav() {
         pathname.startsWith("/reset-password/") ||
         pathname === "/ai-explainer/result" ||
         pathname.startsWith("/ai-explainer/result/") ||
-        pathname.startsWith("/auth/");
+        pathname.startsWith("/auth/")
+    );
+}
+
+export default function BottomNav() {
+    const pathname = usePathname();
+    const [pendingNavigation, setPendingNavigation] = useState<{ href: string; from: string } | null>(null);
+    const pendingHref = pendingNavigation?.from === pathname ? pendingNavigation.href : null;
+    const shouldHideNav = isNavigationHidden(pathname);
 
     useEffect(() => {
         const timeoutId = window.setTimeout(() => {
@@ -80,14 +85,14 @@ export default function BottomNav() {
     return (
         <nav
             aria-label="主要ナビゲーション"
-            className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border)] bg-[var(--card-bg)] shadow-lg pb-safe"
+            className="app-navigation fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border)] bg-[var(--card-bg)] shadow-lg pb-safe md:bottom-auto md:right-auto md:top-0 md:h-dvh md:w-56 md:border-r md:border-t-0 md:pb-0 md:pt-safe"
         >
             {pendingHref ? (
                 <div className="absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-[var(--accent-muted)]">
                     <div className="bottom-nav-progress h-full w-1/3 rounded-full bg-[var(--primary)]" />
                 </div>
             ) : null}
-            <div className="flex justify-around items-center h-16">
+            <div className="flex h-16 items-center justify-around md:h-full md:flex-col md:items-stretch md:justify-start md:gap-1.5 md:px-3 md:py-6">
                 {navItems.map(({ href, label, Icon }) => {
                     const active = isActive(href);
                     const pending = pendingHref === href && !active;
@@ -100,10 +105,10 @@ export default function BottomNav() {
                             aria-busy={pending || undefined}
                             onClick={(event) => handleNavClick(href, event)}
                             className={cn(
-                                "relative flex h-full w-full flex-col items-center justify-center space-y-1 overflow-hidden transition-[color,background-color,transform] duration-150 ease-out active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-inset",
+                                "relative flex h-full w-full flex-col items-center justify-center space-y-1 overflow-hidden transition-[color,background-color,transform] duration-150 ease-out active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-inset md:h-11 md:flex-row md:justify-start md:gap-3 md:space-y-0 md:rounded-lg md:px-3",
                                 active
-                                    ? "text-[var(--primary)]"
-                                    : "text-[var(--text-muted)] hover:text-[var(--text)]",
+                                    ? "text-[var(--primary)] md:bg-[var(--accent-muted)]"
+                                    : "text-[var(--text-muted)] hover:text-[var(--text)] md:hover:bg-[var(--surface-2)]",
                                 pending && "scale-[0.98] bg-[var(--accent-muted)] text-[var(--primary)]"
                             )}
                         >
@@ -124,7 +129,7 @@ export default function BottomNav() {
                                     />
                                 ) : null}
                             </span>
-                            <span className="text-xs font-medium">{label}</span>
+                            <span className="text-xs font-medium md:text-sm">{label}</span>
                             {pending ? <span className="sr-only">移動中</span> : null}
                         </Link>
                     );

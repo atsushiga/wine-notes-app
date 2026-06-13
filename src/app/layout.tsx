@@ -2,9 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Inter } from 'next/font/google';
 
-import BottomNav from "@/components/bottom-nav";
 import { AppShell } from "@/components/layout/AppShell";
-import { PwaInstallPrompt } from "@/components/pwa/PwaInstallPrompt";
+import { NavigationFrame } from "@/components/layout/NavigationFrame";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -57,11 +56,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           本文へスキップ
         </a>
         <AppShell>
-          <div id="main-content" tabIndex={-1}>
+          <NavigationFrame>
             {children}
-          </div>
-          <PwaInstallPrompt />
-          <BottomNav />
+          </NavigationFrame>
         </AppShell>
       </body>
     </html>
