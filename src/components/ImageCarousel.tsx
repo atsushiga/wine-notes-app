@@ -4,8 +4,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import Image from 'next/image';
 import { WineImage } from '@/types/custom';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ImageIcon } from 'lucide-react';
 import { isProtectedImageUrl } from '@/lib/protectedImage';
+import { EmptyState } from '@/components/ui/primitives';
 
 interface PropType {
     images: WineImage[];
@@ -34,7 +35,16 @@ const ImageCarousel: React.FC<PropType> = ({ images, wineName }) => {
         };
     }, [emblaApi, onSelect]);
 
-    if (!images || images.length === 0) return null;
+    if (!images || images.length === 0) {
+        return (
+            <EmptyState
+                icon={<ImageIcon size={24} />}
+                title="画像なし"
+                description="ラベル写真を追加すると、このワインを視覚的に探しやすくなります。"
+                className="flex aspect-[3/4] flex-col items-center justify-center"
+            />
+        );
+    }
 
     // Sort by display_order
     const sortedImages = [...images].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
@@ -66,12 +76,14 @@ const ImageCarousel: React.FC<PropType> = ({ images, wineName }) => {
                     <button
                         className="absolute left-2 top-1/2 -translate-y-1/2 bg-[var(--card-bg)]/60 hover:bg-[var(--card-bg)]/80 p-2 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0 border border-[var(--border)]"
                         onClick={scrollPrev}
+                        aria-label="前の画像"
                     >
                         <ChevronLeft className="w-6 h-6 text-[var(--text)]" />
                     </button>
                     <button
                         className="absolute right-2 top-1/2 -translate-y-1/2 bg-[var(--card-bg)]/60 hover:bg-[var(--card-bg)]/80 p-2 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0 border border-[var(--border)]"
                         onClick={scrollNext}
+                        aria-label="次の画像"
                     >
                         <ChevronRight className="w-6 h-6 text-[var(--text)]" />
                     </button>
@@ -86,6 +98,7 @@ const ImageCarousel: React.FC<PropType> = ({ images, wineName }) => {
                                     : 'bg-white/50 hover:bg-white/80'
                                     }`}
                                 onClick={() => emblaApi && emblaApi.scrollTo(index)}
+                                aria-label={`${index + 1}枚目の画像を表示`}
                             />
                         ))}
                     </div>

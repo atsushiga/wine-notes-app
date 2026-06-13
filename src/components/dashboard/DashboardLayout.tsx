@@ -2,9 +2,11 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import { BarChart3, Plus } from 'lucide-react';
+import Link from 'next/link';
 import { ContentContainer } from '@/components/layout/ContentContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { InsightPanel } from '@/components/ui/primitives';
+import { EmptyState, InsightPanel } from '@/components/ui/primitives';
 import { TastingNote } from '@/types/custom';
 import KPICards from './KPICards';
 import WineTypeDistChart from './WineTypeDistChart';
@@ -63,6 +65,25 @@ const DashboardLayout: React.FC<Props> = ({ notes }) => {
                 </InsightPanel>
             </div>
 
+            {notes.length === 0 ? (
+                <EmptyState
+                    icon={<BarChart3 size={24} />}
+                    title="統計に必要な記録がありません"
+                    description="ワインを数本記録すると、タイプ別の偏り、価格帯、飲むペース、産地の傾向が表示されます。"
+                    action={
+                        <Link
+                            href="/"
+                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                        >
+                            <Plus size={16} />
+                            最初の記録を追加
+                        </Link>
+                    }
+                    className="mb-8"
+                />
+            ) : (
+                <>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 {/* Left Column: A and D */}
                 <div className="flex flex-col gap-6">
@@ -84,6 +105,8 @@ const DashboardLayout: React.FC<Props> = ({ notes }) => {
             <div className="mb-8">
                 <RegionMap data={regionData} />
             </div>
+                </>
+            )}
 
         </ContentContainer>
     );

@@ -4,6 +4,7 @@
 import React from 'react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Label } from 'recharts';
 import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/primitives';
 import { TastingNote } from '@/types/custom';
 
 interface Props {
@@ -25,6 +26,13 @@ const CostPerformanceScatter: React.FC<Props> = ({ notes }) => {
     return (
         <Card className="p-6 h-[300px]">
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">価格満足度 (価格 vs 評価)</h3>
+            {data.length === 0 ? (
+                <EmptyState
+                    title="価格満足度データがありません"
+                    description="価格と評価の両方を入力した記録が増えると、満足度の傾向が見えてきます。"
+                    className="flex h-[220px] flex-col items-center justify-center"
+                />
+            ) : (
             <div className="h-[220px] w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
                     <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 10 }}>
@@ -63,6 +71,7 @@ const CostPerformanceScatter: React.FC<Props> = ({ notes }) => {
                     </ScatterChart>
                 </ResponsiveContainer>
             </div>
+            )}
         </Card>
     );
 };

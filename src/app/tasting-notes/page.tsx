@@ -1,7 +1,10 @@
 import { createClient } from "@/utils/supabase/server";
 import { TastingNote } from "@/types/custom";
 import WineList from "@/components/WineList";
+import { EmptyState } from "@/components/ui/primitives";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { AlertTriangle, Plus, Wine } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -38,12 +41,12 @@ export default async function TastingNotesPage() {
             fullError: JSON.stringify(error, null, 2)
         });
         return (
-            <div className="p-8 text-center text-red-600">
-                <p>データの取得に失敗しました。</p>
-                <p className="text-sm mt-2 text-gray-500">{error.message || '不明なエラーが発生しました'}</p>
-                {error.details && (
-                    <p className="text-xs mt-1 text-gray-400">{error.details}</p>
-                )}
+            <div className="mx-auto max-w-3xl px-4 py-16 pb-32">
+                <EmptyState
+                    icon={<AlertTriangle size={24} />}
+                    title="データの取得に失敗しました"
+                    description={error.message || '不明なエラーが発生しました。時間をおいてもう一度お試しください。'}
+                />
             </div>
         );
     }
@@ -52,29 +55,21 @@ export default async function TastingNotesPage() {
 
     if (notes.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[50vh] p-8 text-center">
-                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                    <svg
-                        className="w-12 h-12 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                        />
-                    </svg>
-                </div>
-                <h2 className="text-xl font-semibold text-gray-800 mb-2">
-                    まだ記録がありません
-                </h2>
-                <p className="text-gray-500 max-w-sm">
-                    新しいワインを飲んで、感想を記録してみましょう。
-                </p>
+            <div className="mx-auto max-w-3xl px-4 py-16 pb-32">
+                <EmptyState
+                    icon={<Wine size={24} />}
+                    title="まだ記録がありません"
+                    description="最初のワインを登録すると、ラベル画像、テイスティングメモ、AI分析をここから振り返れます。"
+                    action={
+                        <Link
+                            href="/"
+                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                        >
+                            <Plus size={16} />
+                            記録を追加
+                        </Link>
+                    }
+                />
             </div>
         );
     }

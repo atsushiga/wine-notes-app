@@ -4,6 +4,7 @@
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/primitives';
 
 interface TrendData {
     month: string;
@@ -15,9 +16,18 @@ interface Props {
 }
 
 const DrinkingTrendChart: React.FC<Props> = ({ data }) => {
+    const hasData = data.some((item) => item.count > 0);
+
     return (
         <Card className="p-6 h-[300px]">
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">月別テイスティング推移</h3>
+            {!hasData ? (
+                <EmptyState
+                    title="推移データがありません"
+                    description="日付付きの記録が増えると、月別のテイスティング本数を確認できます。"
+                    className="flex h-[220px] flex-col items-center justify-center"
+                />
+            ) : (
             <div className="h-[220px] w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
@@ -43,6 +53,7 @@ const DrinkingTrendChart: React.FC<Props> = ({ data }) => {
                     </LineChart>
                 </ResponsiveContainer>
             </div>
+            )}
         </Card>
     );
 };

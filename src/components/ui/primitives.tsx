@@ -140,3 +140,39 @@ export function WineImageFrame({ src, alt, className, imageClassName, unoptimize
         </div>
     );
 }
+
+type EmptyStateProps = {
+    icon?: ReactNode;
+    title: string;
+    description: string;
+    action?: ReactNode;
+    className?: string;
+};
+
+export function EmptyState({ icon, title, description, action, className }: EmptyStateProps) {
+    return (
+        <div className={cn("rounded-lg border border-dashed border-[var(--border)] bg-[var(--card-bg)] p-6 text-center", className)}>
+            {icon ? (
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-soft)]">
+                    {icon}
+                </div>
+            ) : null}
+            <h2 className="text-base font-semibold text-[var(--text)]">{title}</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--text-muted)]">{description}</p>
+            {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
+        </div>
+    );
+}
+
+type SkeletonBlockProps = {
+    className?: string;
+};
+
+export function SkeletonBlock({ className }: SkeletonBlockProps) {
+    return (
+        <div
+            className={cn("animate-pulse rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)]", className)}
+            aria-hidden="true"
+        />
+    );
+}

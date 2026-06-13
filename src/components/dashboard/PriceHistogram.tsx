@@ -4,6 +4,7 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/primitives';
 
 interface PriceBin {
     range: string;
@@ -16,9 +17,18 @@ interface Props {
 }
 
 const PriceHistogram: React.FC<Props> = ({ data }) => {
+    const hasData = data.some((item) => item.count > 0);
+
     return (
         <Card className="p-6 h-full min-h-[474px]">
             <h3 className="mb-2 flex-none text-sm font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">価格帯分布</h3>
+            {!hasData ? (
+                <EmptyState
+                    title="価格データがありません"
+                    description="価格を入力した記録が増えると、購入価格帯の偏りを確認できます。"
+                    className="flex h-[390px] flex-col items-center justify-center"
+                />
+            ) : (
             <div className="h-[390px] w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart layout="vertical" data={data} margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
@@ -43,6 +53,7 @@ const PriceHistogram: React.FC<Props> = ({ data }) => {
                     </BarChart>
                 </ResponsiveContainer>
             </div>
+            )}
         </Card>
     );
 };
