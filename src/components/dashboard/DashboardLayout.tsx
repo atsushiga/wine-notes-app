@@ -12,6 +12,7 @@ import KPICards from './KPICards';
 import WineTypeDistChart from './WineTypeDistChart';
 import PriceHistogram from './PriceHistogram';
 import CostPerformanceScatter from './CostPerformanceScatter';
+import PriceSatisfactionHighlights from './PriceSatisfactionHighlights';
 import DrinkingTrendChart from './DrinkingTrendChart';
 import RegionMap from './RegionMap';
 import {
@@ -97,9 +98,9 @@ const DashboardLayout: React.FC<Props> = ({ notes }) => {
                 </div>
             </div>
 
-            {/* Bottom: C (Cost Performance) */}
-            <div className="mb-6">
+            <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <CostPerformanceScatter notes={notes} />
+                <PriceSatisfactionHighlights notes={notes} />
             </div>
 
             <div className="mb-8">

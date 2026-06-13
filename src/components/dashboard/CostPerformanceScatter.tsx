@@ -44,8 +44,8 @@ const CostPerformanceScatter: React.FC<Props> = ({ notes }) => {
                             type="number"
                             dataKey="y"
                             name="評価"
-                            domain={[0, 10]}
-                            ticks={[0, 2, 4, 6, 8, 10]}
+                            domain={[0, 5]}
+                            ticks={[0, 1, 2, 3, 4, 5]}
                             allowDecimals={false}
                             tick={{ fontSize: 10, fill: 'var(--chart-text)' }}
                         >

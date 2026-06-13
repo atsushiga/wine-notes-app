@@ -29,9 +29,9 @@ const PriceHistogram: React.FC<Props> = ({ data }) => {
                     className="flex h-[390px] flex-col items-center justify-center"
                 />
             ) : (
-            <div className="h-[390px] w-full min-w-0">
+            <div className="mt-5 h-[350px] w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
-                    <BarChart layout="vertical" data={data} margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
+                    <BarChart layout="vertical" data={data} margin={{ top: 16, right: 30, left: 20, bottom: 16 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--chart-grid)" opacity={0.5} />
                         <XAxis
                             type="number"

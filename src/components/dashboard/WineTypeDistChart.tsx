@@ -26,9 +26,29 @@ const COLORS: Record<string, string> = {
 
 const DEFAULT_COLOR = '#2A3445';
 
-const WineTypeDistChart: React.FC<Props> = ({ data }) => {
-    const total = data.reduce((sum, item) => sum + item.value, 0);
+function WineTypeTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload?: WineTypeStats }> }) {
+    if (!active || !payload?.length || !payload[0].payload) return null;
 
+    const item = payload[0].payload;
+
+    return (
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-xs text-[var(--text)] shadow-lg">
+            <div className="flex items-center gap-2 font-semibold">
+                <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: COLORS[item.name] || DEFAULT_COLOR }}
+                    aria-hidden="true"
+                />
+                <span>{item.name}</span>
+            </div>
+            <div className="mt-1 text-[var(--text-muted)]">
+                {item.value}本 ({item.percent.toFixed(1)}%)
+            </div>
+        </div>
+    );
+}
+
+const WineTypeDistChart: React.FC<Props> = ({ data }) => {
     return (
         <Card className="p-6 min-h-[260px]">
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">タイプ別の偏り</h3>
@@ -58,22 +78,7 @@ const WineTypeDistChart: React.FC<Props> = ({ data }) => {
                                         <Cell key={entry.name} fill={COLORS[entry.name] || DEFAULT_COLOR} />
                                     ))}
                                 </Pie>
-                                <Tooltip
-                                    formatter={(value: unknown, name: unknown) => {
-                                        const numericValue = typeof value === 'number' ? value : Number(value);
-                                        const percent = total > 0 && Number.isFinite(numericValue)
-                                            ? (numericValue / total) * 100
-                                            : 0;
-                                        return [`${numericValue}本 (${percent.toFixed(1)}%)`, String(name)];
-                                    }}
-                                    contentStyle={{
-                                        backgroundColor: 'var(--card-bg)',
-                                        borderRadius: '8px',
-                                        border: '1px solid var(--border)',
-                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                                        color: 'var(--text)'
-                                    }}
-                                />
+                                <Tooltip content={<WineTypeTooltip />} />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>

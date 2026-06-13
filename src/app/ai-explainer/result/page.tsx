@@ -390,6 +390,14 @@ function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExpla
     const featuredPairing = explanation.serving.featuredPairing || asList(explanation.serving.pairings)[0] || "";
     const priceLabel = formatPriceDisplay(data.input.price || wine.marketPriceJpy);
     const drinkingWindow = drinkingWindowLabel(wine.vintage || data.input.vintage);
+    const profileFacts = [
+        { label: "格付け", value: wine.classification || wine.country || "AI researched" },
+        { label: "価格", value: priceLabel },
+        { label: "飲み頃", value: drinkingWindow },
+        { label: "ペアリング", value: featuredPairing || "料理提案あり" },
+    ];
+    const regionLabel = [wine.country, wine.region].filter(Boolean).join(" / ") || "不明";
+    const tastingScales = useMemo(() => normalizeTasteScales(explanation.tasting.scales, wine), [explanation.tasting.scales, wine]);
 
     const handleCreateRecord = () => {
         saveRecordDraftFromVisualExplanation(data);
@@ -446,17 +454,10 @@ function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExpla
                                     <Wine size={56} />
                                 </div>
                             )}
-                            <div className="absolute left-3 top-3 rounded-full border border-[var(--border)] bg-[var(--card-bg)]/90 px-3 py-1 text-xs font-semibold text-[var(--text-soft)] backdrop-blur">
-                                Wine Label
-                            </div>
                         </div>
 
                         <div className="min-w-0">
                             <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-5 md:p-6">
-                                <div className="mb-4 flex flex-wrap gap-2">
-                                    <InsightChip label={wine.classification || wine.country || "AI researched"} />
-                                    <InsightChip label={priceLabel} />
-                                </div>
                                 <h1 className="font-wine text-4xl font-semibold leading-tight tracking-normal text-[var(--text)] sm:text-5xl">
                                     {displayName.title || "名称未設定"}
                                 </h1>
@@ -466,18 +467,19 @@ function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExpla
                                     </p>
                                 )}
 
-                                <div className="mt-6 grid gap-2.5">
+                                <div className="mt-5 grid gap-2 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-2 sm:grid-cols-2">
+                                    {profileFacts.map((fact) => (
+                                        <CompactProfileFact key={fact.label} label={fact.label} value={fact.value} />
+                                    ))}
+                                </div>
+
+                                <div className="mt-5 grid gap-2.5">
                                     <ProfileMeta label="生産者" value={wine.producer || data.input.producer || "不明"} />
                                     <div className="grid gap-2.5 sm:grid-cols-2">
                                         <ProfileMeta label="ヴィンテージ" value={wine.vintage || data.input.vintage || "不明"} />
                                         <ProfileMeta label="スタイル" value={wine.style || "検索結果を参照"} />
                                     </div>
-                                    <ProfileMeta label="産地" value={[wine.country, wine.region].filter(Boolean).join(" / ") || "不明"} />
-                                </div>
-
-                                <div className="mt-5 flex flex-wrap gap-2">
-                                    <InsightChip label={`飲み頃: ${drinkingWindow}`} tone="gold" />
-                                    <InsightChip label={`ペアリング: ${featuredPairing || "料理提案あり"}`} />
+                                    <ProfileMeta label="産地" value={regionLabel} emphasis />
                                 </div>
                             </div>
                         </div>
@@ -541,12 +543,12 @@ function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExpla
                         <div className="mt-5">
                             <SectionEyebrow icon={<Layers3 size={16} />} label="Profile Map" />
                         </div>
-                        <TasteRadar scales={explanation.tasting.scales} />
+                        <TasteRadar scales={tastingScales} />
                         <div className="mt-5">
                             <SectionEyebrow icon={<Grape size={16} />} label="Taste Structure" />
                         </div>
                         <div className="mt-5 space-y-5">
-                            {asList(explanation.tasting.scales).map((scale) => (
+                            {tastingScales.map((scale) => (
                                 <ScaleBar key={scale.label} scale={scale} />
                             ))}
                         </div>
@@ -703,15 +705,12 @@ function SectionEyebrow({ icon, label }: { icon: React.ReactNode; label: string 
     );
 }
 
-function InsightChip({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "gold" }) {
+function CompactProfileFact({ label, value }: { label: string; value: string }) {
     return (
-        <span className={`inline-flex w-fit items-center rounded-full border px-3 py-1.5 text-xs font-semibold ${
-            tone === "gold"
-                ? "border-[var(--color-gold)]/35 bg-[var(--color-gold-soft)] text-[var(--text)]"
-                : "border-[var(--border)] bg-[var(--chip-bg)] text-[var(--chip-text)]"
-        }`}>
-            {label}
-        </span>
+        <div className="min-w-0 rounded-md bg-[var(--input-bg)] px-3 py-2">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
+            <p className="mt-1 break-words text-sm font-semibold leading-5 text-[var(--text)]">{value}</p>
+        </div>
     );
 }
 
@@ -754,11 +753,11 @@ function AiVerdictPanel({
     );
 }
 
-function ProfileMeta({ label, value }: { label: string; value: string }) {
+function ProfileMeta({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
     return (
-        <div className="rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2.5">
+        <div className={`rounded-md border border-[var(--border)] bg-[var(--card-bg)] ${emphasis ? "px-4 py-3" : "px-3 py-2.5"}`}>
             <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
-            <p className="mt-1 break-words text-sm font-semibold leading-6 text-[var(--text)]">{value}</p>
+            <p className={`mt-1 break-words font-semibold text-[var(--text)] ${emphasis ? "text-[15px] leading-7" : "text-sm leading-6"}`}>{value}</p>
         </div>
     );
 }
@@ -769,6 +768,58 @@ function drinkingWindowLabel(vintage?: string) {
 
     const year = Number(match[0]);
     return `${year + 5}-${year + 14}`;
+}
+
+function normalizeScaleValue(value: number) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return 0;
+    const percentValue = numericValue <= 10 ? numericValue * 10 : numericValue;
+    return Math.min(100, Math.max(0, percentValue));
+}
+
+function scaleCapForWine(label: string, wine: VisualWineExplanation["wine"]) {
+    const wineText = [
+        wine.name,
+        wine.producer,
+        wine.country,
+        wine.region,
+        wine.style,
+        ...asList(wine.grapeVarieties),
+    ].join(" ");
+    const isBurgundy = /bourgogne|burgundy|ブルゴーニュ|côte|コート/i.test(wineText);
+    const isPinot = /pinot|ピノ/i.test(wineText);
+    const isChardonnay = /chardonnay|シャルドネ/i.test(wineText);
+
+    if (isBurgundy && isPinot) {
+        if (/ボディ/.test(label)) return 58;
+        if (/タンニン/.test(label)) return 60;
+        if (/アルコール/.test(label)) return 58;
+        if (/果実|熟度/.test(label)) return 68;
+        if (/樽/.test(label)) return 55;
+        if (/余韻/.test(label)) return 74;
+        if (/酸/.test(label)) return 82;
+    }
+
+    if (isBurgundy && isChardonnay) {
+        if (/ボディ/.test(label)) return 62;
+        if (/アルコール/.test(label)) return 60;
+        if (/果実|熟度/.test(label)) return 70;
+        if (/樽/.test(label)) return 66;
+        if (/酸/.test(label)) return 84;
+    }
+
+    return 100;
+}
+
+function normalizeTasteScales(scales: VisualScale[] | undefined, wine: VisualWineExplanation["wine"]): VisualScale[] {
+    return asList(scales).map((scale) => {
+        const value = normalizeScaleValue(scale.value);
+        const cappedValue = Math.min(value, scaleCapForWine(scale.label, wine));
+        return {
+            ...scale,
+            value: Math.round(cappedValue),
+        };
+    });
 }
 
 function ImageCreditOverlay({ asset }: { asset?: VisualImageAsset }) {

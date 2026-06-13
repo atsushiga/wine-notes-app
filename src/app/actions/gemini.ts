@@ -2316,6 +2316,10 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
     Scale rules:
     - tasting.scales must contain 5 to 7 items.
     - Each value must be an integer from 0 to 100.
+    - Calibrate values conservatively against grape, region, and style. Do not inflate every item above 70.
+    - For Bourgogne/Burgundy Pinot Noir, body is usually light-to-medium or medium (about 35-60), tannin about 30-60, alcohol about 35-60; reserve 70+ only for genuinely powerful examples.
+    - For Bourgogne/Burgundy Chardonnay, body is usually medium (about 40-65); reserve 70+ for richer, warm-vintage or heavily oaked examples.
+    - High acidity or long finish can be high when justified, but explain the reason in note.
     - Use labels such as 酸味, 果実の熟度, 樽の存在感, ボディ, タンニン, アルコール感, 余韻.
 
     Return STRICTLY valid JSON only, with this exact shape:

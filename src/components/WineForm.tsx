@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ReactNode, useCallback, useEffect, useImperativeHandle, forwardRef, useLayoutEffect, useRef } from 'react';
+import React, { ReactNode, useCallback, useEffect, useImperativeHandle, forwardRef, useLayoutEffect, useMemo, useRef } from 'react';
 import { useForm, Controller, type Resolver } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -461,6 +461,9 @@ function isEmptyVoiceValue(value: unknown) {
 const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onSubmit, isSubmitting, submitLabel = '記録を保存', onCancel, persistKey, onWineTypeChange, simpleMode = false, simpleAiAutomation = defaultSimpleAiAutomationSettings }, ref) => {
     const dateValueOriginRef = useRef<DateValueOrigin>(defaultValues?.date ? 'savedOrDefault' : 'empty');
     const [activeSection, setActiveSection] = useState<FormSectionId | null>('photo');
+    const [selectedPreviewImageUrl, setSelectedPreviewImageUrl] = useState(
+        defaultValues?.images?.[0]?.url || defaultValues?.imageUrl || ''
+    );
     const { register, handleSubmit, control, watch, setValue, getValues, reset, formState: { errors } } = useForm<WineFormValues>({
         defaultValues: {
             date: '',
@@ -687,6 +690,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         setIsAiExpanded(false);
         setImageAiProgressPhase('idle');
         setIsImageDragActive(false);
+        setSelectedPreviewImageUrl('');
         voiceTranscriptRef.current = '';
         setVoiceTranscript('');
         setTranscriptPanelOpen(false);
@@ -767,6 +771,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         setIsAiExpanded(false);
         setImageAiProgressPhase('idle');
         setIsImageDragActive(false);
+        setSelectedPreviewImageUrl('');
         voiceTranscriptRef.current = '';
         setVoiceTranscript('');
         setTranscriptPanelOpen(false);
@@ -808,7 +813,13 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
     const wineType = watch('wineType');
     const wineNameValue = watch('wineName');
     const hasWineName = !!wineNameValue;
-    const hasSearchableImage = !!(watch('images')?.[0]?.url || watch('imageUrl'));
+    const rawWatchedImages = watch('images');
+    const watchedImages = useMemo(() => rawWatchedImages || [], [rawWatchedImages]);
+    const watchedImageUrl = watch('imageUrl') || '';
+    const selectedPreviewImage = watchedImages.find((image) => image.url === selectedPreviewImageUrl)
+        || watchedImages[0]
+        || (watchedImageUrl ? { url: watchedImageUrl, thumbnail_url: null } : null);
+    const hasSearchableImage = !!(watchedImages[0]?.url || watchedImageUrl);
     const hasAiFormData = !!(
         watch('terroir_info') ||
         watch('producer_philosophy') ||
@@ -833,6 +844,17 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             onWineTypeChange(wineType);
         }
     }, [wineType, onWineTypeChange]);
+
+    useEffect(() => {
+        const hasSelectedImage = !!selectedPreviewImageUrl && (
+            watchedImages.some((image) => image.url === selectedPreviewImageUrl) ||
+            watchedImageUrl === selectedPreviewImageUrl
+        );
+
+        if (hasSelectedImage) return;
+
+        setSelectedPreviewImageUrl(watchedImages[0]?.url || watchedImageUrl || '');
+    }, [selectedPreviewImageUrl, watchedImages, watchedImageUrl]);
 
     // Accent Color Effect
     useEffect(() => {
@@ -933,6 +955,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         if (newImages.length > 0) {
             const nextImages = [...currentImages, ...newImages];
             setValue('images', nextImages, { shouldDirty: true });
+            setSelectedPreviewImageUrl(newImages[0].url);
 
             if (shouldRunSimpleAiFlow) {
                 await runSimpleImageAiFlow(newImages[0].url);
@@ -946,6 +969,11 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         const current = getValues('images') || [];
         const next = current.filter((_, i) => i !== index);
         setValue('images', next, { shouldDirty: true });
+        setSelectedPreviewImageUrl((currentSelected) => (
+            currentSelected && next.some((image) => image.url === currentSelected)
+                ? currentSelected
+                : next[0]?.url || ''
+        ));
 
         // Update mainImageUrl if needed using the first remaining image
         if (next.length > 0) {
@@ -1076,6 +1104,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 setValue('images', nextImages, { shouldDirty: true });
 
                 setValue('imageUrl', optimized.url, { shouldDirty: true });
+                setSelectedPreviewImageUrl(optimized.url);
                 return optimized.url;
             }
 
@@ -1350,7 +1379,10 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
     const imageUploadFields = (
         <>
             <label
-                className={`flex min-h-48 cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed bg-[var(--input-bg)] px-5 py-8 text-center transition-colors sm:min-h-64 sm:px-6 ${isImageDragActive
+                className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed bg-[var(--input-bg)] text-center transition-colors ${selectedPreviewImage
+                    ? 'min-h-80 p-3 sm:min-h-[28rem]'
+                    : 'min-h-48 gap-3 px-5 py-8 sm:min-h-64 sm:px-6'
+                } ${isImageDragActive
                     ? 'border-[var(--primary)] bg-[var(--surface-2)]'
                     : 'border-[var(--input-border)] hover:border-[var(--primary)] hover:bg-[var(--surface-2)]'
                 }`}
@@ -1380,22 +1412,57 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         e.target.value = '';
                     }}
                 />
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] sm:h-16 sm:w-16">
-                    {isAnalyzing || imageAiProgressPhase === 'uploading' ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                        <UploadCloud className="h-6 w-6" />
-                    )}
-                </span>
-                <span className="min-w-0">
-                    <span className="block text-base font-semibold text-[var(--text)]">ラベル写真を追加</span>
-                    <span className="mt-1 block text-sm leading-6 text-[var(--text-muted)]">
-                        クリック、または画像をここへドラッグ&ドロップ
+                {selectedPreviewImage ? (
+                    <span className="relative flex h-full min-h-[18rem] w-full items-center justify-center overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--app-bg)] sm:min-h-[25rem]">
+                        <img
+                            src={selectedPreviewImage.url}
+                            alt="選択中のラベル写真"
+                            className="h-full max-h-[34rem] w-full object-contain p-2"
+                        />
+                        <span className="absolute left-3 top-3 rounded-full border border-[var(--border)] bg-[var(--card-bg)]/90 px-3 py-1 text-xs font-semibold text-[var(--text)] shadow-sm backdrop-blur">
+                            表示中の写真
+                        </span>
+                        <span className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--card-bg)]/90 px-3 py-2 text-left shadow-sm backdrop-blur">
+                            <span className="min-w-0">
+                                <span className="block text-sm font-semibold text-[var(--text)]">ラベル写真を追加</span>
+                                <span className="mt-0.5 block text-xs leading-5 text-[var(--text-muted)]">
+                                    クリック、または画像をここへドラッグ&ドロップ
+                                </span>
+                            </span>
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)]">
+                                {isAnalyzing || imageAiProgressPhase === 'uploading' ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <UploadCloud className="h-5 w-5" />
+                                )}
+                            </span>
+                        </span>
                     </span>
-                    <span className="mt-1 block text-xs text-[var(--text-muted)]">
+                ) : (
+                    <>
+                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] sm:h-16 sm:w-16">
+                            {isAnalyzing || imageAiProgressPhase === 'uploading' ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : (
+                                <UploadCloud className="h-6 w-6" />
+                            )}
+                        </span>
+                        <span className="min-w-0">
+                            <span className="block text-base font-semibold text-[var(--text)]">ラベル写真を追加</span>
+                            <span className="mt-1 block text-sm leading-6 text-[var(--text-muted)]">
+                                クリック、または画像をここへドラッグ&ドロップ
+                            </span>
+                            <span className="mt-1 block text-xs text-[var(--text-muted)]">
+                                {uploadAiNotice}
+                            </span>
+                        </span>
+                    </>
+                )}
+                {selectedPreviewImage && uploadAiNotice ? (
+                    <span className="mt-2 block text-xs text-[var(--text-muted)]">
                         {uploadAiNotice}
                     </span>
-                </span>
+                ) : null}
             </label>
 
             {showImageAiProgress && (
@@ -1439,34 +1506,56 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 </div>
             )}
 
-            {(watch('images')?.length ?? 0) > 0 && (
+            {watchedImages.length > 0 && (
                 <div className="sm:col-span-3 mt-4 grid grid-cols-3 sm:grid-cols-4 gap-4">
-                    {watch('images')?.map((img, idx) => (
-                        <div key={idx} className="relative group aspect-square bg-[var(--app-bg)] rounded-lg overflow-hidden border border-[var(--border)]">
-                            <img
-                                src={img.thumbnail_url || img.url}
-                                alt={`upload-${idx}`}
-                                className="w-full h-full object-cover"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => removeImage(idx)}
-                                className="absolute top-1 right-1 bg-[var(--card-bg)]/80 p-1 rounded-full text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                aria-label="写真を削除"
+                    {watchedImages.map((img, idx) => {
+                        const isSelected = selectedPreviewImage?.url === img.url;
+
+                        return (
+                            <div
+                                key={img.url || idx}
+                                className={`relative group aspect-square overflow-hidden rounded-lg border bg-[var(--app-bg)] ${isSelected
+                                    ? 'border-[var(--primary)] ring-2 ring-[var(--primary)]/35'
+                                    : 'border-[var(--border)]'
+                                }`}
                             >
-                                <Trash2 size={16} />
-                            </button>
-                        </div>
-                    ))}
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedPreviewImageUrl(img.url)}
+                                    className="block h-full w-full"
+                                    aria-label={`写真${idx + 1}を大きく表示`}
+                                >
+                                    <img
+                                        src={img.thumbnail_url || img.url}
+                                        alt={`upload-${idx}`}
+                                        className="w-full h-full object-cover"
+                                    />
+                                    {isSelected ? (
+                                        <span className="absolute bottom-1 left-1 rounded-full bg-[var(--primary)] px-2 py-0.5 text-[10px] font-semibold text-[var(--primary-foreground)] shadow-sm">
+                                            表示中
+                                        </span>
+                                    ) : null}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => removeImage(idx)}
+                                    className="absolute top-1 right-1 bg-[var(--card-bg)]/80 p-1 rounded-full text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    aria-label="写真を削除"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
 
-            {(watch('imageUrl') || watch('images')?.[0]?.url) && (
+            {(watchedImageUrl || watchedImages[0]?.url) && (
                 <div className="sm:col-span-3 mt-4">
                     <div className="flex items-center gap-2 mb-2">
                         <span className="text-xs text-[var(--text-muted)]">AI解析用メイン画像:</span>
-                        {!watch('images') || watch('images')?.length === 0 ? (
-                            <img src={watch('imageUrl')!} alt="main" className="h-10 w-10 object-cover rounded border border-[var(--border)]" />
+                        {watchedImages.length === 0 && watchedImageUrl ? (
+                            <img src={watchedImageUrl} alt="main" className="h-10 w-10 object-cover rounded border border-[var(--border)]" />
                         ) : null}
                     </div>
 
@@ -2390,7 +2479,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 </FormAccordionSection>
             </div>
 
-            <section className={`z-20 mt-8 space-y-3 rounded-lg border border-[var(--border)] bg-[var(--card-bg)]/95 p-3 shadow-lg backdrop-blur-sm sm:sticky sm:rounded-lg sm:p-4 ${simpleMode && transcriptPanelOpen ? 'sm:bottom-[calc(25vh+5.5rem+env(safe-area-inset-bottom))]' : 'sm:bottom-[calc(4rem+1rem+env(safe-area-inset-bottom))]'}`}>
+            <section className="mt-8 space-y-3 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-3 shadow-sm sm:p-4">
                 {Object.keys(errors).length > 0 && (
                     <div className="p-3 bg-[var(--wine-red-soft)] border border-[var(--primary)]/30 rounded-lg text-sm text-[var(--text)] mb-2">
                         <p className="font-bold">入力内容に不備があります。</p>

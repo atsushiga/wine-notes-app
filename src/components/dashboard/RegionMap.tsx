@@ -117,6 +117,7 @@ const RegionMap: React.FC<Props> = ({ data }) => {
         .map(([name, value]) => ({ name, value }))
         .sort((a, b) => b.value - a.value);
     const maxValue = Math.max(...entries.map((entry) => entry.value), 1);
+    const topCountryNames = new Set(entries.slice(0, 3).map((entry) => entry.name));
 
     const colorScale = scaleQuantile<string>()
         .domain(Object.values(mappedData))
@@ -126,8 +127,7 @@ const RegionMap: React.FC<Props> = ({ data }) => {
             "#4A2D39",
             "#753046",
             "#A5264D",
-            "#E0184D",
-            "#C7A15A"
+            "#E0184D"
         ]);
 
     return (
@@ -137,8 +137,11 @@ const RegionMap: React.FC<Props> = ({ data }) => {
                     <h3 className="text-sm font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">国別分布</h3>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">記録したワインの国別本数を世界地図上で表示します。</p>
                 </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded border border-[var(--border)] bg-[var(--surface-2)]">
                 {activeCountry && (
-                    <div className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-xs shadow-sm">
+                    <div className="pointer-events-none absolute right-3 top-3 z-10 rounded-lg border border-[var(--border)] bg-[var(--card-bg)]/95 px-3 py-2 text-xs shadow-sm backdrop-blur-sm">
                         <div className="flex items-center gap-2 font-semibold text-[var(--text)]">
                             <span aria-hidden="true">{getFlag(activeCountry.name)}</span>
                             <span>{activeCountry.name}</span>
@@ -146,9 +149,6 @@ const RegionMap: React.FC<Props> = ({ data }) => {
                         <div className="mt-1 text-[var(--text-muted)]">{activeCountry.value}本</div>
                     </div>
                 )}
-            </div>
-
-            <div className="overflow-hidden rounded border border-[var(--border)] bg-[var(--surface-2)]">
                 {entries.length === 0 ? (
                     <div className="flex h-48 items-center justify-center text-sm text-[var(--text-muted)]">
                         産地データがありません
@@ -165,8 +165,9 @@ const RegionMap: React.FC<Props> = ({ data }) => {
                             const name = country.properties?.name || '';
                             const value = mappedData[name] || 0;
                             const isActive = activeCountry?.name === name;
+                            const isTopCountry = topCountryNames.has(name);
                             const fill = value
-                                ? isActive ? '#C7A15A' : colorScale(value)
+                                ? isActive || isTopCountry ? '#C7A15A' : colorScale(value)
                                 : 'var(--card-bg)';
                             const stroke = isActive ? 'var(--text)' : 'var(--border)';
 
@@ -194,25 +195,15 @@ const RegionMap: React.FC<Props> = ({ data }) => {
                 )}
             </div>
 
-            <div className="mt-3 grid gap-3 lg:grid-cols-[180px_minmax(0,1fr)]">
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)]/90 p-3 text-xs shadow-sm backdrop-blur-sm">
-                    <div className="font-semibold mb-2 text-[var(--text-muted)]">本数</div>
-                    <div className="flex items-center">
-                        <div className="w-3 h-3 mr-2 bg-[var(--surface-2)] rounded-sm border border-[var(--border)]"></div>
-                        <span className="text-[var(--text-muted)]">0本</span>
-                    </div>
-                    <div className="flex items-center">
-                        <div className="w-3 h-3 mr-2 rounded-sm" style={{ backgroundColor: "#753046" }}></div>
-                        <span className="text-[var(--text-muted)]">1-3本</span>
-                    </div>
-                    <div className="flex items-center">
-                        <div className="w-3 h-3 mr-2 rounded-sm" style={{ backgroundColor: "#E0184D" }}></div>
-                        <span className="text-[var(--text-muted)]">4本以上</span>
-                    </div>
+            <div className="mt-3 space-y-3">
+                <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card-bg)]/90 px-3 py-2 text-xs text-[var(--text-muted)]">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#C7A15A]" aria-hidden="true" />
+                    <span>黄色は記録本数トップ3の国です。</span>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                     {entries.slice(0, 6).map((entry) => {
                         const width = `${Math.max(8, Math.round((entry.value / maxValue) * 100))}%`;
+                        const isTopCountry = topCountryNames.has(entry.name);
                         return (
                             <div
                                 key={entry.name}
@@ -227,8 +218,13 @@ const RegionMap: React.FC<Props> = ({ data }) => {
                                     </div>
                                     <span className="shrink-0 text-sm font-bold text-[var(--text)]">{entry.value}本</span>
                                 </div>
+                                {isTopCountry && (
+                                    <div className="mb-2 w-fit rounded-full border border-[#C7A15A]/35 bg-[#C7A15A]/15 px-2 py-0.5 text-[10px] font-semibold text-[var(--text)]">
+                                        Top 3
+                                    </div>
+                                )}
                                 <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
-                                    <div className="h-full rounded-full" style={{ width, backgroundColor: colorScale(entry.value) }} />
+                                    <div className="h-full rounded-full" style={{ width, backgroundColor: isTopCountry ? '#C7A15A' : colorScale(entry.value) }} />
                                 </div>
                             </div>
                         );
