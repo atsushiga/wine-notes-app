@@ -98,7 +98,7 @@ const DashboardLayout: React.FC<Props> = ({ notes }) => {
                 </div>
             </div>
 
-            <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="mb-6 grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
                 <CostPerformanceScatter notes={notes} />
                 <PriceSatisfactionHighlights notes={notes} />
             </div>

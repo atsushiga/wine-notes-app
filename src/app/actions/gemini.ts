@@ -1496,6 +1496,101 @@ export interface VisualWineExplanation {
     };
 }
 
+function visualWineContextText(query: VisualWineExplanationRequest | undefined, data: VisualWineExplanation) {
+    return [
+        query?.name,
+        query?.producer,
+        query?.country,
+        query?.locality,
+        data.wine.name,
+        data.wine.producer,
+        data.wine.country,
+        data.wine.region,
+        data.wine.style,
+        data.wine.classification,
+        ...(Array.isArray(data.wine.grapeVarieties) ? data.wine.grapeVarieties : []),
+    ].filter(Boolean).join(" ");
+}
+
+function normalizeVisualScaleValue(value: unknown) {
+    const numberValue = finiteNumber(value);
+    if (numberValue === null) return 0;
+    return clamp(numberValue, 0, 100);
+}
+
+function scaleLabelMatches(label: string, patterns: RegExp[]) {
+    return patterns.some((pattern) => pattern.test(label));
+}
+
+function contextualVisualScaleCap(label: string, contextText: string) {
+    const normalizedLabel = label.trim();
+    const isBurgundy = /bourgogne|burgundy|ブルゴーニュ|côte|cote|コート/i.test(contextText);
+    const isPinot = /pinot|ピノ/i.test(contextText);
+    const isChardonnay = /chardonnay|シャルドネ/i.test(contextText);
+    const isWhiteStyle = /white|blanc|bianco|白|chardonnay|シャルドネ|riesling|リースリング|sauvignon|ソ[ーォ]ヴィニヨン/i.test(contextText);
+    const isRiesling = /riesling|リースリング/i.test(contextText);
+
+    const isBody = scaleLabelMatches(normalizedLabel, [/ボディ/i, /\bbody\b/i]);
+    const isTannin = scaleLabelMatches(normalizedLabel, [/タンニン/i, /\btannin/i]);
+    const isAlcohol = scaleLabelMatches(normalizedLabel, [/アルコール/i, /\balcohol/i]);
+    const isFruitRipeness = scaleLabelMatches(normalizedLabel, [/果実|熟度/i, /fruit|ripeness/i]);
+    const isOak = scaleLabelMatches(normalizedLabel, [/樽/i, /oak/i]);
+    const isFinish = scaleLabelMatches(normalizedLabel, [/余韻|フィニッシュ/i, /finish|length/i]);
+    const isAcidity = scaleLabelMatches(normalizedLabel, [/酸/i, /acid/i]);
+
+    if (isBurgundy && isPinot) {
+        if (isBody) return 58;
+        if (isTannin) return 58;
+        if (isAlcohol) return 58;
+        if (isOak) return 55;
+        if (isFruitRipeness) return 68;
+        if (isFinish) return 76;
+        if (isAcidity) return 84;
+    }
+
+    if (isBurgundy && isChardonnay) {
+        if (isBody) return 64;
+        if (isAlcohol) return 60;
+        if (isOak) return 68;
+        if (isFruitRipeness) return 70;
+        if (isFinish) return 80;
+        if (isAcidity) return 86;
+        if (isTannin) return 20;
+    }
+
+    if (isPinot) {
+        if (isBody) return 68;
+        if (isTannin) return 66;
+        if (isAlcohol) return 66;
+    }
+
+    if (isRiesling) {
+        if (isBody) return 58;
+        if (isAlcohol) return 58;
+        if (isOak) return 25;
+        if (isAcidity) return 90;
+    }
+
+    if (isWhiteStyle && isTannin) return 25;
+
+    return 100;
+}
+
+function calibrateVisualTasteScales(query: VisualWineExplanationRequest | undefined, data: VisualWineExplanation) {
+    const scales = Array.isArray(data.tasting?.scales) ? data.tasting.scales : [];
+    const contextText = visualWineContextText(query, data);
+
+    data.tasting.scales = scales.map((scale) => {
+        const value = normalizeVisualScaleValue(scale.value);
+        const cappedValue = Math.min(value, contextualVisualScaleCap(scale.label || "", contextText));
+
+        return {
+            ...scale,
+            value: Math.round(cappedValue),
+        };
+    });
+}
+
 function extractJsonObjectText(text: string) {
     const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
     const firstBrace = cleaned.indexOf("{");
@@ -2316,6 +2411,7 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
     Scale rules:
     - tasting.scales must contain 5 to 7 items.
     - Each value must be an integer from 0 to 100.
+    - Values are stored tasting data, not UI emphasis. Treat 50 as medium and 70+ as clearly high/powerful.
     - Calibrate values conservatively against grape, region, and style. Do not inflate every item above 70.
     - For Bourgogne/Burgundy Pinot Noir, body is usually light-to-medium or medium (about 35-60), tannin about 30-60, alcohol about 35-60; reserve 70+ only for genuinely powerful examples.
     - For Bourgogne/Burgundy Chardonnay, body is usually medium (about 40-65); reserve 70+ for richer, warm-vintage or heavily oaked examples.
@@ -2445,6 +2541,7 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
             data.sources = groundedSources;
         }
 
+        calibrateVisualTasteScales(query, data);
         attachVisualPrompts(query, data);
 
         return data;
@@ -2464,6 +2561,7 @@ export async function generateVisualWineExplanationImages(
     });
 
     const data = structuredClone(explanation);
+    calibrateVisualTasteScales(query, data);
 
     try {
         return await attachVisualImages(query, data, user.id);

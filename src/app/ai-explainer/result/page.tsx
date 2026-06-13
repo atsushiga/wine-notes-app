@@ -397,7 +397,7 @@ function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExpla
         { label: "ペアリング", value: featuredPairing || "料理提案あり" },
     ];
     const regionLabel = [wine.country, wine.region].filter(Boolean).join(" / ") || "不明";
-    const tastingScales = useMemo(() => normalizeTasteScales(explanation.tasting.scales, wine), [explanation.tasting.scales, wine]);
+    const tastingScales = useMemo(() => normalizeTasteScales(explanation.tasting.scales), [explanation.tasting.scales]);
 
     const handleCreateRecord = () => {
         saveRecordDraftFromVisualExplanation(data);
@@ -773,51 +773,15 @@ function drinkingWindowLabel(vintage?: string) {
 function normalizeScaleValue(value: number) {
     const numericValue = Number(value);
     if (!Number.isFinite(numericValue)) return 0;
-    const percentValue = numericValue <= 10 ? numericValue * 10 : numericValue;
-    return Math.min(100, Math.max(0, percentValue));
+    return Math.min(100, Math.max(0, numericValue));
 }
 
-function scaleCapForWine(label: string, wine: VisualWineExplanation["wine"]) {
-    const wineText = [
-        wine.name,
-        wine.producer,
-        wine.country,
-        wine.region,
-        wine.style,
-        ...asList(wine.grapeVarieties),
-    ].join(" ");
-    const isBurgundy = /bourgogne|burgundy|ブルゴーニュ|côte|コート/i.test(wineText);
-    const isPinot = /pinot|ピノ/i.test(wineText);
-    const isChardonnay = /chardonnay|シャルドネ/i.test(wineText);
-
-    if (isBurgundy && isPinot) {
-        if (/ボディ/.test(label)) return 58;
-        if (/タンニン/.test(label)) return 60;
-        if (/アルコール/.test(label)) return 58;
-        if (/果実|熟度/.test(label)) return 68;
-        if (/樽/.test(label)) return 55;
-        if (/余韻/.test(label)) return 74;
-        if (/酸/.test(label)) return 82;
-    }
-
-    if (isBurgundy && isChardonnay) {
-        if (/ボディ/.test(label)) return 62;
-        if (/アルコール/.test(label)) return 60;
-        if (/果実|熟度/.test(label)) return 70;
-        if (/樽/.test(label)) return 66;
-        if (/酸/.test(label)) return 84;
-    }
-
-    return 100;
-}
-
-function normalizeTasteScales(scales: VisualScale[] | undefined, wine: VisualWineExplanation["wine"]): VisualScale[] {
+function normalizeTasteScales(scales: VisualScale[] | undefined): VisualScale[] {
     return asList(scales).map((scale) => {
         const value = normalizeScaleValue(scale.value);
-        const cappedValue = Math.min(value, scaleCapForWine(scale.label, wine));
         return {
             ...scale,
-            value: Math.round(cappedValue),
+            value: Math.round(value),
         };
     });
 }
