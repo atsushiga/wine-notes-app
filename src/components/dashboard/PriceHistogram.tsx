@@ -18,9 +18,9 @@ interface Props {
 const PriceHistogram: React.FC<Props> = ({ data }) => {
     return (
         <Card className="p-6 h-full min-h-[474px]">
-            <h3 className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wider mb-2 flex-none">価格帯分布</h3>
-            <div className="w-full min-w-0">
-                <ResponsiveContainer width="100%" height={390} minWidth={0}>
+            <h3 className="mb-2 flex-none text-sm font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">価格帯分布</h3>
+            <div className="h-[390px] w-full min-w-0">
+                <ResponsiveContainer width="100%" height="100%">
                     <BarChart layout="vertical" data={data} margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--chart-grid)" opacity={0.5} />
                         <XAxis
@@ -39,7 +39,7 @@ const PriceHistogram: React.FC<Props> = ({ data }) => {
                             contentStyle={{ backgroundColor: 'var(--card-bg)', color: 'var(--text)', borderRadius: '8px', border: '1px solid var(--border)' }}
                             cursor={{ fill: 'var(--surface-2)', opacity: 0.5 }}
                         />
-                        <Bar dataKey="count" fill="#8884d8" name="本数" radius={[0, 4, 4, 0]} animationDuration={1000} label={{ position: 'right', fill: 'var(--text-muted)', fontSize: 10 }} />
+                        <Bar dataKey="count" fill="#C7A15A" name="本数" radius={[0, 4, 4, 0]} animationDuration={1000} label={{ position: 'right', fill: 'var(--text-muted)', fontSize: 10 }} />
                     </BarChart>
                 </ResponsiveContainer>
             </div>

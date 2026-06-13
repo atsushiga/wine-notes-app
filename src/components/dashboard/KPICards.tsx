@@ -1,27 +1,40 @@
 
 import React from 'react';
-import { Card } from '@/components/ui/Card';
+import { MetricCard } from '@/components/ui/primitives';
 
 interface KPICardsProps {
     totalWines: number;
     recentWines: number;
     startDate: string | null;
+    averagePrice: number | null;
+    aiAnalyzed: number;
 }
 
-const KPICards: React.FC<KPICardsProps> = ({ totalWines, recentWines, startDate }) => {
+const KPICards: React.FC<KPICardsProps> = ({ totalWines, recentWines, startDate, averagePrice, aiAnalyzed }) => {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <Card className="p-6">
-                <h3 className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wider">総テイスティング本数</h3>
-                <div className="flex items-baseline mt-2">
-                    <p className="text-4xl font-bold text-[var(--text)]">{totalWines}<span className="text-lg font-normal text-[var(--text-muted)] ml-1">本</span></p>
-                    {startDate && <p className="ml-4 text-sm text-[var(--text-muted)]">({startDate}〜)</p>}
-                </div>
-            </Card>
-            <Card className="p-6">
-                <h3 className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wider">直近1ヶ月</h3>
-                <p className="text-4xl font-bold text-amber-600 mt-2">{recentWines}<span className="text-lg font-normal text-[var(--text-muted)] ml-1">本</span></p>
-            </Card>
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <MetricCard
+                label="総テイスティング本数"
+                value={<>{totalWines}<span className="ml-1 text-base font-normal text-[var(--text-muted)]">本</span></>}
+                detail={startDate ? `${startDate}〜` : '記録開始日なし'}
+            />
+            <MetricCard
+                label="直近1ヶ月"
+                value={<>{recentWines}<span className="ml-1 text-base font-normal text-[var(--text-muted)]">本</span></>}
+                detail="最近の記録ペース"
+                accent="wine"
+            />
+            <MetricCard
+                label="平均価格"
+                value={averagePrice ? `¥${averagePrice.toLocaleString()}` : '-'}
+                detail="価格入力済みの平均"
+            />
+            <MetricCard
+                label="AI分析済み"
+                value={<>{aiAnalyzed}<span className="ml-1 text-base font-normal text-[var(--text-muted)]">本</span></>}
+                detail={totalWines ? `${Math.round((aiAnalyzed / totalWines) * 100)}% analyzed` : '分析データなし'}
+                accent="gold"
+            />
         </div>
     );
 };

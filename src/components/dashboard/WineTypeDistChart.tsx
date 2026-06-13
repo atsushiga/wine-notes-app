@@ -16,30 +16,30 @@ interface Props {
 }
 
 const COLORS: Record<string, string> = {
-    '赤': '#722f37', // Merlot / Wine Red
-    '白': '#eccc68', // Straw / Gold
-    'ロゼ': '#ff7f50', // Coral / Salmon
-    'スパークリング': '#a4b0be', // Silver / Grey
-    'オレンジ': '#ffa502', // Orange
-    'その他': '#ced6e0' // Light Grey
+    '赤': '#E0184D',
+    '白': '#C7A15A',
+    'ロゼ': '#BFC7D9',
+    'スパークリング': '#8E99AA',
+    'オレンジ': '#D7A84F',
+    'その他': '#2A3445'
 };
 
-const DEFAULT_COLOR = '#ced6e0';
+const DEFAULT_COLOR = '#2A3445';
 
 const WineTypeDistChart: React.FC<Props> = ({ data }) => {
     const total = data.reduce((sum, item) => sum + item.value, 0);
 
     return (
         <Card className="p-6 min-h-[260px]">
-            <h3 className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wider mb-3">ワインタイプ比率</h3>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">タイプ別の偏り</h3>
             {data.length === 0 ? (
                 <div className="h-[180px] flex items-center justify-center text-sm text-[var(--text-muted)]">
                     データがありません
                 </div>
             ) : (
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <div className="w-full sm:flex-1 min-w-0">
-                        <ResponsiveContainer width="100%" height={170} minWidth={0}>
+                    <div className="h-[170px] w-full min-w-0 sm:flex-1">
+                        <ResponsiveContainer width="100%" height="100%">
                             <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                                 <Pie
                                     data={data}

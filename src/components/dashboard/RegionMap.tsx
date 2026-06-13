@@ -121,20 +121,20 @@ const RegionMap: React.FC<Props> = ({ data }) => {
     const colorScale = scaleQuantile<string>()
         .domain(Object.values(mappedData))
         .range([
-            "#ffedea",
-            "#ffcec5",
-            "#ffad9f",
-            "#ff8a75",
-            "#cf597e", // Wine-ish
-            "#9e2a2b", // Deep red
-            "#540b0e"  // Very dark
+            "#1A2230",
+            "#2A3445",
+            "#4A2D39",
+            "#753046",
+            "#A5264D",
+            "#E0184D",
+            "#C7A15A"
         ]);
 
     return (
         <Card className="p-4 sm:p-6 relative">
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h3 className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wider">産地マップ</h3>
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">国別分布</h3>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">記録したワインの国別本数を世界地図上で表示します。</p>
                 </div>
                 {activeCountry && (
@@ -166,7 +166,7 @@ const RegionMap: React.FC<Props> = ({ data }) => {
                             const value = mappedData[name] || 0;
                             const isActive = activeCountry?.name === name;
                             const fill = value
-                                ? isActive ? '#f97316' : colorScale(value)
+                                ? isActive ? '#C7A15A' : colorScale(value)
                                 : 'var(--card-bg)';
                             const stroke = isActive ? 'var(--text)' : 'var(--border)';
 
@@ -202,11 +202,11 @@ const RegionMap: React.FC<Props> = ({ data }) => {
                         <span className="text-[var(--text-muted)]">0本</span>
                     </div>
                     <div className="flex items-center">
-                        <div className="w-3 h-3 mr-2 rounded-sm" style={{ backgroundColor: "#ffad9f" }}></div>
+                        <div className="w-3 h-3 mr-2 rounded-sm" style={{ backgroundColor: "#753046" }}></div>
                         <span className="text-[var(--text-muted)]">1-3本</span>
                     </div>
                     <div className="flex items-center">
-                        <div className="w-3 h-3 mr-2 rounded-sm" style={{ backgroundColor: "#9e2a2b" }}></div>
+                        <div className="w-3 h-3 mr-2 rounded-sm" style={{ backgroundColor: "#E0184D" }}></div>
                         <span className="text-[var(--text-muted)]">4本以上</span>
                     </div>
                 </div>
