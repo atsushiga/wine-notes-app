@@ -2,7 +2,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { TastingNote } from "@/types/custom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import { EmptyState } from "@/components/ui/primitives";
 import { redirect } from "next/navigation";
+import { AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -39,12 +41,12 @@ export default async function StatisticsPage() {
             fullError: JSON.stringify(error, null, 2)
         });
         return (
-            <div className="p-8 text-center text-red-600">
-                <p>データの取得に失敗しました。</p>
-                <p className="text-sm mt-2 text-gray-500">{error.message || '不明なエラーが発生しました'}</p>
-                {error.details && (
-                    <p className="text-xs mt-1 text-gray-400">{error.details}</p>
-                )}
+            <div className="mx-auto max-w-3xl px-4 py-16 pb-32">
+                <EmptyState
+                    icon={<AlertTriangle size={24} />}
+                    title="統計データの取得に失敗しました"
+                    description={error.message || '不明なエラーが発生しました。時間をおいてもう一度お試しください。'}
+                />
             </div>
         );
     }

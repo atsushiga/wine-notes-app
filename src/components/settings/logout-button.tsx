@@ -17,7 +17,7 @@ export default function LogoutButton() {
         <button
             onClick={handleLogout}
             disabled={isPending}
-            className="w-full flex items-center justify-center space-x-2 bg-white border border-gray-300 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center space-x-2 bg-[var(--card-bg)] border border-[var(--border)] text-[var(--text)] py-3 px-4 rounded-lg hover:bg-[var(--surface-2)] transition-colors disabled:opacity-50"
         >
             <LogOut size={20} />
             <span>ログアウト</span>

@@ -12,10 +12,10 @@ export default function Error({
 }) {
     return (
         <main className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center px-4 pb-28 pt-12 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] text-[var(--primary)] shadow-sm">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] text-[var(--primary-text)] shadow-sm">
                 <AlertTriangle size={30} aria-hidden="true" />
             </div>
-            <p className="mt-5 text-sm font-bold uppercase tracking-wide text-[var(--primary)]">Error</p>
+            <p className="mt-5 text-sm font-bold uppercase tracking-wide text-[var(--primary-text)]">Error</p>
             <h1 className="mt-2 text-2xl font-bold tracking-normal text-[var(--text)]">
                 ページの表示中に問題が発生しました
             </h1>

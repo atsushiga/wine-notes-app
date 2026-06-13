@@ -4,6 +4,7 @@
 import React from 'react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Label } from 'recharts';
 import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/primitives';
 import { TastingNote } from '@/types/custom';
 
 interface Props {
@@ -23,9 +24,16 @@ const CostPerformanceScatter: React.FC<Props> = ({ notes }) => {
         }));
 
     return (
-        <Card className="p-6 h-[300px]">
-            <h3 className="text-sm font-medium text-[var(--text-muted)] uppercase tracking-wider mb-4">コスパ分析 (価格 vs 評価)</h3>
-            <div className="w-full h-[220px]">
+        <Card className="flex h-full min-h-[360px] flex-col p-6">
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">価格満足度 (価格 vs 評価)</h3>
+            {data.length === 0 ? (
+                <EmptyState
+                    title="価格満足度データがありません"
+                    description="価格と評価の両方を入力した記録が増えると、満足度の傾向が見えてきます。"
+                    className="flex min-h-[260px] flex-1 flex-col items-center justify-center"
+                />
+            ) : (
+            <div className="min-h-[260px] flex-1 w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
                     <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 10 }}>
                         <CartesianGrid strokeDasharray="3 3" opacity={0.3} stroke="var(--chart-grid)" />
@@ -36,8 +44,8 @@ const CostPerformanceScatter: React.FC<Props> = ({ notes }) => {
                             type="number"
                             dataKey="y"
                             name="評価"
-                            domain={[1, 5]}
-                            ticks={[1, 2, 3, 4, 5]}
+                            domain={[0, 5]}
+                            ticks={[0, 1, 2, 3, 4, 5]}
                             allowDecimals={false}
                             tick={{ fontSize: 10, fill: 'var(--chart-text)' }}
                         >
@@ -59,10 +67,11 @@ const CostPerformanceScatter: React.FC<Props> = ({ notes }) => {
                                 return null;
                             }}
                         />
-                        <Scatter name="Wines" data={data} fill="#d35400" fillOpacity={0.6} />
+                        <Scatter name="Wines" data={data} fill="#E0184D" fillOpacity={0.72} />
                     </ScatterChart>
                 </ResponsiveContainer>
             </div>
+            )}
         </Card>
     );
 };

@@ -5,101 +5,127 @@
 @tailwind utilities;
 
 :root {
-  /* Base Colors - Warm Neutral / Pale Rose Theme */
-  --app-bg: #fff1f2;
-  /* rose-50 base */
-  --card-bg: #ffffff;
-  --border: #e2e8f0;
-  /* slate-200 */
-  --input-bg: #ffffff;
-  --input-border: #cbd5e1;
-  /* slate-300 */
+  color-scheme: light;
 
-  --text: #1f2937;
-  /* gray-900 */
-  --text-muted: #64748b;
-  /* slate-500 */
+  --color-canvas: #F7F8FA;
+  --color-sidebar: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-surface-elevated: #F1F4F7;
+  --color-surface-highest: #E6EBF1;
 
-  --primary: #881337;
-  /* rose-900 (Burgundy) */
+  --color-border: #D6DEE8;
+  --color-border-subtle: rgba(29, 36, 48, 0.1);
+
+  --color-text: #1D2430;
+  --color-text-muted: #667085;
+  --color-text-soft: #475467;
+
+  --color-wine-red: #B5123E;
+  --color-wine-red-soft: rgba(181, 18, 62, 0.1);
+  --color-wine-red-text: var(--color-wine-red);
+
+  --color-gold: #7D5A22;
+  --color-gold-soft: rgba(125, 90, 34, 0.12);
+
+  --color-success: #087A50;
+  --color-success-soft: rgba(8, 122, 80, 0.12);
+  --color-warning: var(--color-gold);
+  --color-warning-soft: var(--color-gold-soft);
+  --color-error: #C22635;
+  --color-error-solid: var(--color-error);
+  --color-error-soft: rgba(194, 38, 53, 0.1);
+
+  --shadow-card: 0 12px 34px rgba(29, 36, 48, 0.08);
+  --shadow-card-elevated: 0 18px 48px rgba(29, 36, 48, 0.12);
+  --shadow-nav: 0 18px 48px rgba(29, 36, 48, 0.14);
+  --shadow-popover: 0 16px 40px rgba(29, 36, 48, 0.16);
+
+  /* Backward-compatible app tokens used across the existing UI. */
+  --app-bg: var(--color-canvas);
+  --sidebar-bg: var(--color-sidebar);
+  --card-bg: var(--color-surface);
+  --surface-2: var(--color-surface-elevated);
+  --surface-3: var(--color-surface-highest);
+  --border: var(--color-border);
+  --border-subtle: var(--color-border-subtle);
+  --input-bg: var(--color-canvas);
+  --input-border: var(--color-border);
+
+  --text: var(--color-text);
+  --text-muted: var(--color-text-muted);
+  --text-soft: var(--color-text-soft);
+
+  --primary: var(--color-wine-red);
+  --primary-text: var(--color-wine-red-text);
   --primary-foreground: #ffffff;
+  --ring: var(--color-gold);
 
-  --ring: #fda4af;
-  /* rose-300 */
+  --chip-bg: var(--color-surface-elevated);
+  --chip-border: var(--color-border);
+  --chip-text: var(--color-text-soft);
 
-  /* Surface Variants */
-  --surface-2: #f8fafc;
-  /* slate-50 - sunken/subtle */
+  --chart-grid: rgba(29, 36, 48, 0.12);
+  --chart-axis: var(--color-text-muted);
+  --chart-text: var(--color-text-soft);
+  --map-fill-1: #E6EBF1;
+  --map-fill-2: #EAC9D2;
+  --map-fill-3: #DE9DB0;
+  --map-fill-4: #CE6886;
+  --map-fill-5: #BE3B62;
+  --map-fill-6: var(--color-wine-red);
 
-  /* Chip / Badge */
-  --chip-bg: #f1f5f9;
-  /* slate-100 */
-  --chip-border: #e2e8f0;
-  /* slate-200 */
-  --chip-text: #475569;
-  /* slate-600 */
+  --accent: var(--color-wine-red);
+  --accent-muted: var(--color-wine-red-soft);
+  --wine-red-soft: var(--color-wine-red-soft);
+  --ai-accent: var(--color-gold);
+  --ai-accent-muted: var(--color-gold-soft);
 
-  /* Charts */
-  --chart-grid: #e2e8f0;
-  /* slate-200 */
-  --chart-axis: #94a3b8;
-  /* slate-400 */
-  --chart-text: #64748b;
-  /* slate-500 */
-
-  /* Runtime Accent - Default to Primary if not specified */
-  --accent: var(--primary);
-  --accent-muted: #fff1f2;
-  /* rose-50 */
-
-  --radius: 1rem;
-  /* Rounded-2xl (16px) */
+  --radius: 0.5rem;
 }
 
-/* === Dark Mode Support === */
 @media (prefers-color-scheme: dark) {
   :root {
-    --app-bg: #0f172a;
-    /* slate-900 */
-    --card-bg: #1e293b;
-    /* slate-800 */
-    --border: #334155;
-    /* slate-700 */
-    --input-bg: #0f172a;
-    /* slate-900 (slightly darker than card) */
-    --input-border: #33415580;
-    /* slate-700 with 50% opacity (subtler than card border) */
+    color-scheme: dark;
 
-    --text: #f1f5f9;
-    /* slate-100 */
-    --text-muted: #94a3b8;
-    /* slate-400 */
+    --color-canvas: #070A0F;
+    --color-sidebar: #08111D;
+    --color-surface: #121821;
+    --color-surface-elevated: #1A2230;
+    --color-surface-highest: #202B38;
 
-    --primary: #e11d48;
-    /* rose-600 (lighter for dark mode) */
-    --primary-foreground: #ffffff;
+    --color-border: #2A3445;
+    --color-border-subtle: rgba(216, 227, 246, 0.08);
 
-    --ring: #fb7185;
-    /* rose-400 */
+    --color-text: #F4F1EA;
+    --color-text-muted: #8E99AA;
+    --color-text-soft: #BFC7D9;
 
-    --surface-2: #0f172a;
-    /* slate-900 - sunken relative to card */
+    --color-wine-red: #E0184D;
+    --color-wine-red-soft: rgba(224, 24, 77, 0.14);
+    --color-wine-red-text: #FF5C8A;
 
-    --chip-bg: #334155;
-    /* slate-700 - elevated relative to card */
-    --chip-border: #475569;
-    /* slate-600 */
-    --chip-text: #cbd5e1;
-    /* slate-300 */
+    --color-gold: #C7A15A;
+    --color-gold-soft: rgba(199, 161, 90, 0.14);
 
-    --chart-grid: #334155;
-    /* slate-700 */
-    --chart-axis: #64748b;
-    /* slate-500 */
-    --chart-text: #94a3b8;
-    /* slate-400 */
+    --color-success: #2BC48A;
+    --color-success-soft: rgba(43, 196, 138, 0.14);
+    --color-error: #FF6B6B;
+    --color-error-solid: #C22635;
+    --color-error-soft: rgba(255, 107, 107, 0.14);
 
-    --accent-muted: #334155;
+    --shadow-card: 0 12px 40px rgba(0, 0, 0, 0.16);
+    --shadow-card-elevated: 0 18px 50px rgba(0, 0, 0, 0.24);
+    --shadow-nav: 0 18px 60px rgba(0, 0, 0, 0.45);
+    --shadow-popover: 0 18px 60px rgba(0, 0, 0, 0.22);
+
+    --chart-grid: rgba(216, 227, 246, 0.12);
+
+    --map-fill-1: #1A2230;
+    --map-fill-2: #2A3445;
+    --map-fill-3: #4A2D39;
+    --map-fill-4: #753046;
+    --map-fill-5: #A5264D;
+    --map-fill-6: var(--color-wine-red);
   }
 }
 
@@ -111,12 +137,13 @@
 body {
   background-color: var(--app-bg);
   color: var(--text);
-  font-family: var(--font-inter), sans-serif;
+  font-family: var(--font-geist), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 html {
   min-height: 100%;
+  background: var(--app-bg);
 }
 
 body {
@@ -130,6 +157,19 @@ body {
 :where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+:where(input, select, textarea) {
+  color-scheme: inherit;
+}
+
+:where(input, textarea)::placeholder {
+  color: var(--text-muted);
+}
+
+::selection {
+  background: var(--color-wine-red-soft);
+  color: var(--color-text);
 }
 
 /* === Layout Utilities === */
@@ -154,6 +194,10 @@ body {
 /* Common Utils */
 .text-muted {
   color: var(--text-muted);
+}
+
+.font-wine {
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
 }
 
 .border-theme {

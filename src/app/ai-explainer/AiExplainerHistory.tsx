@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Clock3, History, Sparkles, Wine } from "lucide-react";
 import { SectionCard } from "@/components/ui/section-card";
+import { SkeletonBlock } from "@/components/ui/primitives";
 import { listAiExplanations } from "@/app/actions/aiExplainer";
 import type { AiExplainerHistoryItem } from "@/lib/aiExplainerStorage";
 
@@ -35,7 +36,21 @@ export default function AiExplainerHistory() {
         };
     }, []);
 
-    if (!hasLoaded) return null;
+    if (!hasLoaded) {
+        return (
+            <SectionCard
+                title="生成履歴"
+                description="過去に作成したAI解説ページを開けます"
+                icon={<History size={18} />}
+                tone="neutral"
+            >
+                <div className="grid gap-3" aria-label="AI解説履歴を読み込み中">
+                    <SkeletonBlock className="h-24" />
+                    <SkeletonBlock className="h-24" />
+                </div>
+            </SectionCard>
+        );
+    }
 
     return (
         <SectionCard
@@ -50,7 +65,7 @@ export default function AiExplainerHistory() {
                 </div>
             ) : items.length === 0 ? (
                 <div className="flex items-center gap-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--app-bg)] px-4 py-5 text-sm text-[var(--text-muted)]">
-                    <Sparkles size={18} className="shrink-0 text-[var(--primary)]" />
+                    <Sparkles size={18} className="shrink-0 text-[var(--primary-text)]" />
                     <span>AI解説を生成すると、ここに履歴が表示されます。</span>
                 </div>
             ) : (

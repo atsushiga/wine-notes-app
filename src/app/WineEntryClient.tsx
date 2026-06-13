@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import WineForm, { WineFormHandle, WineFormValues } from '@/components/WineForm';
 import { defaultSimpleAiAutomationSettings, type SimpleAiAutomationSettings } from '@/lib/simpleAiAutomation';
 import { consumeRecordDraftFromVisualExplanation } from '@/lib/aiExplainerStorage';
@@ -16,6 +17,7 @@ interface WineEntryClientProps {
 }
 
 export default function WineEntryClient({ defaultInputMode, simpleAiAutomation }: WineEntryClientProps) {
+  const router = useRouter();
   const [sent, setSent] = useState<null | { ok: boolean; id?: string; error?: string }>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [simpleMode, setSimpleMode] = useState(defaultInputMode !== 'detailed');
@@ -103,7 +105,7 @@ export default function WineEntryClient({ defaultInputMode, simpleAiAutomation }
             <button
               type="button"
               onClick={handleClear}
-              className="ml-auto inline-flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-1.5 text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
+              className="ml-auto inline-flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-1.5 text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--primary-text)]"
             >
               <RotateCcw size={16} />
               <span>入力をクリア</span>
@@ -118,6 +120,7 @@ export default function WineEntryClient({ defaultInputMode, simpleAiAutomation }
           ref={formRef}
           defaultValues={initialValues}
           onSubmit={onSubmit}
+          onCancel={() => router.push('/tasting-notes')}
           isSubmitting={isSubmitting}
           persistKey="wine-form-new"
           simpleMode={simpleMode}
@@ -126,7 +129,7 @@ export default function WineEntryClient({ defaultInputMode, simpleAiAutomation }
       )}
 
       {sent && (
-        <p className={`text-sm ${sent.ok ? 'text-green-600' : 'text-red-600'} mt-4 px-4`}>
+        <p className={`text-sm ${sent.ok ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'} mt-4 px-4`}>
           {sent.ok ? '保存しました（ID: ' + sent.id + '）' : `保存に失敗しました: ${sent.error}`}
         </p>
       )}

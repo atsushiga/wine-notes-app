@@ -51,6 +51,11 @@ function isProtectedPagePath(pathname: string): boolean {
 export async function proxy(request: NextRequest) {
   const { response, user } = await updateSession(request);
   const { pathname } = request.nextUrl;
+  const shouldApplyPageRedirects = request.method === "GET" && !request.headers.has("next-action");
+
+  if (!shouldApplyPageRedirects) {
+    return response;
+  }
 
   if (isProtectedPagePath(pathname) && !user) {
     const url = request.nextUrl.clone();

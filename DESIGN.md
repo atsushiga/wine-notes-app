@@ -1,145 +1,746 @@
-# Wine Notes Design
+---
+name: WineNotes Design System
+version: 2026-06-13
+status: implementation-ready
+design_intent: "AI-powered personal wine intelligence workspace"
+colors:
+  canvas: '#070A0F'
+  sidebar: '#08111D'
+  surface: '#121821'
+  surface-elevated: '#1A2230'
+  surface-highest: '#202B38'
+  border: '#2A3445'
+  border-subtle: 'rgba(216, 227, 246, 0.08)'
+  text: '#F4F1EA'
+  text-muted: '#8E99AA'
+  text-soft: '#BFC7D9'
+  wine-red: '#E0184D'
+  wine-red-soft: 'rgba(224, 24, 77, 0.14)'
+  gold: '#C7A15A'
+  gold-soft: 'rgba(199, 161, 90, 0.14)'
+  success: '#2BC48A'
+  warning: '#C7A15A'
+  error: '#FF6B6B'
+typography:
+  display-wine:
+    fontFamily: Playfair Display
+    fontSize: 48px
+    fontWeight: '700'
+    lineHeight: '1.1'
+    letterSpacing: -0.02em
+  display-wine-mobile:
+    fontFamily: Playfair Display
+    fontSize: 32px
+    fontWeight: '700'
+    lineHeight: '1.12'
+    letterSpacing: -0.02em
+  headline-editorial:
+    fontFamily: Playfair Display
+    fontSize: 32px
+    fontWeight: '600'
+    lineHeight: '1.2'
+  headline-ui:
+    fontFamily: Geist
+    fontSize: 20px
+    fontWeight: '600'
+    lineHeight: '1.4'
+    letterSpacing: -0.01em
+  body-lg:
+    fontFamily: Geist
+    fontSize: 16px
+    fontWeight: '400'
+    lineHeight: '1.6'
+  body-md:
+    fontFamily: Geist
+    fontSize: 14px
+    fontWeight: '400'
+    lineHeight: '1.5'
+  body-sm:
+    fontFamily: Geist
+    fontSize: 13px
+    fontWeight: '400'
+    lineHeight: '1.45'
+  label-caps:
+    fontFamily: Geist
+    fontSize: 12px
+    fontWeight: '600'
+    lineHeight: '1'
+    letterSpacing: 0.06em
+  mono-data:
+    fontFamily: Geist
+    fontSize: 13px
+    fontWeight: '500'
+    lineHeight: '1'
+    letterSpacing: -0.01em
+rounded:
+  sm: 0.25rem
+  default: 0.5rem
+  md: 0.75rem
+  lg: 1rem
+  xl: 1.5rem
+  full: 9999px
+spacing:
+  base: 4px
+  xs: 4px
+  sm: 8px
+  md: 16px
+  lg: 24px
+  xl: 48px
+  gutter: 16px
+  margin-mobile: 16px
+  margin-desktop: 32px
+  max-width: 1440px
+---
 
-このドキュメントは、wine-noteアプリの現在のデザインテイストを言語化し、今後のUI追加・修正で見た目の判断をそろえるための基準です。
+# WineNotes Design System
 
-## Design Taste
+## 1. Product Positioning
 
-wine-noteは「静かなテイスティングノート」です。ワインを記録するための実用アプリでありながら、白い紙のノート、淡いロゼ色の余白、バーガンディの小さなアクセントで、ワインらしい落ち着きと個人的な記憶の温度を出します。
+WineNotes is an **AI-powered personal wine intelligence workspace**.
 
-高級感は金色・装飾・強いグラデーションで作らず、余白、読みやすい文字、控えめな罫線、写真の存在感で作ります。画面は派手に説明しすぎず、ユーザーが飲んだワイン、感じた言葉、あとで読み返す情報が主役になるようにします。
+It is not a generic admin dashboard, and it is not a decorative luxury wine magazine. It should feel like a daily-use professional workspace for serious wine lovers, collectors, critics, and tech-savvy enthusiasts.
 
-## Keywords
+The ideal balance is:
 
-- Warm: 淡いローズ背景とバーガンディのアクセントで、冷たい業務ツールにしない。
-- Quiet: 影・線・色は控えめにし、情報の読みやすさを優先する。
-- Journal-like: ワインカード、詳細、AI解説は「読み返すノート」として成立させる。
-- Structured: SATや統計など、評価の構造は見出し・カード・グリッドで明確にする。
-- Practical: 記録、編集、一覧、統計は迷わず操作できる密度にする。
-- Wine-first: 写真、銘柄名、産地、評価を主役にし、AIや装飾は補助に置く。
+```text
+AI / SaaS workspace precision: 40%
+Premium wine culture:          40%
+Everyday wine-recording joy:   20%
+```
 
-## Color
+## 2. Brand & Style
 
-色は `src/app/globals.css` のCSS変数を基準にする。
+The brand personality is authoritative yet approachable.
 
-- App background: `--app-bg`。ライトモードは淡いローズ `#fff1f2`。ページ全体に薄い温度感を作る。
-- Card background: `--card-bg`。基本面は白。入力、カード、ナビ、モーダルはここに乗せる。
-- Text: `--text`。黒ではなくグレー寄りの濃色で、長文でも硬くしすぎない。
-- Muted text: `--text-muted`。補足、ラベル、日付、メタ情報に使う。
-- Border: `--border` / `--input-border`。面を区切るための薄いスレート系。主張しすぎない。
-- Primary: `--primary`。バーガンディ。主操作、ページ見出しの左線、重要な強調に限定して使う。
-- Surface: `--surface-2`。カード内の沈んだ面、アップロード領域、入力補助、チャート背景に使う。
-- Chip: `--chip-bg` / `--chip-border` / `--chip-text`。ワインタイプ、バッジ、選択済み要素に使う。
+The style is **Corporate Modern with a Minimalist Editorial edge**:
 
-赤・黄・緑・青などの意味色は、削除、警告、成功、外部リンクなど用途が明確な場合だけ使う。青紫グラデーションはAIや画像補正などの特別な機能に限定し、通常の主要アクションには使わない。
+- Corporate Modern: compact, precise, fast, useful, data-aware.
+- Minimalist Editorial: wine names, estate names, label photos, and AI insights are given room to breathe.
+- Wine culture is expressed through typography, label imagery, and restrained gold/red accents rather than heavy ornamentation.
 
-## Typography
+References for direction:
 
-基本フォントは `Inter`。画面タイトル、カード見出し、フォームラベルは太さで階層を作り、過度なサイズ差で演出しない。
+- Linear / Raycast / Vercel for workspace precision.
+- Vivino / InVintory for image-led wine browsing.
+- Editorial wine reports for AI Analysis pages.
 
-- Page title: `text-2xl font-bold tracking-tight` を基本にする。
-- Detail title / report title: ワイン名が主役になる画面では `text-3xl` 以上も許容する。
-- AI解説結果のような読み物画面では、限定的に `font-serif` を使って講座資料・記事らしさを出してよい。
-- Body text: `text-sm` から `text-base`、長文は `leading-7` 前後で読みやすくする。
-- Label / meta: `text-xs` から `text-sm`、`--text-muted` を使う。
+## 3. Core Design Principles
 
-日本語の文言は短く、落ち着いた言い回しにする。機能説明よりも、ユーザーの記録行為を邪魔しない明快なラベルを優先する。
+### 3.1 Wine labels are first-class data
 
-## Layout
+Wine label photos are the strongest memory trigger in the app. They should be visually prominent in:
 
-レイアウトは `ContentContainer` を基準にする。
+- wine list cards
+- wine detail hero
+- AI analysis hero
+- empty / loading states where appropriate
 
-- Form: `max-w-4xl`。入力に集中できる幅。
-- Default: `max-w-6xl`。標準的な一覧・説明画面。
-- Wide: `max-w-7xl`。統計や密度の高い一覧。
-- Page padding: `px-4 py-8` を基本に、モバイルでも余白を確保する。
-- Major gaps: セクション間は `gap-6` から `gap-8`。情報のまとまりを余白で分ける。
-- Inside cards: 内部は比較的コンパクトにし、記録アプリとしての速度を保つ。
+Avoid making the app feel like a text database.
 
-画面はモバイルファースト。主要ナビゲーションは下部固定で、フォームや録音パネルなどの固定要素と重ならないように `pb-24` 以上の下余白を取る。
+### 3.2 AI should feel central, not bolted on
 
-## Components
+AI features should be represented as structured insight panels, verdicts, chips, and research-report sections.
 
-### Page Header
+The AI experience should answer:
 
-`PageHeader` は画面の入口。左の4pxアクセントバーでページの現在地を示し、タイトルと短いサブタイトルを置く。アクションは右側にまとめ、モバイルでは折り返しても破綻しないようにする。
+- What is this wine?
+- What does it taste like?
+- Why does it taste that way?
+- When should I drink it?
+- What should I pair it with?
+- How does it fit my preferences?
 
-### Card
+### 3.3 Luxury through restraint
 
-カードは `bg-[var(--card-bg)] rounded-2xl border border-[var(--border)] shadow-sm` を基本にする。カードは情報のまとまり、一覧アイテム、モーダル、セクションに使う。影は浅く、ホバー時も `shadow-md` 程度に留める。
+Avoid heavy gradients, beige luxury clichés, excessive gold, or decorative borders. Use dark tonal layering, elegant typography, large label imagery, and precise spacing.
 
-### Section Card
+### 3.4 Daily usability wins
 
-フォームやSATの区切りには `SectionCard` を使う。セクションの切り替わりをカードで明確にし、カード内ではラベル、入力、補足をコンパクトに配置する。アイコンはLucideを基本にし、丸みのある小さなアイコン面に載せる。
+The app must remain fast and comfortable for repeated use. Forms, navigation, filters, and mobile interactions should be practical before decorative.
 
-### Form Controls
+---
 
-入力欄は `FORM_CONTROL_BASE` を使う。白い入力面、薄い境界線、ローズ系フォーカスリングを標準とする。スライダーやセグメントは数値そのものよりも言語化された状態を見せる。
+# 4. Color System
 
-### Buttons
+## 4.1 Core Tokens
 
-- Primary: `--primary` 背景、白文字。保存、生成、反映など明確な主操作に使う。
-- Secondary: 白い背景、薄い線、本文色。編集、戻る、キャンセルなどに使う。
-- Subtle: 背景なしまたは `--surface-2`。補助操作に使う。
-- Destructive: 赤系。削除など取り消しにくい操作だけに使う。
-- Pills: モード切替、チップ、バッジに使う。主要ボタンをすべて丸くしすぎない。
+```css
+--color-canvas: #070A0F;
+--color-sidebar: #08111D;
+--color-surface: #121821;
+--color-surface-elevated: #1A2230;
+--color-surface-highest: #202B38;
 
-## Imagery
+--color-border: #2A3445;
+--color-border-subtle: rgba(216, 227, 246, 0.08);
 
-ワイン写真はアプリの主役。カード一覧では写真をしっかり見せ、詳細やAI解説ではボトル・ラベルを大きく扱う。写真がない場合のプレースホルダーは控えめにし、画面の主役にしない。
+--color-text: #F4F1EA;
+--color-text-muted: #8E99AA;
+--color-text-soft: #BFC7D9;
 
-画像上のバッジは白またはチップ背景に半透明・ぼかしを合わせ、写真を隠しすぎない。ワインタイプ、評価、下書き状態など、必要な情報だけを重ねる。
+--color-wine-red: #E0184D;
+--color-wine-red-soft: rgba(224, 24, 77, 0.14);
 
-## Motion
+--color-gold: #C7A15A;
+--color-gold-soft: rgba(199, 161, 90, 0.14);
+```
 
-動きは操作の手応えを示す程度にする。
+## 4.2 Usage Rules
 
-- Navigation: 色変化、軽いスケール、進行バー。
-- Card hover: 少し浮く、影が少し濃くなる。
-- Loading: スピナーや細い進行表示。
-- Reduced motion: `prefers-reduced-motion` に配慮する。
+### Canvas
 
-装飾目的の大きなアニメーションは使わない。
+Use `#070A0F` for the deepest app background.
 
-## Screen Patterns
+### Sidebar
 
-### Tasting Form
+Use `#08111D` for desktop navigation. It should be visually stable and quieter than the main content.
 
-テイスティング体験として扱う。SATの流れが見えるようにセクションを分け、外観・香り・味わい・総合評価を順番に進める。AI情報は補助であり、ユーザーの感覚と言葉を先に置く。
+### Cards
 
-### Tasting List
+Use `#121821` for normal cards and `#1A2230` for elevated or active cards.
 
-ワイン写真のグリッドを中心に、銘柄名、産地、タイプ、価格、評価、日付を短く見せる。カードは小さくても読みやすく、ホバーで軽く反応する。
+### Borders
 
-### Tasting Detail
+Use `#2A3445` for most borders.
 
-写真と基本情報、評価コメントをゆったり見せる。詳細データは定義リストや小さな情報カードで整理し、読み返しやすいノートにする。
+Do not use wine red as a default card border. Wine red should indicate:
 
-### Statistics
+- primary actions
+- selected nav item
+- selected filter
+- critical status
+- important AI highlight
 
-ダッシュボードは静かで実務的にする。カード、チャート、グリッドで密度を上げるが、色数は増やさない。チャートは `--chart-*` のスレート系を基準に、必要な系列色だけを足す。
+### Wine Red
 
-### AI Explainer
+Use sparingly. Too much red makes the UI feel like a wireframe or game interface.
 
-AI解説は通常画面より少し編集記事・講座資料に寄せてよい。大きなワイン名、写真、Fact tile、引用風の左罫線で読み物感を作る。ただし色と部品は通常のテーマ変数から外れない。
+### Gold
 
-## Avoid
+Use for:
 
-- 金色、過剰な装飾、強いドロップシャドウで高級感を作ること。
-- 通常機能に青紫グラデーションを多用すること。
-- ページ全体を同系色の濃淡だけで埋めること。
-- カードの中に装飾目的のカードを重ねること。
-- 説明文を増やしすぎて、記録や閲覧の速度を落とすこと。
-- 絵文字だけに依存した見出しや操作表現を増やすこと。アイコンはLucideを優先する。
-- AIをユーザー判断より強く見せること。
+- AI-assisted insights
+- drinking windows
+- vintage / quality highlights
+- premium indicators
+- focus state on inputs
 
-## Implementation Checklist
+Gold should not be used as a general decoration.
 
-新しいUIを追加する前に確認する。
+---
 
-- `globals.css` のCSS変数を使っているか。
-- `ContentContainer`, `PageHeader`, `Card`, `SectionCard`, `FORM_CONTROL_BASE` の既存パターンに乗せられるか。
-- 主操作はバーガンディ、補助操作は白または淡い面になっているか。
-- 写真・銘柄・ユーザーの記録が主役になっているか。
-- モバイル下部ナビや固定フッターと重ならない余白があるか。
-- ダークモードでも背景、カード、境界線、文字の階層が保たれるか。
-- 追加した色・影・角丸が既存UIより目立ちすぎていないか。
+# 5. Typography
+
+## 5.1 Font Roles
+
+### Playfair Display
+
+Use only for "The Star":
+
+- WineNotes logo
+- wine names
+- estate names
+- large editorial titles when appropriate
+
+Do not use Playfair for dense UI, forms, nav, or long AI prose.
+
+### Geist
+
+Use for the workspace:
+
+- navigation
+- forms
+- buttons
+- cards
+- charts
+- labels
+- metrics
+- body copy
+- AI-generated explanation text
+
+## 5.2 Language Rule
+
+Use a controlled Japanese/English mix:
+
+```text
+Navigation and operations: Japanese
+Analytical section names: English or Japanese, depending on clarity
+Explanatory text: Japanese
+Wine names / regions / producers: original language where useful
+```
+
+Examples:
+
+- ナビ: `記録`, `AI解説`, `一覧`, `統計`, `設定`
+- Analysis sections: `AI Verdict`, `Taste Structure`, `Profile Map`
+- Body: Japanese
+
+---
+
+# 6. Layout & Spacing
+
+Use a 4px baseline grid.
+
+## Desktop
+
+- 12-column grid.
+- 16px gutters.
+- Main page margin: 32px.
+- Fixed sidebar: approximately 240px.
+- Optional right insight panel: approximately 320px.
+- Max content width: 1440px.
+
+## Tablet
+
+- 8-column grid.
+- 16px gutters.
+- Reduce hero layouts from 3 columns to 2 columns.
+
+## Mobile
+
+- 4-column grid.
+- 16px margins.
+- Use bottom navigation instead of desktop sidebar.
+- Add safe-area and bottom padding so fixed nav never overlaps content.
+
+## Spacing Intent
+
+- Generous spacing around wine photos, titles, and AI Verdict.
+- Compact spacing inside forms, metric cards, and data tables.
+- Avoid both extremes: empty luxury landing pages and cramped admin dashboards.
+
+---
+
+# 7. Elevation & Depth
+
+Depth is created through tonal layering and subtle glass effects, not heavy shadows.
+
+## Levels
+
+```text
+Level 0: Canvas          #070A0F
+Level 1: Surface         #121821
+Level 2: Elevated        #1A2230
+Level 3: Highest/Active  #202B38
+```
+
+## Glass Effects
+
+Use only for:
+
+- overlays
+- modals
+- floating mobile nav
+- AI processing panels
+- command-palette-like interactions
+
+Recommended:
+
+```css
+background: rgba(26, 34, 48, 0.80);
+backdrop-filter: blur(12px);
+border: 1px solid #2A3445;
+```
+
+---
+
+# 8. Shape System
+
+- Standard UI elements: 8px radius.
+- Large cards / label image frames: 16px radius.
+- Chips and tags: full pill radius.
+- Avoid overly rounded "mobile game" cards.
+
+---
+
+# 9. Component Rules
+
+## 9.1 Buttons
+
+### Primary
+
+- Solid wine red.
+- White/off-white text.
+- No gradient.
+- Used for key actions only:
+  - `記録を追加`
+  - `記録を保存`
+  - `AI解説を生成`
+
+### Secondary
+
+- Ghost style.
+- Neutral border.
+- Off-white text.
+
+### Danger
+
+- Ghost or subtle red.
+- Avoid large solid red unless destructive action is confirmed.
+
+## 9.2 Input Fields
+
+Inputs must be dark, never bright white.
+
+```css
+background: #070A0F;
+border: 1px solid #2A3445;
+color: #F4F1EA;
+```
+
+Focus:
+
+```css
+border-color: #C7A15A;
+box-shadow: 0 0 0 3px rgba(199, 161, 90, 0.12);
+```
+
+Placeholders:
+
+```css
+color: #8E99AA;
+```
+
+## 9.3 Cards
+
+Normal cards:
+
+```css
+background: #121821;
+border: 1px solid #2A3445;
+box-shadow: none;
+```
+
+Use red borders only for exceptional states.
+
+## 9.4 Chips
+
+Chips are compact, pill-shaped metadata.
+
+Examples:
+
+- `Pinot Noir`
+- `Burgundy, France`
+- `AI分析済み`
+- `Best window: 2028–2036`
+- `Elegant / Mineral / Red fruit`
+
+Use muted backgrounds:
+
+- wine red soft for selected or important profile chips
+- gold soft for AI/drinking-window chips
+- neutral surface for normal metadata
+
+## 9.5 AI Insight Panel
+
+AI panels should feel distinct but integrated.
+
+Recommended visual pattern:
+
+- subtle elevated surface
+- small AI icon
+- gold or wine-red accent
+- concise title
+- structured content
+- no oversized decorative effects
+
+## 9.6 Wine Image Frame
+
+Use for label photos.
+
+Rules:
+
+- Preserve aspect ratio.
+- Use dark frame and subtle border.
+- Add missing-image fallback.
+- Avoid cropping label text too aggressively.
+- Use object-fit contain when the label itself is the subject.
+- Use object-fit cover only for atmospheric background images.
+
+---
+
+# 10. Navigation
+
+## Desktop Sidebar
+
+Labels:
+
+- `記録`
+- `AI解説`
+- `一覧`
+- `統計`
+- `設定`
+
+Rules:
+
+- Sidebar should feel stable and quiet.
+- Active state should use subtle red accent.
+- Avoid heavy red backgrounds.
+- Icons should be 20px with consistent 1.5px stroke.
+- Logo may use Playfair Display.
+
+## Mobile Bottom Navigation
+
+Rules:
+
+- Floating or fixed dark glass style.
+- Must not overlap content.
+- Use safe-area padding.
+- Active item uses wine red.
+- Inactive items use muted gray.
+- Content pages must include sufficient bottom padding.
+
+---
+
+# 11. Page Patterns
+
+## 11.1 Wine Library / List
+
+Purpose: Browse and recall wines visually.
+
+Pattern:
+
+- Page title: `ワイン一覧`
+- Search bar
+- Filter chips
+- Primary CTA: `記録を追加`
+- Responsive card grid
+- Label image occupies roughly 60–70% of card height
+- Text metadata is compact
+
+Card content:
+
+```text
+Wine name
+Producer
+
+Country · Region · Grape
+★ Rating    Price    AI分析済み
+```
+
+Prioritize image-led browsing over dense database display.
+
+## 11.2 Wine Detail
+
+Purpose: Show the user's tasting record.
+
+Hero:
+
+- large label image
+- wine name
+- producer
+- vintage
+- region
+- grape
+- tasting date
+- key cards:
+  - `総合評価`
+  - `飲み頃`
+  - `価格`
+
+Sections:
+
+- `基本情報`
+- `外観`
+- `香り`
+- `味わい`
+- `総評`
+
+AI analysis should be linked but not mixed into every detail section.
+
+## 11.3 AI Wine Analysis
+
+Purpose: Present AI-generated wine intelligence.
+
+Hero layout:
+
+```text
+Left:   wine label image
+Center: wine identity and metadata
+Right:  AI Verdict panel
+```
+
+AI Verdict should be prominent.
+
+Insight chips:
+
+- `Best window`
+- `Style`
+- `Pairing`
+- `Confidence`
+
+Analysis sections:
+
+- `AI Verdict`
+- `Taste Structure`
+- `Profile Map`
+- `テロワール`
+- `生産者`
+- `ヴィンテージ`
+- `技術情報`
+- `フードペアリング`
+- `参考情報`
+
+Avoid relying on a luxury background image as the main visual. The label photo and AI insight are the product.
+
+## 11.4 Statistics Dashboard
+
+Purpose: Explain the user's wine preference pattern.
+
+KPI cards:
+
+- `総テイスティング本数`
+- `直近1ヶ月`
+- `平均価格`
+- `AI分析済み`
+
+Insight panel:
+
+- Title: `Your Wine Pattern`
+- Explain recent preference trends in Japanese.
+- Use AI/gold/wine-red accents sparingly.
+
+Charts:
+
+- monthly trend
+- type ratio
+- country distribution
+- top regions
+- price vs rating
+
+Charts should be minimal and readable in dark mode.
+
+## 11.5 Tasting Record Form
+
+Purpose: Fast, clear wine note entry.
+
+Recommended sections:
+
+1. `写真・基本情報`
+2. `外観`
+3. `香り`
+4. `味わい`
+5. `総評・AI分析`
+
+Use either:
+
+- stepper with one active section at a time, or
+- accordion with one expanded section
+
+Do not show multiple unrelated steps as full active content.
+
+Photo upload should be prominent.
+
+Aroma chips:
+
+- `赤系果実`
+- `黒系果実`
+- `花`
+- `スパイス`
+- `樽`
+- `土`
+- `ミネラル`
+
+Taste sliders:
+
+- acidity
+- tannin
+- body
+- sweetness
+- alcohol
+
+Bottom action area:
+
+- `キャンセル`
+- `記録を保存`
+- `AIで補完`
+
+It must not be hidden behind mobile navigation.
+
+---
+
+# 12. Data Visualization
+
+## Chart Style
+
+- Dark card background.
+- Thin, low-contrast gridlines.
+- Muted axis labels.
+- Red/gold only for highlights.
+- Always include fallback text or labels for accessibility.
+
+## Taste Structure Bars
+
+Use horizontal bars for:
+
+- acidity
+- tannin
+- body
+- fruit
+- oak
+- minerality
+
+Use gold for high structural components such as acidity/minerality when relevant, wine red for fruit or style highlights, and neutral for baseline components.
+
+## Profile Map
+
+Should be subtle and secondary. Avoid making it more visually dominant than AI Verdict or label image.
+
+---
+
+# 13. States
+
+## Loading
+
+Use skeletons with tonal surfaces.
+
+## Empty
+
+Empty states should be useful, not decorative.
+
+Examples:
+
+- no wines: encourage `記録を追加`
+- no AI analysis: encourage `AI解説を生成`
+- no image: show tasteful label placeholder
+- no stats: explain that stats appear after enough records
+
+## Error
+
+Use restrained red, clear message, and recovery action.
+
+---
+
+# 14. Accessibility
+
+- Maintain sufficient contrast.
+- All interactive elements need visible focus states.
+- Buttons need clear labels.
+- Images need alt text.
+- Forms need associated labels.
+- Charts need text summaries where possible.
+- Avoid communicating status by color alone.
+
+---
+
+# 15. Implementation Guardrails
+
+Do:
+
+- implement tokens first
+- reuse components
+- keep commits small and atomic
+- preserve existing behavior
+- make label images prominent
+- make AI insights structured
+- test desktop and mobile
+
+Do not:
+
+- overuse wine red borders
+- make form inputs bright white
+- turn daily screens into landing pages
+- hardcode DRC or luxury-only examples into reusable UI
+- hide important actions behind decorative layouts
+- introduce major dependencies without need
+- alter database schema unless explicitly required

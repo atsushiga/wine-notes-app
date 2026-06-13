@@ -41,14 +41,14 @@ export function UpdatePasswordForm() {
         />
       </div>
       {state?.error && (
-        <p className="text-sm text-red-500" role="alert">
+        <p className="text-sm text-[var(--color-error)]" role="alert">
           {state.error}
         </p>
       )}
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-md bg-[var(--ring)] px-4 py-2 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:opacity-70"
+        className="w-full rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--primary-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:opacity-70"
       >
         {isPending ? "更新中..." : "パスワードを更新"}
       </button>

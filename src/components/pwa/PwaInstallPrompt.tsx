@@ -182,7 +182,7 @@ export function PwaInstallPrompt() {
   return (
     <div className="fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-50 mx-auto max-w-md rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-3 text-[var(--text)] shadow-xl">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--app-bg)] text-[var(--primary)]">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--app-bg)] text-[var(--primary-text)]">
           <Icon size={20} />
         </div>
         <div className="min-w-0 flex-1">

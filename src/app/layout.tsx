@@ -1,13 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Inter } from 'next/font/google';
+import { Geist, Playfair_Display } from "next/font/google";
 
-import BottomNav from "@/components/bottom-nav";
 import { AppShell } from "@/components/layout/AppShell";
-import { PwaInstallPrompt } from "@/components/pwa/PwaInstallPrompt";
+import { NavigationFrame } from "@/components/layout/NavigationFrame";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
+const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair" });
 
 export const metadata: Metadata = {
   title: {
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "Wine Notes",
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
   },
   formatDetection: {
     telephone: false,
@@ -40,15 +40,15 @@ export const viewport: Viewport = {
   viewportFit: "cover",
   colorScheme: "light dark",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fff1f2" },
-    { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
+    { media: "(prefers-color-scheme: light)", color: "#F7F8FA" },
+    { media: "(prefers-color-scheme: dark)", color: "#070A0F" },
   ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${geist.className} ${geist.variable} ${playfair.variable}`}>
         <ServiceWorkerRegistration />
         <a
           href="#main-content"
@@ -57,11 +57,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           本文へスキップ
         </a>
         <AppShell>
-          <div id="main-content" tabIndex={-1}>
+          <NavigationFrame>
             {children}
-          </div>
-          <PwaInstallPrompt />
-          <BottomNav />
+          </NavigationFrame>
         </AppShell>
       </body>
     </html>

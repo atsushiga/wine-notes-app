@@ -38,23 +38,23 @@ export default async function SettingsPage() {
 
     return (
         <div className="container mx-auto px-4 py-8 pb-32 max-w-md">
-            <h1 className="text-2xl font-bold mb-6 text-gray-900">設定</h1>
+            <h1 className="text-2xl font-bold mb-6 text-[var(--text)]">設定</h1>
 
             <div className="space-y-6">
                 <ProfileForm user={user} defaultInputMode={defaultInputMode} simpleAiAutomation={simpleAiAutomation} />
 
                 <DataExportSection />
 
-                <div className="rounded-lg border border-gray-100 bg-white p-5 shadow-sm">
-                    <h2 className="text-base font-semibold text-gray-900">サポートとポリシー</h2>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--shadow-card)]">
+                    <h2 className="text-base font-semibold text-[var(--text)]">サポートとポリシー</h2>
                     <div className="mt-3 grid gap-2 text-sm">
-                        <Link href="/terms" className="text-gray-700 underline underline-offset-4 hover:text-rose-700">
+                        <Link href="/terms" className="text-[var(--text-soft)] underline underline-offset-4 hover:text-[var(--primary-text)]">
                             利用規約
                         </Link>
-                        <Link href="/privacy" className="text-gray-700 underline underline-offset-4 hover:text-rose-700">
+                        <Link href="/privacy" className="text-[var(--text-soft)] underline underline-offset-4 hover:text-[var(--primary-text)]">
                             プライバシーポリシー
                         </Link>
-                        <Link href="/contact" className="text-gray-700 underline underline-offset-4 hover:text-rose-700">
+                        <Link href="/contact" className="text-[var(--text-soft)] underline underline-offset-4 hover:text-[var(--primary-text)]">
                             問い合わせ
                         </Link>
                     </div>
@@ -62,7 +62,7 @@ export default async function SettingsPage() {
 
                 <DeleteAccountSection />
 
-                <div className="mt-8 pt-6 border-t border-gray-100">
+                <div className="mt-8 pt-6 border-t border-[var(--border)]">
                     <LogoutButton />
                 </div>
             </div>
