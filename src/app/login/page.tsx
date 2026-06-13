@@ -11,6 +11,8 @@ import { Card } from "@/components/ui/Card";
 import { FORM_CONTROL_BASE } from "@/constants/styles";
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
+    invalid_credentials: "メールアドレスまたはパスワードが正しくありません。",
+    auth_unavailable: "ログイン処理中に問題が発生しました。しばらくしてからもう一度お試しください。",
     invalid_callback: "確認リンクが無効か、期限切れです。もう一度確認メールを送信してください。",
     exchange_failed: "セッションの確立に失敗しました。もう一度お試しください。",
     no_user: "認証情報の取得に失敗しました。もう一度お試しください。",
