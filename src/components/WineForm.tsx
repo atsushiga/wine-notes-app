@@ -1692,6 +1692,23 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         </section>
     );
 
+    const simpleWineInfoBackSection = (
+        <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)]/55 p-4 md:p-5">
+            <div className="mb-5 flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--input-bg)] text-[var(--text-muted)]">
+                    <FileText size={18} />
+                </div>
+                <div>
+                    <h3 className="text-base font-semibold text-[var(--text)]">ワイン情報（生産地以降）</h3>
+                    <p className="mt-1 text-sm leading-5 text-[var(--text-muted)]">産地、品種、参考情報を必要に応じて補足します。</p>
+                </div>
+            </div>
+            <div className="grid grid-cols-1 gap-6">
+                {wineInfoBackFields}
+            </div>
+        </section>
+    );
+
     const aiInfoTextareaClass = `${FORM_CONTROL_BASE} text-sm`;
 
     const aiInfoSection = (
@@ -1893,7 +1910,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     activeId={activeSection}
                     index={1}
                     title="写真・基本情報"
-                    description="ラベル写真、銘柄、価格、生産地をまとめて入力"
+                    description={simpleMode ? "ラベル写真、銘柄、価格をまとめて入力" : "ラベル写真、銘柄、価格、生産地をまとめて入力"}
                     icon={<ImageIcon size={18} />}
                     hasError={hasSectionError('photo')}
                     onToggle={handleSectionToggle}
@@ -2016,9 +2033,11 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-6 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)]/45 p-4">
-                            {wineInfoBackFields}
-                        </div>
+                        {!simpleMode && (
+                            <div className="grid grid-cols-1 gap-6 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)]/45 p-4">
+                                {wineInfoBackFields}
+                            </div>
+                        )}
                     </div>
                 </FormAccordionSection>
 
@@ -2026,6 +2045,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     <div className="space-y-6">
                         {simpleSummarySection}
                         {aiInfoSection}
+                        {simpleWineInfoBackSection}
                     </div>
                 )}
 

@@ -1509,6 +1509,10 @@ function visualWineContextText(query: VisualWineExplanationRequest | undefined, 
         data.wine.style,
         data.wine.classification,
         ...(Array.isArray(data.wine.grapeVarieties) ? data.wine.grapeVarieties : []),
+        data.tasting?.overview,
+        ...(Array.isArray(data.tasting?.palate) ? data.tasting.palate : []),
+        data.tasting?.finish,
+        ...(Array.isArray(data.tasting?.scales) ? data.tasting.scales.map((scale) => scale.note) : []),
     ].filter(Boolean).join(" ");
 }
 
@@ -1524,11 +1528,19 @@ function scaleLabelMatches(label: string, patterns: RegExp[]) {
 
 function contextualVisualScaleCap(label: string, contextText: string) {
     const normalizedLabel = label.trim();
+    const lowerContext = contextText.toLowerCase();
     const isBurgundy = /bourgogne|burgundy|ブルゴーニュ|côte|cote|コート/i.test(contextText);
     const isPinot = /pinot|ピノ/i.test(contextText);
     const isChardonnay = /chardonnay|シャルドネ/i.test(contextText);
-    const isWhiteStyle = /white|blanc|bianco|白|chardonnay|シャルドネ|riesling|リースリング|sauvignon|ソ[ーォ]ヴィニヨン/i.test(contextText);
+    const isSparkling = /sparkling|champagne|cr[eé]mant|cava|prosecco|発泡|泡/i.test(contextText);
+    const isRose = /ros[eé]|ロゼ/i.test(contextText);
+    const isOrange = /orange|skin contact|skin-contact|アンバー|オレンジ|醸し|マセラシオン/i.test(contextText);
+    const isWhiteStyle = !isOrange && /white|blanc|bianco|白|chardonnay|シャルドネ|riesling|リースリング|sauvignon|ソ[ーォ]ヴィニヨン|albari[nñ]o|アルバリーニョ|chenin|シュナン|pinot gris|ピノ[・\s-]?グリ/i.test(contextText);
     const isRiesling = /riesling|リースリング/i.test(contextText);
+    const isAromaticWhite = /riesling|リースリング|sauvignon|ソ[ーォ]ヴィニヨン|albari[nñ]o|アルバリーニョ|vinho verde|ヴィーニョ[・\s-]?ヴェルデ|verdejo|ヴェルデホ|gew[uü]rztraminer|ゲヴュルツ|muscat|moscato|ミュスカ|モスカート|gr[uü]ner|グリューナー|pinot gris|ピノ[・\s-]?グリ/i.test(contextText);
+    const isLightRed = /pinot|ピノ|gamay|ガメイ|beaujolais|ボージョレ|cinsault|サンソー|frappato|フラッパート|poulsard|プールサール|trousseau|トゥルソー|schiava|スキアーヴァ|trollinger|トロリンガー/i.test(contextText);
+    const isPowerfulStyle = /powerful|full[-\s]?bodied|rich|concentrated|力強|濃厚|フルボディ|リッチ|凝縮|warm vintage|hot vintage|温暖|高アルコール|新樽|樽熟成|new oak|barrique|バリック/i.test(lowerContext);
+    const isLeanStyle = /light[-\s]?bodied|light body|delicate|fresh|elegant|lean|crisp|軽やか|繊細|フレッシュ|エレガント|シャープ|冷涼/i.test(lowerContext);
 
     const isBody = scaleLabelMatches(normalizedLabel, [/ボディ/i, /\bbody\b/i]);
     const isTannin = scaleLabelMatches(normalizedLabel, [/タンニン/i, /\btannin/i]);
@@ -1538,40 +1550,47 @@ function contextualVisualScaleCap(label: string, contextText: string) {
     const isFinish = scaleLabelMatches(normalizedLabel, [/余韻|フィニッシュ/i, /finish|length/i]);
     const isAcidity = scaleLabelMatches(normalizedLabel, [/酸/i, /acid/i]);
 
-    if (isBurgundy && isPinot) {
-        if (isBody) return 58;
-        if (isTannin) return 58;
-        if (isAlcohol) return 58;
-        if (isOak) return 55;
-        if (isFruitRipeness) return 68;
-        if (isFinish) return 76;
-        if (isAcidity) return 84;
+    if (isWhiteStyle) {
+        if (isTannin) return 22;
+        if (isAromaticWhite && isOak) return 30;
+        if (isAromaticWhite && isBody) return 58;
+        if (isAromaticWhite && isAlcohol) return 60;
+        if (!isChardonnay && isOak && !isPowerfulStyle) return 38;
     }
 
-    if (isBurgundy && isChardonnay) {
-        if (isBody) return 64;
-        if (isAlcohol) return 60;
-        if (isOak) return 68;
-        if (isFruitRipeness) return 70;
-        if (isFinish) return 80;
-        if (isAcidity) return 86;
-        if (isTannin) return 20;
+    if (isSparkling) {
+        if (isBody && !isPowerfulStyle) return 60;
+        if (isAlcohol) return 62;
+        if (isTannin && !isOrange) return 22;
     }
 
-    if (isPinot) {
-        if (isBody) return 68;
-        if (isTannin) return 66;
+    if (isRose && !isOrange) {
+        if (isTannin) return 35;
+        if (isBody && !isPowerfulStyle) return 62;
+    }
+
+    if (isLightRed) {
+        if (isBody) return isBurgundy && isPinot ? 58 : 65;
+        if (isTannin) return isBurgundy && isPinot ? 58 : 62;
+        if (isAlcohol) return isBurgundy && isPinot ? 58 : 66;
+        if (isOak && !isPowerfulStyle) return 55;
+        if (isFruitRipeness && (isBurgundy || isLeanStyle)) return 68;
+    }
+
+    if (isChardonnay && !isPowerfulStyle) {
+        if (isBody) return isBurgundy ? 64 : 68;
         if (isAlcohol) return 66;
+        if (isOak) return 68;
     }
 
-    if (isRiesling) {
-        if (isBody) return 58;
-        if (isAlcohol) return 58;
-        if (isOak) return 25;
-        if (isAcidity) return 90;
+    if (isLeanStyle && !isPowerfulStyle) {
+        if (isBody) return 62;
+        if (isAlcohol) return 62;
+        if (isFruitRipeness) return 68;
     }
 
-    if (isWhiteStyle && isTannin) return 25;
+    if (isRiesling && isAcidity) return 90;
+    if (isFinish && !isPowerfulStyle) return 85;
 
     return 100;
 }
@@ -2412,10 +2431,11 @@ export async function generateVisualWineExplanation(query: VisualWineExplanation
     - tasting.scales must contain 5 to 7 items.
     - Each value must be an integer from 0 to 100.
     - Values are stored tasting data, not UI emphasis. Treat 50 as medium and 70+ as clearly high/powerful.
-    - Calibrate values conservatively against grape, region, and style. Do not inflate every item above 70.
-    - For Bourgogne/Burgundy Pinot Noir, body is usually light-to-medium or medium (about 35-60), tannin about 30-60, alcohol about 35-60; reserve 70+ only for genuinely powerful examples.
-    - For Bourgogne/Burgundy Chardonnay, body is usually medium (about 40-65); reserve 70+ for richer, warm-vintage or heavily oaked examples.
-    - High acidity or long finish can be high when justified, but explain the reason in note.
+    - Calibrate each axis independently against grape, color, region, climate, winemaking, and style. Do not make a prestige wine high on every axis.
+    - Low or medium values are correct when the trait is naturally restrained: white/rose/sparkling wines should usually have very low tannin unless skin-contact/orange; unoaked aromatic whites should have low oak; light reds should not show full-bodied structure by default.
+    - Use 70+ only when that specific trait is clearly prominent in the wine or supported by source notes, for example powerful body, pronounced oak, high alcohol, very ripe fruit, high acidity, or long finish.
+    - Pinot Noir, Gamay, aromatic whites, lean/cool-climate styles, and many sparkling wines often have restrained body, tannin, alcohol, oak, or fruit ripeness even when quality is high. Chardonnay can range from lean/unoaked to rich/oaked; do not assume high body or oak without evidence.
+    - High acidity or long finish can be high when justified, but explain the reason in note. If a trait is not mentioned or not typical for the style, keep it moderate or low.
     - Use labels such as 酸味, 果実の熟度, 樽の存在感, ボディ, タンニン, アルコール感, 余韻.
 
     Return STRICTLY valid JSON only, with this exact shape:
