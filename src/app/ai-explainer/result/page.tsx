@@ -467,12 +467,6 @@ function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExpla
                                     </p>
                                 )}
 
-                                <div className="mt-5 grid gap-2 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-2 sm:grid-cols-2">
-                                    {profileFacts.map((fact) => (
-                                        <CompactProfileFact key={fact.label} label={fact.label} value={fact.value} />
-                                    ))}
-                                </div>
-
                                 <div className="mt-5 grid gap-2.5">
                                     <ProfileMeta label="生産者" value={wine.producer || data.input.producer || "不明"} />
                                     <div className="grid gap-2.5 sm:grid-cols-2">
@@ -480,6 +474,12 @@ function VisualWinePage({ data, isGeneratingVisuals }: { data: StoredVisualExpla
                                         <ProfileMeta label="スタイル" value={wine.style || "検索結果を参照"} />
                                     </div>
                                     <ProfileMeta label="産地" value={regionLabel} emphasis />
+                                </div>
+
+                                <div className="mt-5 grid gap-2 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-2 sm:grid-cols-2">
+                                    {profileFacts.map((fact) => (
+                                        <CompactProfileFact key={fact.label} label={fact.label} value={fact.value} />
+                                    ))}
                                 </div>
                             </div>
                         </div>
