@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Inter } from 'next/font/google';
+import { Geist, Playfair_Display } from "next/font/google";
 
 import { AppShell } from "@/components/layout/AppShell";
 import { NavigationFrame } from "@/components/layout/NavigationFrame";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
+const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair" });
 
 export const metadata: Metadata = {
   title: {
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "Wine Notes",
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
   },
   formatDetection: {
     telephone: false,
@@ -37,17 +38,14 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  colorScheme: "light dark",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fff1f2" },
-    { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
-  ],
+  colorScheme: "dark",
+  themeColor: "#070A0F",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${geist.className} ${geist.variable} ${playfair.variable}`}>
         <ServiceWorkerRegistration />
         <a
           href="#main-content"

@@ -16,15 +16,15 @@ export function PageHeader({
 
     const borderStyle = accentColor
         ? { borderLeftColor: accentColor }
-        : { borderLeftColor: 'var(--accent)' };
+        : { borderLeftColor: 'var(--color-gold)' };
 
     return (
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div
-                className="pl-3 md:pl-5 border-l-4 py-1"
+                className="pl-3 md:pl-5 border-l-2 py-1"
                 style={borderStyle}
             >
-                <h1 className="text-2xl font-bold tracking-tight text-[var(--text)]">
+                <h1 className="text-2xl font-semibold tracking-normal text-[var(--text)]">
                     {title}
                 </h1>
                 {subtitle && (

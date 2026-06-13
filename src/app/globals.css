@@ -5,102 +5,62 @@
 @tailwind utilities;
 
 :root {
-  /* Base Colors - Warm Neutral / Pale Rose Theme */
-  --app-bg: #fff1f2;
-  /* rose-50 base */
-  --card-bg: #ffffff;
-  --border: #e2e8f0;
-  /* slate-200 */
-  --input-bg: #ffffff;
-  --input-border: #cbd5e1;
-  /* slate-300 */
+  --color-canvas: #070A0F;
+  --color-sidebar: #08111D;
+  --color-surface: #121821;
+  --color-surface-elevated: #1A2230;
+  --color-surface-highest: #202B38;
 
-  --text: #1f2937;
-  /* gray-900 */
-  --text-muted: #64748b;
-  /* slate-500 */
+  --color-border: #2A3445;
+  --color-border-subtle: rgba(216, 227, 246, 0.08);
 
-  --primary: #881337;
-  /* rose-900 (Burgundy) */
+  --color-text: #F4F1EA;
+  --color-text-muted: #8E99AA;
+  --color-text-soft: #BFC7D9;
+
+  --color-wine-red: #E0184D;
+  --color-wine-red-soft: rgba(224, 24, 77, 0.14);
+
+  --color-gold: #C7A15A;
+  --color-gold-soft: rgba(199, 161, 90, 0.14);
+
+  --color-success: #2BC48A;
+  --color-warning: var(--color-gold);
+  --color-error: #FF6B6B;
+
+  /* Backward-compatible app tokens used across the existing UI. */
+  --app-bg: var(--color-canvas);
+  --sidebar-bg: var(--color-sidebar);
+  --card-bg: var(--color-surface);
+  --surface-2: var(--color-surface-elevated);
+  --surface-3: var(--color-surface-highest);
+  --border: var(--color-border);
+  --border-subtle: var(--color-border-subtle);
+  --input-bg: var(--color-canvas);
+  --input-border: var(--color-border);
+
+  --text: var(--color-text);
+  --text-muted: var(--color-text-muted);
+  --text-soft: var(--color-text-soft);
+
+  --primary: var(--color-wine-red);
   --primary-foreground: #ffffff;
+  --ring: var(--color-gold);
 
-  --ring: #fda4af;
-  /* rose-300 */
+  --chip-bg: var(--color-surface-elevated);
+  --chip-border: var(--color-border);
+  --chip-text: var(--color-text-soft);
 
-  /* Surface Variants */
-  --surface-2: #f8fafc;
-  /* slate-50 - sunken/subtle */
+  --chart-grid: rgba(216, 227, 246, 0.12);
+  --chart-axis: var(--color-text-muted);
+  --chart-text: var(--color-text-soft);
 
-  /* Chip / Badge */
-  --chip-bg: #f1f5f9;
-  /* slate-100 */
-  --chip-border: #e2e8f0;
-  /* slate-200 */
-  --chip-text: #475569;
-  /* slate-600 */
+  --accent: var(--color-wine-red);
+  --accent-muted: var(--color-wine-red-soft);
+  --ai-accent: var(--color-gold);
+  --ai-accent-muted: var(--color-gold-soft);
 
-  /* Charts */
-  --chart-grid: #e2e8f0;
-  /* slate-200 */
-  --chart-axis: #94a3b8;
-  /* slate-400 */
-  --chart-text: #64748b;
-  /* slate-500 */
-
-  /* Runtime Accent - Default to Primary if not specified */
-  --accent: var(--primary);
-  --accent-muted: #fff1f2;
-  /* rose-50 */
-
-  --radius: 1rem;
-  /* Rounded-2xl (16px) */
-}
-
-/* === Dark Mode Support === */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --app-bg: #0f172a;
-    /* slate-900 */
-    --card-bg: #1e293b;
-    /* slate-800 */
-    --border: #334155;
-    /* slate-700 */
-    --input-bg: #0f172a;
-    /* slate-900 (slightly darker than card) */
-    --input-border: #33415580;
-    /* slate-700 with 50% opacity (subtler than card border) */
-
-    --text: #f1f5f9;
-    /* slate-100 */
-    --text-muted: #94a3b8;
-    /* slate-400 */
-
-    --primary: #e11d48;
-    /* rose-600 (lighter for dark mode) */
-    --primary-foreground: #ffffff;
-
-    --ring: #fb7185;
-    /* rose-400 */
-
-    --surface-2: #0f172a;
-    /* slate-900 - sunken relative to card */
-
-    --chip-bg: #334155;
-    /* slate-700 - elevated relative to card */
-    --chip-border: #475569;
-    /* slate-600 */
-    --chip-text: #cbd5e1;
-    /* slate-300 */
-
-    --chart-grid: #334155;
-    /* slate-700 */
-    --chart-axis: #64748b;
-    /* slate-500 */
-    --chart-text: #94a3b8;
-    /* slate-400 */
-
-    --accent-muted: #334155;
-  }
+  --radius: 0.5rem;
 }
 
 @theme inline {
@@ -111,12 +71,14 @@
 body {
   background-color: var(--app-bg);
   color: var(--text);
-  font-family: var(--font-inter), sans-serif;
+  font-family: var(--font-geist), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
+  color-scheme: dark;
 }
 
 html {
   min-height: 100%;
+  background: var(--app-bg);
 }
 
 body {
@@ -130,6 +92,19 @@ body {
 :where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+:where(input, select, textarea) {
+  color-scheme: dark;
+}
+
+:where(input, textarea)::placeholder {
+  color: var(--text-muted);
+}
+
+::selection {
+  background: var(--color-wine-red-soft);
+  color: var(--color-text);
 }
 
 /* === Layout Utilities === */
@@ -154,6 +129,10 @@ body {
 /* Common Utils */
 .text-muted {
   color: var(--text-muted);
+}
+
+.font-wine {
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
 }
 
 .border-theme {
