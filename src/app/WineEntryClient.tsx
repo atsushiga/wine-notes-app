@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import WineForm, { WineFormHandle, WineFormValues } from '@/components/WineForm';
 import { defaultSimpleAiAutomationSettings, type SimpleAiAutomationSettings } from '@/lib/simpleAiAutomation';
 import { consumeRecordDraftFromVisualExplanation } from '@/lib/aiExplainerStorage';
@@ -16,6 +17,7 @@ interface WineEntryClientProps {
 }
 
 export default function WineEntryClient({ defaultInputMode, simpleAiAutomation }: WineEntryClientProps) {
+  const router = useRouter();
   const [sent, setSent] = useState<null | { ok: boolean; id?: string; error?: string }>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [simpleMode, setSimpleMode] = useState(defaultInputMode !== 'detailed');
@@ -118,6 +120,7 @@ export default function WineEntryClient({ defaultInputMode, simpleAiAutomation }
           ref={formRef}
           defaultValues={initialValues}
           onSubmit={onSubmit}
+          onCancel={() => router.push('/tasting-notes')}
           isSubmitting={isSubmitting}
           persistKey="wine-form-new"
           simpleMode={simpleMode}

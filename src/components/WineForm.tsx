@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useCallback, useEffect, useImperativeHandle, forwardRef, useLayoutEffect, useRef } from 'react';
+import React, { ReactNode, useCallback, useEffect, useImperativeHandle, forwardRef, useLayoutEffect, useRef } from 'react';
 import { useForm, Controller, type Resolver } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { searchWineDetails, optimizeWineImage, analyzeWineImage, interpretTastingTranscript, type WineImageAnalysis } from '@/app/actions/gemini';
-import { Sparkles, Loader2, Eye, Wind, Grape, Award, ChevronDown, ChevronUp, BookOpen, User, Settings, Calendar, FileText, Bot, ImageIcon, UploadCloud, CheckCircle2, Circle, Search } from 'lucide-react';
+import { Sparkles, Loader2, Eye, Wind, Grape, Award, ChevronDown, ChevronUp, BookOpen, User, Settings, Calendar, FileText, Bot, ImageIcon, UploadCloud, CheckCircle2, Circle, Search, X } from 'lucide-react';
 import { useState } from 'react';
-import { SectionCard } from '@/components/ui/section-card';
 import { LocalityCombobox } from '@/components/wine/form/LocalityCombobox';
 import {
     colorLabel,
@@ -18,15 +17,13 @@ import {
     finishLenLabel,
     oakAromaLabel,
     round1,
-    worldLabel,
-    fruitStateLabel,
 } from '@/lib/wineHelpers';
 import { extractExifCaptureDate, generateThumbnail } from '@/lib/imageUtils';
 import { Trash2 } from 'lucide-react';
 import { SAT_CONSTANTS } from '@/constants/sat';
 import AromaSelector from '@/components/AromaSelector';
 import { FieldRow } from '@/components/ui/field-row';
-import { FORM_CONTROL_BASE } from '@/constants/styles';
+import { BUTTON_PRIMARY, BUTTON_SECONDARY, FORM_CONTROL_BASE } from '@/constants/styles';
 import { SimpleRecordingControls } from '@/components/wine/form/SimpleRecordingControls';
 import { countries, mainVarieties, wineTypes } from '@/constants/wine';
 import { defaultSimpleAiAutomationSettings, type SimpleAiAutomationSettings } from '@/lib/simpleAiAutomation';
@@ -90,7 +87,7 @@ function NullableRangeField({
                 step={step}
                 value={displayValue}
                 onChange={(e) => onChange(Number(e.target.value))}
-                className="w-full accent-[var(--text)]"
+                className="w-full accent-[var(--primary)]"
             />
             <div className="flex items-center justify-between text-xs text-[var(--text-muted)] px-1 mt-1">
                 <span>{labels[0]}</span>
@@ -138,6 +135,78 @@ function AutoGrowingTextarea({ className = '', value, onInput, ...props }: AutoG
                 resize();
             }}
         />
+    );
+}
+
+type FormSectionId = 'photo' | 'appearance' | 'aroma' | 'taste' | 'summary';
+
+interface FormAccordionSectionProps {
+    id: FormSectionId;
+    activeId: FormSectionId;
+    index: number;
+    title: string;
+    description: string;
+    icon: ReactNode;
+    right?: ReactNode;
+    hasError?: boolean;
+    onOpen: (id: FormSectionId) => void;
+    children: ReactNode;
+}
+
+function FormAccordionSection({
+    id,
+    activeId,
+    index,
+    title,
+    description,
+    icon,
+    right,
+    hasError = false,
+    onOpen,
+    children,
+}: FormAccordionSectionProps) {
+    const isActive = id === activeId;
+
+    return (
+        <section className={`rounded-lg border transition-colors ${isActive ? 'border-[var(--border)] bg-[var(--card-bg)] shadow-[0_18px_48px_rgba(0,0,0,0.22)]' : 'border-[var(--border-subtle)] bg-[var(--surface-2)]/55'}`}>
+            <div className="flex items-start justify-between gap-3 p-4 md:p-5">
+                <button
+                    type="button"
+                    onClick={() => onOpen(id)}
+                    className="group flex min-w-0 flex-1 items-start gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                    aria-expanded={isActive}
+                    aria-controls={`wine-form-section-${id}`}
+                >
+                    <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-sm font-semibold ${isActive ? 'border-[var(--primary)] bg-[var(--wine-red-soft)] text-[var(--primary)]' : 'border-[var(--border)] bg-[var(--input-bg)] text-[var(--text-muted)]'}`}>
+                        {index}
+                    </span>
+                    <span className="min-w-0">
+                        <span className="flex items-center gap-2">
+                            <span className={isActive ? 'text-[var(--primary)]' : 'text-[var(--text-soft)]'}>{icon}</span>
+                            <span className="text-base font-semibold leading-6 text-[var(--text)]">{title}</span>
+                            {hasError && <span className="rounded-full bg-[var(--wine-red-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--primary)]">要確認</span>}
+                        </span>
+                        <span className="mt-1 block text-sm leading-5 text-[var(--text-muted)]">{description}</span>
+                    </span>
+                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                    {isActive && right}
+                    <button
+                        type="button"
+                        onClick={() => onOpen(id)}
+                        aria-label={isActive ? `${title}を閉じる` : `${title}を開く`}
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--input-bg)] hover:text-[var(--text)]"
+                    >
+                        {isActive ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                    </button>
+                </div>
+            </div>
+            {isActive && (
+                <div id={`wine-form-section-${id}`} className="border-t border-[var(--border-subtle)] p-4 pt-5 md:p-6">
+                    {children}
+                </div>
+            )}
+        </section>
     );
 }
 
@@ -238,11 +307,20 @@ export const wineFormSchema = z.object({
 export type WineFormValues = z.infer<typeof wineFormSchema>;
 type WineImageValue = NonNullable<WineFormValues['images']>[number];
 
+const SECTION_ERROR_KEYS: Record<FormSectionId, readonly (keyof WineFormValues)[]> = {
+    photo: ['date', 'place', 'price', 'imageUrl', 'images', 'wineType', 'wineName', 'producer', 'country', 'locality', 'region', 'mainVariety', 'otherVarieties', 'referenceUrl', 'additionalInfo', 'vintage', 'importer'],
+    appearance: ['color', 'intensity', 'rimRatio', 'clarity', 'brightness', 'sparkleIntensity', 'appearanceOther'],
+    aroma: ['noseIntensity', 'noseCondition', 'development', 'oldNewWorld', 'fruitsMaturity', 'aromaNeutrality', 'aromas', 'oakAroma', 'aromaOther'],
+    taste: ['sweetness', 'acidityScore', 'tanninScore', 'bodyScore', 'alcoholABV', 'finishScore', 'palateNotes'],
+    summary: ['qualityScore', 'readiness', 'rating', 'notes', 'vivinoUrl', 'aiExplanationId', 'terroir_info', 'producer_philosophy', 'technical_details', 'vintage_analysis', 'search_result_tasting_note'],
+};
+
 interface WineFormProps {
     defaultValues?: Partial<WineFormValues>;
     onSubmit: (values: WineFormValues) => Promise<void>;
     isSubmitting?: boolean;
     submitLabel?: string;
+    onCancel?: () => void;
     persistKey?: string; // New prop for persistence key
     onWineTypeChange?: (type: string) => void;
     simpleMode?: boolean;
@@ -380,8 +458,9 @@ function isEmptyVoiceValue(value: unknown) {
     return value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
 }
 
-const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onSubmit, isSubmitting, submitLabel = '保存する', persistKey, onWineTypeChange, simpleMode = false, simpleAiAutomation = defaultSimpleAiAutomationSettings }, ref) => {
+const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onSubmit, isSubmitting, submitLabel = '記録を保存', onCancel, persistKey, onWineTypeChange, simpleMode = false, simpleAiAutomation = defaultSimpleAiAutomationSettings }, ref) => {
     const dateValueOriginRef = useRef<DateValueOrigin>(defaultValues?.date ? 'savedOrDefault' : 'empty');
+    const [activeSection, setActiveSection] = useState<FormSectionId>('photo');
     const { register, handleSubmit, control, watch, setValue, getValues, reset, formState: { errors } } = useForm<WineFormValues>({
         defaultValues: {
             date: '',
@@ -515,13 +594,6 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         const yyyy = d.getFullYear();
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
-
-        const nextDefaults: Partial<WineFormValues> = {
-            date: `${yyyy}-${mm}-${dd}`,
-            //... other defaults if needed, but the form defaults in useForm will be used if we just reset?
-            // reset(values, options) -> if we pass new values it sets them.
-            // if we pass nothing, it resets to *defaultValues* passed to useForm?
-        };
 
         // Actually, we defined defaultValues in useForm.
         // reset() without args resets to the original defaultValues.
@@ -718,6 +790,21 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         setValue('status', 'published');
     };
 
+    const handleCancel = () => {
+        if (onCancel) {
+            onCancel();
+            return;
+        }
+
+        if (typeof window !== 'undefined') {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.assign('/tasting-notes');
+            }
+        }
+    };
+
     const wineType = watch('wineType');
     const wineNameValue = watch('wineName');
     const hasWineName = !!wineNameValue;
@@ -729,6 +816,14 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
         watch('vintage_analysis') ||
         watch('search_result_tasting_note')
     );
+    const hasSectionError = useCallback((sectionId: FormSectionId) => SECTION_ERROR_KEYS[sectionId].some((key) => Boolean(errors[key])), [errors]);
+
+    useEffect(() => {
+        const firstErrorSection = (Object.keys(SECTION_ERROR_KEYS) as FormSectionId[]).find((sectionId) => hasSectionError(sectionId));
+        if (firstErrorSection) {
+            setActiveSection(firstErrorSection);
+        }
+    }, [hasSectionError]);
     useEffect(() => {
         document.body.setAttribute('data-winetype', wineType ?? '');
         if (onWineTypeChange && wineType) {
@@ -893,7 +988,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 ? '自動入力を完了できませんでした'
                 : visibleImageAiProgressSteps[imageAiProgressActiveIndex]?.activeText ?? '自動入力を準備中';
     const showImageAiProgress = simpleMode && imageAiProgressPhase !== 'idle' && visibleImageAiProgressSteps.length > 0;
-    const aiActionButtonClass = "inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-blue-500/20 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-all hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50";
+    const aiActionButtonClass = "inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[var(--color-gold)]/45 bg-[var(--color-gold-soft)] px-3 py-2 text-xs font-semibold text-[var(--color-gold)] shadow-sm transition-colors hover:bg-[var(--color-gold)] hover:text-[var(--app-bg)] disabled:cursor-not-allowed disabled:opacity-50";
 
     useEffect(() => {
         let isMounted = true;
@@ -1252,7 +1347,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
     const imageUploadFields = (
         <>
             <label
-                className={`flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border bg-[var(--input-bg)] px-4 py-3 text-left transition-colors sm:min-h-40 sm:flex-col sm:justify-center sm:border-2 sm:border-dashed sm:px-6 sm:py-8 sm:text-center ${isImageDragActive
+                className={`flex min-h-48 cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed bg-[var(--input-bg)] px-5 py-8 text-center transition-colors sm:min-h-64 sm:px-6 ${isImageDragActive
                     ? 'border-[var(--primary)] bg-[var(--surface-2)]'
                     : 'border-[var(--input-border)] hover:border-[var(--primary)] hover:bg-[var(--surface-2)]'
                 }`}
@@ -1282,20 +1377,19 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         e.target.value = '';
                     }}
                 />
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] sm:h-14 sm:w-14">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] sm:h-16 sm:w-16">
                     {isAnalyzing || imageAiProgressPhase === 'uploading' ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
-                        <UploadCloud className="h-5 w-5 sm:h-6 sm:w-6" />
+                        <UploadCloud className="h-6 w-6" />
                     )}
                 </span>
                 <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-[var(--text)]">写真を選択</span>
-                    <span className="mt-0.5 block text-xs leading-5 text-[var(--text-muted)] sm:hidden">{uploadAiNotice}</span>
-                    <span className="mt-1 hidden text-sm leading-6 text-[var(--text-muted)] sm:block">
+                    <span className="block text-base font-semibold text-[var(--text)]">ラベル写真を追加</span>
+                    <span className="mt-1 block text-sm leading-6 text-[var(--text-muted)]">
                         クリック、または画像をここへドラッグ&ドロップ
                     </span>
-                    <span className="mt-1 hidden text-xs text-[var(--text-muted)] sm:block">
+                    <span className="mt-1 block text-xs text-[var(--text-muted)]">
                         {uploadAiNotice}
                     </span>
                 </span>
@@ -1367,7 +1461,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
             {(watch('imageUrl') || watch('images')?.[0]?.url) && (
                 <div className="sm:col-span-3 mt-4">
                     <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs text-gray-500">AI解析用メイン画像:</span>
+                        <span className="text-xs text-[var(--text-muted)]">AI解析用メイン画像:</span>
                         {!watch('images') || watch('images')?.length === 0 ? (
                             <img src={watch('imageUrl')!} alt="main" className="h-10 w-10 object-cover rounded border border-[var(--border)]" />
                         ) : null}
@@ -1471,9 +1565,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 render={({ field }) => (
                     <>
                         <div className="relative inline-block select-none" aria-label={`Rating ${round1(field.value)} of 5`}>
-                            <div className="text-2xl tracking-tight text-neutral-300">★★★★★</div>
+                            <div className="text-2xl tracking-tight text-[var(--border)]">★★★★★</div>
                             <div
-                                className="absolute top-0 left-0 overflow-hidden text-2xl tracking-tight text-yellow-500 pointer-events-none"
+                                className="absolute top-0 left-0 overflow-hidden text-2xl tracking-tight text-[var(--color-gold)] pointer-events-none"
                                 style={{ width: `${(Math.max(0, Math.min(5, Number(field.value))) / 5) * 100}%` }}
                             >
                                 ★★★★★
@@ -1487,9 +1581,9 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                 step={0.1}
                                 value={field.value}
                                 onChange={(e) => field.onChange(Number(e.target.value))}
-                                className="w-full accent-[var(--text)]"
+                                className="w-full accent-[var(--primary)]"
                             />
-                            <span className="w-12 text-right text-lg font-medium text-yellow-600">{round1(field.value).toFixed(1)}</span>
+                            <span className="w-12 text-right text-lg font-medium text-[var(--color-gold)]">{round1(field.value).toFixed(1)}</span>
                         </div>
                     </>
                 )}
@@ -1559,7 +1653,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     </p>
 
                     {isAiLoading && (
-                        <div className="flex items-center gap-2 rounded-lg border border-purple-100 bg-purple-50 px-3 py-2 text-sm text-purple-700">
+                        <div className="flex items-center gap-2 rounded-lg border border-[var(--color-gold)]/35 bg-[var(--color-gold-soft)] px-3 py-2 text-sm text-[var(--color-gold)]">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             AI情報を取得しています
                         </div>
@@ -1568,7 +1662,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     <div className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
-                                <BookOpen className="w-4 h-4 text-emerald-600" /> テロワール
+                                <BookOpen className="w-4 h-4 text-[var(--color-gold)]" /> テロワール
                             </label>
                             <Controller
                                 control={control}
@@ -1587,7 +1681,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
-                                <User className="w-4 h-4 text-blue-600" /> 生産者・哲学
+                                <User className="w-4 h-4 text-[var(--text-soft)]" /> 生産者・哲学
                             </label>
                             <Controller
                                 control={control}
@@ -1605,7 +1699,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
-                                <Settings className="w-4 h-4 text-gray-600" /> 技術詳細
+                                <Settings className="w-4 h-4 text-[var(--text-soft)]" /> 技術詳細
                             </label>
                             <Controller
                                 control={control}
@@ -1623,7 +1717,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
-                                <Calendar className="w-4 h-4 text-orange-600" /> ヴィンテージ分析
+                                <Calendar className="w-4 h-4 text-[var(--color-gold)]" /> ヴィンテージ分析
                             </label>
                             <Controller
                                 control={control}
@@ -1641,7 +1735,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-[var(--text)] flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-red-600" /> 参考テイスティングノート
+                                <FileText className="w-4 h-4 text-[var(--primary)]" /> 参考テイスティングノート
                             </label>
                             <Controller
                                 control={control}
@@ -1692,188 +1786,157 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     onClick={handleAiJump}
                     title="AI情報へ移動"
                     aria-label="AI情報へ移動"
-                    className="fixed right-4 bottom-32 z-40 hidden h-12 w-12 items-center justify-center rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg transition-transform hover:scale-105 active:scale-95 sm:flex"
+                    className="fixed right-4 bottom-32 z-40 hidden h-12 w-12 items-center justify-center rounded-full border border-[var(--color-gold)]/45 bg-[var(--color-gold-soft)] text-[var(--color-gold)] shadow-lg transition-transform hover:scale-105 active:scale-95 sm:flex"
                 >
                     {isAiLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Bot className="h-6 w-6" />}
                 </button>
             )}
 
-            {/* タブ：ワインタイプ */}
-            <section className="mb-4">
-                <div className="flex flex-wrap gap-2">
-                    {wineTypes.map(t => {
-                        const active = wineType === t;
-                        return (
-                            <button
-                                key={t}
-                                type="button"
-                                className={`px-3 py-1.5 rounded-full border transition-colors ${active ? 'bg-[var(--text)] text-[var(--app-bg)] border-[var(--text)]' : 'bg-[var(--card-bg)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--app-bg)]'}`}
-                                onClick={() => setValue('wineType', t, { shouldDirty: true })}
-                            >
-                                {t}
-                            </button>
-                        );
-                    })}
-                </div>
-                <input type="hidden" {...register('wineType')} />
-            </section>
-
-            {simpleMode && (
-                <SectionCard title="画像アップロード" icon={<ImageIcon size={18} />} tone="neutral">
-                    {imageUploadFields}
-                </SectionCard>
-            )}
-
-            {/* 基本情報 */}
-            <SectionCard title="基本情報" icon={<Calendar size={18} />} tone="neutral">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <FieldRow label="日付">
-                        <input
-                            type="date"
-                            className={FORM_CONTROL_BASE}
-                            {...register('date', {
-                                onChange: () => {
-                                    dateValueOriginRef.current = 'user';
-                                },
-                            })}
-                        />
-                    </FieldRow>
-                    <FieldRow label="飲んだ/購入した場所">
-                        <input
-                            className={FORM_CONTROL_BASE}
-                            placeholder="例: 自宅 / ○○レストラン / △△ワインショップ"
-                            list="place-suggestions"
-                            {...register('place')} />
-                        <datalist id="place-suggestions">
-                            {placeSuggestions.map((place) => (
-                                <option key={place} value={place} />
-                            ))}
-                        </datalist>
-                    </FieldRow>
-                </div>
-                {!simpleMode && (
-                    <div className="mt-6">
-                        {imageUploadFields}
-                    </div>
-                )}
-
-            </SectionCard>
-
-
-            {/* ワイン情報 */}
-            <SectionCard
-                title="ワイン情報"
-                icon={<FileText size={18} />}
-                tone="neutral"
-                right={
-                    <button
-                        type="button"
-                        onClick={() => void handleWineNameSearch()}
-                        disabled={isWineNameSearching || !hasSearchableImage}
-                        title={hasSearchableImage ? '画像から銘柄を検索' : '画像をアップロードしてください'}
-                        className={aiActionButtonClass}
-                    >
-                        {isWineNameSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                        AI銘柄検索
-                    </button>
-                }
-            >
-                <div className='grid grid-cols-1 gap-6'>
-                    <FieldRow label="ワイン名*">
-                        <input className={FORM_CONTROL_BASE} placeholder="例: Bourgogne Rouge" {...register('wineName')} />
-                        {errors.wineName && <p className="text-red-500 text-sm mt-1">必須です</p>}
-                    </FieldRow>
-
-                    <div className="grid sm:grid-cols-2 gap-6">
-                        <FieldRow label="生産者">
-                            <input className={FORM_CONTROL_BASE} placeholder="例: Domaine X" {...register('producer')} />
-                        </FieldRow>
-                        <FieldRow label="ヴィンテージ">
-                            <input className={FORM_CONTROL_BASE} placeholder="例: 2021" {...register('vintage')} />
-                        </FieldRow>
-                    </div>
-
-                    <div className="grid sm:grid-cols-2 gap-6">
-                        <Controller
-                            control={control}
-                            name="price"
-                            render={({ field }) => {
-                                const value = field.value ?? '';
-                                const formatted =
-                                    value !== '' && !isNaN(Number(value))
-                                        ? Number(value).toLocaleString()
-                                        : '';
-
-                                return (
-                                    <FieldRow label="ボトル価格">
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="text"
-                                                inputMode='numeric'
-                                                className={`${FORM_CONTROL_BASE} flex-1 text-right`}
-                                                value={formatted}
-                                                onChange={(e) => {
-                                                    const raw = e.target.value.replace(/[^\d]/g, '');
-                                                    field.onChange(raw);
-                                                }}
-                                                autoComplete="off" autoCorrect="off" autoCapitalize="none"
-                                                placeholder="4,500"
-                                            />
-                                            <span className="text-[var(--text-muted)]">円</span>
-                                        </div>
-                                    </FieldRow>
-                                );
-                            }}
-
-                        />
-                        <FieldRow label="輸入元">
-                            <input className={FORM_CONTROL_BASE} placeholder="Importer" {...register('importer')} />
-                        </FieldRow>
-                    </div>
-
-                    <div className="grid sm:grid-cols-2 gap-6">
-                        <FieldRow label="色">
-                            <input
-                                type="text"
-                                value={watch('wineType') ?? ''}
-                                readOnly
-                                className={`${FORM_CONTROL_BASE} bg-[var(--app-bg)] text-[var(--text-muted)] cursor-default`}
-                            />
-                        </FieldRow>
-                        <div />
-                    </div>
-
-                    {!simpleMode && wineInfoBackFields}
-                </div>
-            </SectionCard>
-
-            {simpleMode && (
-                <SectionCard title="個人的な好み" icon={<Award size={18} />} tone="focus">
+            <div className="space-y-4">
+                <FormAccordionSection
+                    id="photo"
+                    activeId={activeSection}
+                    index={1}
+                    title="写真・基本情報"
+                    description="ラベル写真、銘柄、価格、生産地をまとめて入力"
+                    icon={<ImageIcon size={18} />}
+                    hasError={hasSectionError('photo')}
+                    onOpen={setActiveSection}
+                    right={
+                        <button
+                            type="button"
+                            onClick={() => void handleWineNameSearch()}
+                            disabled={isWineNameSearching || !hasSearchableImage}
+                            title={hasSearchableImage ? '画像から銘柄を検索' : '画像をアップロードしてください'}
+                            className={aiActionButtonClass}
+                        >
+                            {isWineNameSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                            AI銘柄検索
+                        </button>
+                    }
+                >
                     <div className="space-y-6">
-                        {personalRatingField}
-                        {personalNotesField}
+                        <div>
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Wine type</p>
+                            <div className="flex flex-wrap gap-2">
+                                {wineTypes.map(t => {
+                                    const active = wineType === t;
+                                    return (
+                                        <button
+                                            key={t}
+                                            type="button"
+                                            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${active ? 'border-[var(--primary)] bg-[var(--wine-red-soft)] text-[var(--primary)]' : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:bg-[var(--input-bg)] hover:text-[var(--text)]'}`}
+                                            onClick={() => setValue('wineType', t, { shouldDirty: true })}
+                                        >
+                                            {t}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <input type="hidden" {...register('wineType')} />
+                        </div>
+
+                        <div className="grid gap-6 xl:grid-cols-[minmax(260px,0.85fr)_minmax(0,1.25fr)]">
+                            <div>{imageUploadFields}</div>
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <FieldRow label="日付">
+                                        <input
+                                            type="date"
+                                            className={FORM_CONTROL_BASE}
+                                            {...register('date', {
+                                                onChange: () => {
+                                                    dateValueOriginRef.current = 'user';
+                                                },
+                                            })}
+                                        />
+                                    </FieldRow>
+                                    <FieldRow label="飲んだ/購入した場所">
+                                        <input
+                                            className={FORM_CONTROL_BASE}
+                                            placeholder="例: 自宅 / ○○レストラン / △△ワインショップ"
+                                            list="place-suggestions"
+                                            {...register('place')}
+                                        />
+                                        <datalist id="place-suggestions">
+                                            {placeSuggestions.map((place) => (
+                                                <option key={place} value={place} />
+                                            ))}
+                                        </datalist>
+                                    </FieldRow>
+                                </div>
+
+                                <FieldRow label="ワイン名*">
+                                    <input className={FORM_CONTROL_BASE} placeholder="例: Bourgogne Rouge" {...register('wineName')} />
+                                    {errors.wineName && <p className="mt-1 text-sm text-[var(--primary)]">必須です</p>}
+                                </FieldRow>
+
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <FieldRow label="生産者">
+                                        <input className={FORM_CONTROL_BASE} placeholder="例: Domaine X" {...register('producer')} />
+                                    </FieldRow>
+                                    <FieldRow label="ヴィンテージ">
+                                        <input className={FORM_CONTROL_BASE} placeholder="例: 2021" {...register('vintage')} />
+                                    </FieldRow>
+                                </div>
+
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <Controller
+                                        control={control}
+                                        name="price"
+                                        render={({ field }) => {
+                                            const value = field.value ?? '';
+                                            const formatted =
+                                                value !== '' && !isNaN(Number(value))
+                                                    ? Number(value).toLocaleString()
+                                                    : '';
+
+                                            return (
+                                                <FieldRow label="ボトル価格">
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            className={`${FORM_CONTROL_BASE} flex-1 text-right`}
+                                                            value={formatted}
+                                                            onChange={(e) => {
+                                                                const raw = e.target.value.replace(/[^\d]/g, '');
+                                                                field.onChange(raw);
+                                                            }}
+                                                            autoComplete="off"
+                                                            autoCorrect="off"
+                                                            autoCapitalize="none"
+                                                            placeholder="4,500"
+                                                        />
+                                                        <span className="text-[var(--text-muted)]">円</span>
+                                                    </div>
+                                                </FieldRow>
+                                            );
+                                        }}
+                                    />
+                                    <FieldRow label="輸入元">
+                                        <input className={FORM_CONTROL_BASE} placeholder="Importer" {...register('importer')} />
+                                    </FieldRow>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-6 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)]/45 p-4">
+                            {wineInfoBackFields}
+                        </div>
                     </div>
-                </SectionCard>
-            )}
+                </FormAccordionSection>
 
-            {simpleMode && aiInfoSection}
-
-            {simpleMode && (
-                <SectionCard title="ワイン情報（生産地以降）" icon={<FileText size={18} />} tone="neutral">
-                    <div className="grid grid-cols-1 gap-6">
-                        {wineInfoBackFields}
-                    </div>
-                </SectionCard>
-            )}
-
-
-            {/* 外観 */}
-            <SectionCard
-                title="外観"
-                description="色、清澄度、濃淡の評価"
-                icon={<Eye size={18} />}
-                tone="neutral"
-            >
+                <FormAccordionSection
+                    id="appearance"
+                    activeId={activeSection}
+                    index={2}
+                    title="外観"
+                    description="清澄度、輝き、濃淡、色調を記録"
+                    icon={<Eye size={18} />}
+                    hasError={hasSectionError('appearance')}
+                    onOpen={setActiveSection}
+                >
                 <div className="grid sm:grid-cols-2 gap-6">
                     <FieldRow label="清澄度">
                         <select
@@ -1954,15 +2017,18 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         />
                     </FieldRow>
                 </div>
-            </SectionCard>
+                </FormAccordionSection>
 
-            {/* 香り */}
-            <SectionCard
-                title="香り"
-                description="強さ、質、特徴の分析"
-                icon={<Wind size={18} />}
-                tone="soft"
-            >
+                <FormAccordionSection
+                    id="aroma"
+                    activeId={activeSection}
+                    index={3}
+                    title="香り"
+                    description="強さ、質、特徴、アロマカテゴリを選択"
+                    icon={<Wind size={18} />}
+                    hasError={hasSectionError('aroma')}
+                    onOpen={setActiveSection}
+                >
 
                 <div className="grid sm:grid-cols-2 gap-6">
                     <FieldRow label="コンディション">
@@ -2089,33 +2155,45 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     />
                 </div>
                 <div className="mt-4">
-                    <label className="block text-sm font-medium mb-1">その他のアロマ</label>
+                    <label className="block text-sm font-medium mb-1 text-[var(--text)]">その他のアロマ</label>
                     <textarea
-                        className="w-full input h-20"
+                        className={`${FORM_CONTROL_BASE} h-20`}
                         placeholder="例: バター、ナッツ、蜂蜜、ペトロール、ミネラルなど自由に記載"
                         {...register('aromaOther')}
                     />
                 </div>
 
-            </SectionCard>
+                </FormAccordionSection>
 
-            {/* 味わい */}
-            <SectionCard
-                title="味わい"
-                description="甘味、酸味、タンニン、ボディ、余韻"
-                icon={<Grape size={18} />}
-                tone="soft"
-            >
+                <FormAccordionSection
+                    id="taste"
+                    activeId={activeSection}
+                    index={4}
+                    title="味わい"
+                    description="甘味、酸味、タンニン、ボディ、アルコールを素早く調整"
+                    icon={<Grape size={18} />}
+                    hasError={hasSectionError('taste')}
+                    onOpen={setActiveSection}
+                >
 
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {/* Sweetness */}
-                    <FieldRow label="甘味">
-                        <select className={FORM_CONTROL_BASE} {...register('sweetness')}>
-                            {SAT_CONSTANTS.PALATE.SWEETNESS.map((label, index) => (
-                                <option key={label} value={index + 1}>{label}</option>
-                            ))}
-                        </select>
-                    </FieldRow>
+                    <Controller
+                        control={control}
+                        name="sweetness"
+                        render={({ field }) => (
+                            <NullableRangeField
+                                label="甘味"
+                                value={field.value}
+                                min={1}
+                                max={6}
+                                step={1}
+                                emptyValue={1}
+                                labels={['辛口', '甘口']}
+                                formatValue={(v) => SAT_CONSTANTS.PALATE.SWEETNESS[Math.max(0, Math.min(5, Math.round(v) - 1))]}
+                                onChange={field.onChange}
+                            />
+                        )}
+                    />
 
                     {/* Acidity */}
                     <Controller
@@ -2157,18 +2235,23 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         />
                     )}
 
-                    {/* Alcohol */}
-                    <FieldRow label="アルコール度数">
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="number"
-                                step="0.1"
-                                className={`${FORM_CONTROL_BASE} text-right`}
-                                {...register('alcoholABV', { valueAsNumber: true })}
+                    <Controller
+                        control={control}
+                        name="alcoholABV"
+                        render={({ field }) => (
+                            <NullableRangeField
+                                label="アルコール"
+                                value={field.value}
+                                min={0}
+                                max={20}
+                                step={0.1}
+                                emptyValue={13}
+                                labels={['低', '高']}
+                                formatValue={(v) => `${round1(v).toFixed(1)}%`}
+                                onChange={field.onChange}
                             />
-                            <span className="text-sm">%</span>
-                        </div>
-                    </FieldRow>
+                        )}
+                    />
 
                     {/* Body */}
                     <Controller
@@ -2218,17 +2301,30 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         />
                     </FieldRow>
                 </div>
-            </SectionCard>
+                </FormAccordionSection>
 
-
-
-            {/* 総合評価 */}
-            <SectionCard
-                title="総合評価"
-                description="品質、熟成の可能性、全体の感想"
-                icon={<Award size={18} />}
-                tone="focus"
-            >
+                <FormAccordionSection
+                    id="summary"
+                    activeId={activeSection}
+                    index={5}
+                    title="総評・AI分析"
+                    description="品質、熟成可能性、個人的な好み、AI補完"
+                    icon={<Award size={18} />}
+                    hasError={hasSectionError('summary')}
+                    onOpen={setActiveSection}
+                    right={
+                        <button
+                            type="button"
+                            onClick={() => void handleAiSearch({ revealOnSuccess: true })}
+                            disabled={isAiLoading || !hasWineName}
+                            title={hasWineName ? 'AIで補完' : 'ワイン名を入力してください'}
+                            className={aiActionButtonClass}
+                        >
+                            {isAiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                            AIで補完
+                        </button>
+                    }
+                >
 
                 <div className="space-y-8">
                     <Controller
@@ -2257,21 +2353,21 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         </FieldRow>
                     </div>
 
-                    {!simpleMode && personalNotesField}
+                    {personalNotesField}
 
-                    {!simpleMode && (
-                        <div className="pt-6 border-t border-gray-100">
+                    <div className="pt-6 border-t border-[var(--border-subtle)]">
                             {personalRatingField}
-                        </div>
-                    )}
+                    </div>
                 </div>
-            </SectionCard>
+                <div className="mt-6">
+                    {aiInfoSection}
+                </div>
+                </FormAccordionSection>
+            </div>
 
-            {!simpleMode && aiInfoSection}
-
-            <section className={`z-20 mt-8 space-y-2 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]/95 p-2 shadow-lg backdrop-blur-sm sm:sticky sm:rounded-2xl sm:p-4 ${simpleMode && transcriptPanelOpen ? 'sm:bottom-[calc(25vh+5.5rem+env(safe-area-inset-bottom))]' : 'sm:bottom-[calc(4rem+1rem+env(safe-area-inset-bottom))]'}`}>
+            <section className={`z-20 mt-8 space-y-3 rounded-lg border border-[var(--border)] bg-[var(--card-bg)]/95 p-3 shadow-lg backdrop-blur-sm sm:sticky sm:rounded-lg sm:p-4 ${simpleMode && transcriptPanelOpen ? 'sm:bottom-[calc(25vh+5.5rem+env(safe-area-inset-bottom))]' : 'sm:bottom-[calc(4rem+1rem+env(safe-area-inset-bottom))]'}`}>
                 {Object.keys(errors).length > 0 && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 mb-2">
+                    <div className="p-3 bg-[var(--wine-red-soft)] border border-[var(--primary)]/30 rounded-lg text-sm text-[var(--text)] mb-2">
                         <p className="font-bold">入力内容に不備があります。</p>
                         <ul className="list-disc pl-5 mt-1">
                             {Object.entries(errors).map(([key, error]) => (
@@ -2282,23 +2378,41 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                         </ul>
                     </div>
                 )}
-                <div className="flex flex-row items-center justify-between gap-2 sm:gap-3">
-                    <div className="w-[38%] sm:w-auto">
+                <div className="grid gap-2 sm:grid-cols-[auto_auto_1fr_auto] sm:items-center sm:gap-3">
+                    <button
+                        type="button"
+                        onClick={handleCancel}
+                        disabled={isSubmitting}
+                        className={`${BUTTON_SECONDARY} w-full sm:w-auto`}
+                    >
+                        <X className="h-4 w-4" />
+                        キャンセル
+                    </button>
+                    <div>
                         <button
                             type="button"
                             onClick={handleSaveDraft}
                             disabled={isSubmitting}
-                            className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--app-bg)] px-3 text-sm font-bold text-[var(--text-muted)] shadow-sm transition-all hover:bg-[var(--border)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-auto sm:w-auto sm:rounded-xl sm:px-6 sm:py-3 sm:text-base"
+                            className={`${BUTTON_SECONDARY} w-full sm:w-auto`}
                         >
                             {isSubmitting ? '保存中...' : '一時保存'}
                         </button>
                     </div>
-                    <div className="flex-1 sm:w-2/3 sm:flex-none">
+                    <button
+                        type="button"
+                        onClick={() => void handleAiSearch({ revealOnSuccess: true })}
+                        disabled={isAiLoading || !hasWineName}
+                        className={`${aiActionButtonClass} w-full sm:w-auto sm:justify-self-end`}
+                    >
+                        {isAiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        AIで補完
+                    </button>
+                    <div>
                         <button
                             type="submit"
                             onClick={handlePublish}
                             disabled={isSubmitting}
-                            className="h-11 w-full rounded-lg border border-blue-500/20 bg-gradient-to-r from-blue-600 to-indigo-600 px-5 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 sm:h-auto sm:rounded-xl sm:px-8 sm:py-3 sm:text-base sm:hover:scale-[1.02]"
+                            className={`${BUTTON_PRIMARY} w-full sm:w-auto sm:px-8`}
                         >
                             {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : submitLabel}
                         </button>
@@ -2306,9 +2420,6 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                 </div>
             </section>
 
-            <style jsx global>{`
-            .btn-primary { @apply rounded-xl bg-neutral-900 px-4 py-2 text-white shadow-sm hover:opacity-90 disabled:opacity-50; }
-        `}</style>
         </form >
     );
 });

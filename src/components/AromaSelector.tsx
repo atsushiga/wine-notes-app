@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { SAT_AROMA_DEFINITIONS } from '@/constants/sat_aromas';
-import { Search, ChevronDown, ChevronRight, Check, X, History, Trophy, BookOpen } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, Check, X, History, Trophy } from 'lucide-react';
 import { useAromaHistory } from '@/hooks/useAromaHistory';
 import { FORM_CONTROL_BASE } from '@/constants/styles';
 
@@ -9,8 +9,19 @@ interface AromaSelectorProps {
     onChange: (aromas: string[]) => void;
 }
 
+const AROMA_CATEGORY_SHORTCUTS = [
+    { label: '赤系果実', terms: ['赤スグリ', 'クランベリー', 'ラズベリー', 'イチゴ', 'レッドチェリー', 'レッドプラム'] },
+    { label: '黒系果実', terms: ['黒スグリ', 'ブラックベリー', 'キイチゴ', 'ブルーベリー', 'ブラックチェリー', 'ブラックプラム'] },
+    { label: '花', terms: ['アカシア', 'スイカズラ', 'カモミール', 'バラ', 'スミレ'] },
+    { label: 'スパイス', terms: ['黒コショウ', '白コショウ', 'リコリス', 'クローヴ', 'ナツメグ', 'シナモン', '生姜'] },
+    { label: '樽', terms: ['ヴァニラ', 'クローヴ', 'ナツメグ', 'ココナッツ', 'トースト', 'スギ', '燻製'] },
+    { label: '土', terms: ['土', '林床', 'キノコ', '湿った葉', '皮革', 'タバコ'] },
+    { label: 'ミネラル', terms: ['火打石', '濡れた石', '湿った羊毛'] },
+] as const;
+
 export default function AromaSelector({ selectedAromas = [], onChange }: AromaSelectorProps) {
     const [activeLayerIndex, setActiveLayerIndex] = useState(0);
+    const [activeQuickCategory, setActiveQuickCategory] = useState<string>(AROMA_CATEGORY_SHORTCUTS[0].label);
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
     // Start with False (collapsed)
@@ -85,8 +96,8 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
         return groups;
     }, [selectedAromas]);
 
-    const activeLayer = filteredDefinitions[activeLayerIndex];
     const isSearching = searchQuery.length > 0;
+    const activeQuickTerms = AROMA_CATEGORY_SHORTCUTS.find((category) => category.label === activeQuickCategory)?.terms ?? [];
 
     return (
         <div className="space-y-4 border rounded-lg p-4 bg-[var(--card-bg)] shadow-sm border-[var(--border)]">
@@ -120,6 +131,36 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                     )}
                 </div>
 
+                {!isSearching && (
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)]/55 p-3">
+                        <div className="mb-2 flex flex-wrap gap-2">
+                            {AROMA_CATEGORY_SHORTCUTS.map((category) => {
+                                const active = category.label === activeQuickCategory;
+                                return (
+                                    <button
+                                        key={category.label}
+                                        type="button"
+                                        onClick={() => setActiveQuickCategory(category.label)}
+                                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${active ? 'border-[var(--primary)] bg-[var(--wine-red-soft)] text-[var(--primary)]' : 'border-[var(--border)] bg-[var(--card-bg)] text-[var(--text-muted)] hover:bg-[var(--input-bg)] hover:text-[var(--text)]'}`}
+                                    >
+                                        {category.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {activeQuickTerms.map((term) => (
+                                <AromaChip
+                                    key={term}
+                                    term={term}
+                                    selected={selectedAromas.includes(term)}
+                                    onClick={() => toggleAroma(term)}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* QuickPick: Recent & Frequent (Only show if not searching) */}
                 {!isSearching && (
                     <div className="space-y-3">
@@ -138,7 +179,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                             className={`
                                                 flex-shrink-0 px-2.5 py-1 rounded-full text-xs border transition-colors whitespace-nowrap
                                                 ${selectedAromas.includes(term)
-                                                    ? 'bg-blue-50 text-blue-700 border-blue-100'
+                                                    ? 'bg-[var(--wine-red-soft)] text-[var(--primary)] border-[var(--primary)]/45'
                                                     : 'bg-[var(--card-bg)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--app-bg)] hover:text-[var(--text)]'}
                                             `}
                                         >
@@ -164,7 +205,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                             className={`
                                                 flex-shrink-0 px-2.5 py-1 rounded-full text-xs border transition-colors whitespace-nowrap
                                                 ${selectedAromas.includes(term)
-                                                    ? 'bg-amber-50 text-amber-700 border-amber-100'
+                                                    ? 'bg-[var(--color-gold-soft)] text-[var(--color-gold)] border-[var(--color-gold)]/45'
                                                     : 'bg-[var(--card-bg)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--app-bg)] hover:text-[var(--text)]'}
                                             `}
                                         >
@@ -259,7 +300,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                         type="button"
                                         onClick={() => setActiveLayerIndex(idx)}
                                         className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeLayerIndex === idx
-                                            ? 'border-blue-400 text-blue-600'
+                                            ? 'border-[var(--primary)] text-[var(--primary)]'
                                             : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--border)]'
                                             }`}
                                     >
@@ -345,7 +386,7 @@ export default function AromaSelector({ selectedAromas = [], onChange }: AromaSe
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => toggleShowAll(category.name)}
-                                                                    className="text-xs text-blue-500 hover:text-blue-700 font-medium px-2 py-1"
+                                                                    className="text-xs text-[var(--primary)] hover:text-[var(--text)] font-medium px-2 py-1"
                                                                 >
                                                                     +{hiddenCount} more
                                                                 </button>
@@ -385,7 +426,7 @@ function AromaChip({ term, selected, onClick }: { term: string; selected: boolea
             className={`
                 group relative px-3 py-1.5 rounded-full text-xs transition-all border
                 ${selected
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm pl-7'
+                    ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)] shadow-sm pl-7'
                     : 'bg-[var(--card-bg)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--text-muted)] hover:bg-[var(--app-bg)]'}
             `}
         >
