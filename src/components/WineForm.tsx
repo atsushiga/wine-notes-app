@@ -1419,9 +1419,6 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                             alt="選択中のラベル写真"
                             className="h-full max-h-[34rem] w-full object-contain p-2"
                         />
-                        <span className="absolute left-3 top-3 rounded-full border border-[var(--border)] bg-[var(--card-bg)]/90 px-3 py-1 text-xs font-semibold text-[var(--text)] shadow-sm backdrop-blur">
-                            表示中の写真
-                        </span>
                         <span className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--card-bg)]/90 px-3 py-2 text-left shadow-sm backdrop-blur">
                             <span className="min-w-0">
                                 <span className="block text-sm font-semibold text-[var(--text)]">ラベル写真を追加</span>
@@ -1471,12 +1468,12 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--text)]'
                 }`}>
                     <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold">{imageAiProgressStatusText}</p>
+                        <p className="min-w-0 text-sm font-semibold leading-5">{imageAiProgressStatusText}</p>
                         {(isAnalyzing || isAiLoading || imageAiProgressPhase === 'uploading') && (
                             <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[var(--text-muted)]" />
                         )}
                     </div>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
                         {visibleImageAiProgressSteps.map((step, index) => {
                             const isComplete = imageAiProgressPhase === 'complete' || (imageAiProgressActiveIndex > index && imageAiProgressPhase !== 'error');
                             const isActive = imageAiProgressActiveIndex === index && imageAiProgressPhase !== 'complete' && imageAiProgressPhase !== 'error';
@@ -1484,7 +1481,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                             return (
                                 <div
                                     key={step.phase}
-                                    className={`flex min-h-12 items-center gap-2 rounded-lg border px-3 py-2 text-xs leading-4 ${isComplete
+                                    className={`flex min-h-12 items-center gap-2 rounded-lg border px-3 py-2 ${isComplete
                                         ? 'border-[var(--border)] bg-[var(--card-bg)] text-[var(--text-muted)]'
                                         : isActive
                                             ? 'border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--text)]'
@@ -1498,7 +1495,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                     ) : (
                                         <Circle className="h-4 w-4 shrink-0" />
                                     )}
-                                    <span className="min-w-0 whitespace-normal break-keep">{step.label}</span>
+                                    <span className="min-w-0 flex-1 break-words text-sm leading-5 [overflow-wrap:anywhere]">{step.label}</span>
                                 </div>
                             );
                         })}
@@ -1530,11 +1527,6 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                                         alt={`upload-${idx}`}
                                         className="w-full h-full object-cover"
                                     />
-                                    {isSelected ? (
-                                        <span className="absolute bottom-1 left-1 rounded-full bg-[var(--primary)] px-2 py-0.5 text-[10px] font-semibold text-[var(--primary-foreground)] shadow-sm">
-                                            表示中
-                                        </span>
-                                    ) : null}
                                 </button>
                                 <button
                                     type="button"
@@ -1552,14 +1544,7 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
 
             {(watchedImageUrl || watchedImages[0]?.url) && (
                 <div className="sm:col-span-3 mt-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs text-[var(--text-muted)]">AI解析用メイン画像:</span>
-                        {watchedImages.length === 0 && watchedImageUrl ? (
-                            <img src={watchedImageUrl} alt="main" className="h-10 w-10 object-cover rounded border border-[var(--border)]" />
-                        ) : null}
-                    </div>
-
-                    <div className="mt-2">
+                    <div>
                         <button
                             type="button"
                             onClick={() => void handleManualImageOptimize()}
@@ -2037,7 +2022,12 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     </div>
                 </FormAccordionSection>
 
-                {simpleMode && simpleSummarySection}
+                {simpleMode && (
+                    <div className="space-y-6">
+                        {simpleSummarySection}
+                        {aiInfoSection}
+                    </div>
+                )}
 
                 <FormAccordionSection
                     id="appearance"
@@ -2473,9 +2463,11 @@ const WineForm = forwardRef<WineFormHandle, WineFormProps>(({ defaultValues, onS
                     </div>
                     )}
                 </div>
-                <div className="mt-6">
-                    {aiInfoSection}
-                </div>
+                {!simpleMode && (
+                    <div className="mt-6">
+                        {aiInfoSection}
+                    </div>
+                )}
                 </FormAccordionSection>
             </div>
 
