@@ -11,6 +11,7 @@ import {
     Pencil,
     Sparkles,
     Trash2,
+    ZoomIn,
 } from 'lucide-react';
 
 import { generateVisualWineExplanation } from '@/app/actions/gemini';
@@ -39,6 +40,7 @@ import { TastingNote } from '@/types/custom';
 
 import AiWineInfo from './AiWineInfo';
 import ImageCarousel from './ImageCarousel';
+import { WineImageLightbox, type ExpandedWineImage } from './WineImageLightbox';
 import { Chip, MetricCard, WineImageFrame } from './ui/primitives';
 
 interface Props {
@@ -60,6 +62,7 @@ export default function WineDetailView({
 }: Props) {
     const router = useRouter();
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+    const [expandedImage, setExpandedImage] = useState<ExpandedWineImage | null>(null);
     const wineType = wine.wine_type || '';
     const hasOptimizableImage = Boolean(wine.images?.some((image) => image.url) || wine.image_url);
     const imageSrc = wine.images?.[0]?.thumbnail_url || wine.images?.[0]?.url || wine.image_url || '';
@@ -160,7 +163,29 @@ export default function WineDetailView({
                 <div className="space-y-3">
                     <div className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-3 shadow-[var(--shadow-popover)]">
                         {wine.images && wine.images.length > 0 ? (
-                            <ImageCarousel images={wine.images} wineName={wine.wine_name || 'Wine'} />
+                            <ImageCarousel
+                                images={wine.images}
+                                wineName={wine.wine_name || 'Wine'}
+                                onImageOpen={setExpandedImage}
+                            />
+                        ) : imageSrc ? (
+                            <button
+                                type="button"
+                                onClick={() => setExpandedImage({ src: imageSrc, alt: wine.wine_name || 'ワインラベル' })}
+                                className="group relative block w-full cursor-zoom-in rounded-lg text-left"
+                                aria-label={`${wine.wine_name || 'ワインラベル'}を拡大`}
+                            >
+                                <WineImageFrame
+                                    src={imageSrc}
+                                    alt={wine.wine_name || 'ワインラベル'}
+                                    className="aspect-[3/4]"
+                                    imageClassName="object-contain p-4"
+                                    unoptimized={isProtectedImageUrl(imageSrc)}
+                                />
+                                <span className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white opacity-0 shadow-sm backdrop-blur-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                                    <ZoomIn size={17} />
+                                </span>
+                            </button>
                         ) : (
                             <WineImageFrame
                                 src={imageSrc}
@@ -370,6 +395,8 @@ export default function WineDetailView({
                     <AiWineInfo wine={wine} />
                 </aside>
             </div>
+
+            <WineImageLightbox image={expandedImage} onClose={() => setExpandedImage(null)} />
         </div>
     );
 }

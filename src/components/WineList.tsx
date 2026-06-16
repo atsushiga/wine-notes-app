@@ -8,10 +8,11 @@ import { ContentContainer } from '@/components/layout/ContentContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Chip, WineImageFrame } from '@/components/ui/primitives';
+import { WineImageLightbox, type ExpandedWineImage } from '@/components/WineImageLightbox';
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, FORM_CONTROL_BASE } from '@/constants/styles';
 import { isProtectedImageUrl } from '@/lib/protectedImage';
 import { cn } from '@/lib/utils';
-import { Plus, Search, Trash2 } from 'lucide-react';
+import { Plus, Search, Trash2, ZoomIn } from 'lucide-react';
 
 interface WineListProps {
     notes: TastingNote[];
@@ -35,6 +36,7 @@ export default function WineList({ notes }: WineListProps) {
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [expandedImage, setExpandedImage] = useState<ExpandedWineImage | null>(null);
 
     // Sort State
     const [sortKey, setSortKey] = useState<SortKey>('date');
@@ -260,20 +262,17 @@ export default function WineList({ notes }: WineListProps) {
                             )}
 
                             <div className={`block h-full ${!isSelectionMode ? '' : 'pointer-events-none'}`}>
-                                {isSelectionMode ? (
-                                    <div className="h-full">
-                                        <WineCardContent note={note} />
-                                    </div>
-                                ) : (
-                                    <Link href={`/wines/${note.id}`} className="block h-full">
-                                        <WineCardContent note={note} />
-                                    </Link>
-                                )}
+                                <WineCardContent
+                                    note={note}
+                                    isInteractive={!isSelectionMode}
+                                    onImageOpen={setExpandedImage}
+                                />
                             </div>
                         </div>
                     ))}
                 </div>
             )}
+            <WineImageLightbox image={expandedImage} onClose={() => setExpandedImage(null)} />
         </ContentContainer>
     );
 }
@@ -286,22 +285,83 @@ function isSortOrder(value: string): value is SortOrder {
     return value === 'asc' || value === 'desc';
 }
 
-function WineCardContent({ note }: { note: TastingNote }) {
+function WineCardContent({
+    note,
+    isInteractive = false,
+    onImageOpen,
+}: {
+    note: TastingNote;
+    isInteractive?: boolean;
+    onImageOpen?: (image: ExpandedWineImage) => void;
+}) {
     const displayDate = formatDate(note.date);
     const imageSrc = note.images?.[0]?.thumbnail_url || note.images?.[0]?.url || note.image_url || '';
+    const fullImageSrc = note.images?.[0]?.url || note.image_url || imageSrc;
+    const imageAlt = note.wine_name || "ワインラベル";
     const regionLine = [note.country, note.region || note.locality, note.main_variety].filter(Boolean).join(' · ');
     const hasAi = Boolean(note.ai_explanation_id);
+    const body = (
+        <>
+            <h3 className="font-wine mb-1 line-clamp-2 text-base font-semibold leading-snug text-[var(--text)] md:text-lg">
+                {note.wine_name || "名称未設定"}
+            </h3>
+
+            {note.producer && (
+                <p className="mb-2 line-clamp-1 text-sm text-[var(--text-soft)]">{note.producer}</p>
+            )}
+
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
+                {note.wine_type && (
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${getWineTypeStyle(note.wine_type)}`}>
+                        {note.wine_type}
+                    </span>
+                )}
+                {note.vintage && <span>{note.vintage}</span>}
+            </div>
+
+            <p className="mb-3 line-clamp-2 min-h-9 text-xs leading-5 text-[var(--text-muted)]">
+                {regionLine || "産地・品種未設定"}
+            </p>
+
+            <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3 text-xs text-[var(--text-muted)]">
+                {note.rating ? <span className="text-[var(--text-soft)]">★ {note.rating}</span> : null}
+                {note.price ? <span>¥{note.price.toLocaleString()}</span> : null}
+                {hasAi ? <Chip tone="gold" className="px-2 py-0.5">AI分析済み</Chip> : null}
+                <span className="ml-auto" suppressHydrationWarning>{displayDate || "-"}</span>
+            </div>
+        </>
+    );
 
     return (
         <Card className="flex h-full flex-col overflow-hidden transition-transform duration-200 hover:-translate-y-1 hover:border-[var(--color-gold)]/45">
             <div className="relative bg-[var(--input-bg)] p-3">
-                <WineImageFrame
-                    src={imageSrc}
-                    alt={note.wine_name || "ワインラベル"}
-                    className="aspect-[4/5] border-[var(--border-subtle)]"
-                    imageClassName="object-contain p-2"
-                    unoptimized={isProtectedImageUrl(imageSrc)}
-                />
+                {isInteractive && fullImageSrc && onImageOpen ? (
+                    <button
+                        type="button"
+                        onClick={() => onImageOpen({ src: fullImageSrc, alt: imageAlt })}
+                        className="group/image relative block w-full cursor-zoom-in rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--input-bg)]"
+                        aria-label={`${imageAlt}を拡大`}
+                    >
+                        <WineImageFrame
+                            src={imageSrc}
+                            alt={imageAlt}
+                            className="aspect-square border-[var(--border-subtle)]"
+                            imageClassName="object-cover p-0"
+                            unoptimized={isProtectedImageUrl(imageSrc)}
+                        />
+                        <span className="absolute bottom-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white opacity-0 shadow-sm backdrop-blur-sm transition-opacity group-hover/image:opacity-100 group-focus-visible/image:opacity-100">
+                            <ZoomIn size={16} />
+                        </span>
+                    </button>
+                ) : (
+                    <WineImageFrame
+                        src={imageSrc}
+                        alt={imageAlt}
+                        className="aspect-square border-[var(--border-subtle)]"
+                        imageClassName="object-cover p-0"
+                        unoptimized={isProtectedImageUrl(imageSrc)}
+                    />
+                )}
                 {note.rating && (
                     <div className="absolute top-5 right-5 flex items-center space-x-1 rounded-full border border-[var(--color-gold)]/35 bg-[var(--card-bg)]/90 px-2 py-1 shadow-sm backdrop-blur-sm">
                         <span className="text-xs text-[var(--color-gold)]">★</span>
@@ -316,35 +376,18 @@ function WineCardContent({ note }: { note: TastingNote }) {
                 )}
             </div>
 
-            <div className="flex flex-grow flex-col bg-[var(--card-bg)] p-4">
-                <h3 className="font-wine mb-1 line-clamp-2 text-base font-semibold leading-snug text-[var(--text)] md:text-lg">
-                    {note.wine_name || "名称未設定"}
-                </h3>
-
-                {note.producer && (
-                    <p className="mb-2 line-clamp-1 text-sm text-[var(--text-soft)]">{note.producer}</p>
-                )}
-
-                <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-                    {note.wine_type && (
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${getWineTypeStyle(note.wine_type)}`}>
-                            {note.wine_type}
-                        </span>
-                    )}
-                    {note.vintage && <span>{note.vintage}</span>}
+            {isInteractive ? (
+                <Link
+                    href={`/wines/${note.id}`}
+                    className="flex flex-grow flex-col bg-[var(--card-bg)] p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-inset"
+                >
+                    {body}
+                </Link>
+            ) : (
+                <div className="flex flex-grow flex-col bg-[var(--card-bg)] p-4">
+                    {body}
                 </div>
-
-                <p className="mb-3 line-clamp-2 min-h-9 text-xs leading-5 text-[var(--text-muted)]">
-                    {regionLine || "産地・品種未設定"}
-                </p>
-
-                <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3 text-xs text-[var(--text-muted)]">
-                    {note.rating ? <span className="text-[var(--text-soft)]">★ {note.rating}</span> : null}
-                    {note.price ? <span>¥{note.price.toLocaleString()}</span> : null}
-                    {hasAi ? <Chip tone="gold" className="px-2 py-0.5">AI分析済み</Chip> : null}
-                    <span className="ml-auto" suppressHydrationWarning>{displayDate || "-"}</span>
-                </div>
-            </div>
+            )}
         </Card>
     );
 }
