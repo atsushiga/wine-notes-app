@@ -4,16 +4,22 @@ import React, { useState, useEffect, useCallback } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import Image from 'next/image';
 import { WineImage } from '@/types/custom';
-import { ChevronLeft, ChevronRight, ImageIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ImageIcon, ZoomIn } from 'lucide-react';
 import { isProtectedImageUrl } from '@/lib/protectedImage';
 import { EmptyState } from '@/components/ui/primitives';
+
+type CarouselOpenImage = {
+    src: string;
+    alt: string;
+};
 
 interface PropType {
     images: WineImage[];
     wineName: string;
+    onImageOpen?: (image: CarouselOpenImage) => void;
 }
 
-const ImageCarousel: React.FC<PropType> = ({ images, wineName }) => {
+const ImageCarousel: React.FC<PropType> = ({ images, wineName, onImageOpen }) => {
     const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
     const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -53,20 +59,43 @@ const ImageCarousel: React.FC<PropType> = ({ images, wineName }) => {
         <div className="relative group">
             <div className="overflow-hidden bg-[var(--surface-2)] rounded-2xl aspect-[3/4]" ref={emblaRef}>
                 <div className="flex h-full touch-pan-y">
-                    {sortedImages.map((img, index) => (
-                        <div className="relative flex-[0_0_100%] min-w-0" key={img.id || index}>
-                            {/* We use the original URL for main display, but could fallback to thumbnail if needed for speed */}
-                            <Image
-                                src={img.url}
-                                alt={`${wineName} - ${index + 1}`}
-                                fill
-                                className="object-cover"
-                                sizes="(max-width: 768px) 100vw, 50vw"
-                                priority={index === 0}
-                                unoptimized={isProtectedImageUrl(img.url)}
-                            />
-                        </div>
-                    ))}
+                    {sortedImages.map((img, index) => {
+                        const alt = `${wineName} - ${index + 1}`;
+                        const image = (
+                            <>
+                                {/* We use the original URL for main display, but could fallback to thumbnail if needed for speed */}
+                                <Image
+                                    src={img.url}
+                                    alt={alt}
+                                    fill
+                                    className="object-cover"
+                                    sizes="(max-width: 768px) 100vw, 50vw"
+                                    priority={index === 0}
+                                    unoptimized={isProtectedImageUrl(img.url)}
+                                />
+                            </>
+                        );
+
+                        return (
+                            <div className="relative flex-[0_0_100%] min-w-0" key={img.id || index}>
+                                {onImageOpen ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => onImageOpen({ src: img.url, alt })}
+                                        className="group/image relative block h-full w-full cursor-zoom-in"
+                                        aria-label={`${alt}を拡大`}
+                                    >
+                                        {image}
+                                        <span className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white opacity-0 shadow-sm backdrop-blur-sm transition-opacity group-hover/image:opacity-100 group-focus-visible/image:opacity-100">
+                                            <ZoomIn size={17} />
+                                        </span>
+                                    </button>
+                                ) : (
+                                    image
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 
@@ -74,14 +103,14 @@ const ImageCarousel: React.FC<PropType> = ({ images, wineName }) => {
             {sortedImages.length > 1 && (
                 <>
                     <button
-                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-[var(--card-bg)]/60 hover:bg-[var(--card-bg)]/80 p-2 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0 border border-[var(--border)]"
+                        className="absolute left-2 top-1/2 z-10 -translate-y-1/2 bg-[var(--card-bg)]/60 hover:bg-[var(--card-bg)]/80 p-2 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0 border border-[var(--border)]"
                         onClick={scrollPrev}
                         aria-label="前の画像"
                     >
                         <ChevronLeft className="w-6 h-6 text-[var(--text)]" />
                     </button>
                     <button
-                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-[var(--card-bg)]/60 hover:bg-[var(--card-bg)]/80 p-2 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0 border border-[var(--border)]"
+                        className="absolute right-2 top-1/2 z-10 -translate-y-1/2 bg-[var(--card-bg)]/60 hover:bg-[var(--card-bg)]/80 p-2 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0 border border-[var(--border)]"
                         onClick={scrollNext}
                         aria-label="次の画像"
                     >
@@ -89,7 +118,7 @@ const ImageCarousel: React.FC<PropType> = ({ images, wineName }) => {
                     </button>
 
                     {/* Dots */}
-                    <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
+                    <div className="absolute bottom-4 left-0 right-0 z-10 flex justify-center gap-2">
                         {sortedImages.map((_, index) => (
                             <button
                                 key={index}

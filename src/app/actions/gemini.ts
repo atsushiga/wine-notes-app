@@ -152,6 +152,7 @@ const LABEL_THUMB_MAX_SIDE = 400;
 const GEMINI_IMAGE_EDIT_MODEL = "gemini-3.1-flash-image-preview";
 const OPENAI_IMAGE_EDIT_MODEL = "gpt-image-2";
 const DETERMINISTIC_IMAGE_OPTIMIZATION_MODEL = "gemini-3.5-flash+sharp";
+const LABEL_FILL_BACKGROUND_COLOR = "#121821";
 
 const LABEL_IMAGE_EDIT_PROMPT = `You are editing a real wine bottle photo for OCR and wine identification.
 Create a clean optimized image of only the main wine label (エチケット).
@@ -160,10 +161,11 @@ Strict requirements:
 - Preserve the actual printed label content exactly: letters, logo, illustration, layout, texture, and all visible marks.
 - Do not invent, redraw, translate, stylize, or change any text, logo, or illustration.
 - Crop away food, background, table, unrelated objects, and most bottle glass; it is OK if the bottle itself is cut off.
+- Make the crop as tight as possible around the outer printed label edge while preserving the full label. Avoid decorative padding and avoid leaving large empty margins.
 - Keep the complete printed label, including all printed edges and border area. Do not cut off any part of the label.
 - Rotate the image so the label text is upright.
-- Correct tilt and trapezoid/perspective distortion so the label appears front-facing and rectangular as much as possible.
-- Fill any removed, empty, extended, or transparent background area with solid matte black (#000000). Do not use white, gray, gradients, or decorative backgrounds.
+- Correct tilt, skew, trapezoid distortion, and perspective distortion so the label appears front-facing and rectangular as much as possible.
+- Do not extend the canvas just to preserve the original aspect ratio. If empty background remains unavoidable after rotation or perspective correction, keep it minimal and fill it with solid dark UI surface color ${LABEL_FILL_BACKGROUND_COLOR}, not pure black. Do not use white, gray, gradients, or decorative backgrounds.
 - Brighten and improve contrast/sharpness only enough to make the label readable.
 - Output a documentary product/OCR image, not an artistic reinterpretation.
 - The final image short side should be at least about 600 px.`;
@@ -423,7 +425,7 @@ async function warpPerspective(buffer: Buffer, corners: LabelCorners): Promise<{
             channels: 4,
         },
     })
-        .flatten({ background: "#000000" })
+        .flatten({ background: LABEL_FILL_BACKGROUND_COLOR })
         .jpeg({ quality: 92, mozjpeg: true })
         .toBuffer();
 
