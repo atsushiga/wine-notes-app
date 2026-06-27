@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { getSupabaseClient } from "@/lib/supabase";
 
 export type UsageAction =
+  | "api_read"
   | "ai_deep_search"
   | "ai_image_optimize"
   | "ai_label_analysis"
@@ -28,6 +29,7 @@ type SupabaseUsageError = {
 };
 
 const USAGE_LIMITS: Record<UsageAction, UsageLimit> = {
+  api_read: { dailyLimit: 5000 },
   ai_deep_search: { dailyLimit: 20 },
   ai_image_optimize: { dailyLimit: 20 },
   ai_label_analysis: { dailyLimit: 20 },
