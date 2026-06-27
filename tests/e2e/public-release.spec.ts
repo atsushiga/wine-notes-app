@@ -19,6 +19,12 @@ test("private APIs reject anonymous users", async ({ request }) => {
 
   const image = await request.get("/api/images/uploads/example.jpg");
   expect(image.status()).toBe(401);
+
+  const apiNotes = await request.get("/api/v1/tasting-notes");
+  expect(apiNotes.status()).toBe(401);
+
+  const apiExport = await request.get("/api/v1/export");
+  expect(apiExport.status()).toBe(401);
 });
 
 test("health endpoint responds", async ({ request }) => {

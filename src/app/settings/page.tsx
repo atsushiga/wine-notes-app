@@ -5,6 +5,7 @@ import ProfileForm from "@/components/settings/profile-form";
 import LogoutButton from "@/components/settings/logout-button";
 import DeleteAccountSection from "@/components/settings/delete-account-section";
 import DataExportSection from "@/components/settings/data-export-section";
+import ApiTokensSection from "@/components/settings/api-tokens-section";
 import { defaultSimpleAiAutomationSettings, type SimpleAiAutomationSettings } from "@/lib/simpleAiAutomation";
 
 export default async function SettingsPage() {
@@ -44,6 +45,8 @@ export default async function SettingsPage() {
                 <ProfileForm user={user} defaultInputMode={defaultInputMode} simpleAiAutomation={simpleAiAutomation} />
 
                 <DataExportSection />
+
+                <ApiTokensSection />
 
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-[var(--shadow-card)]">
                     <h2 className="text-base font-semibold text-[var(--text)]">サポートとポリシー</h2>

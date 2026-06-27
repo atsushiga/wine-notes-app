@@ -18,6 +18,7 @@ const TABLES_TO_COUNT = [
   "tasting_notes",
   "wine_images",
   "ai_explanations",
+  "api_tokens",
   "usage_events",
 ] as const;
 
